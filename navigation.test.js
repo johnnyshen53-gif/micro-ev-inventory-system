@@ -358,6 +358,15 @@ test('places sales management first in the main navigation', async () => {
   assert.match(nav, /^\s*<nav[^>]*>\s*<button[^>]*data-page-target="sales"/);
 });
 
+test('serial category selector offers valid motorcycle and battery options', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const select = html.match(/<select id="serial-category">([\s\S]*?)<\/select>/)?.[1] ?? '';
+
+  assert.match(select, /<option value="機車">機車<\/option>/);
+  assert.match(select, /<option value="電池">電池<\/option>/);
+  assert.doesNotMatch(select, /<\/option\s+value=/);
+});
+
 test('loads the Supabase login gateway and keeps passwords out of local code', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 

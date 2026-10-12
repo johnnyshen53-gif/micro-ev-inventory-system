@@ -23,9 +23,9 @@
   <main id="app-shell" class="page" hidden>
     <header class="hero">
       <div>
-        <p class="eyebrow">OFFLINE INVENTORY</p>
+        <p class="eyebrow">SECURE LOCAL INVENTORY</p>
         <h1>微型機車店庫存</h1>
-        <p>此資料只存於目前瀏覽器。請定期匯出備份。</p>
+        <p>帳號登入需要網路；營運資料只存於目前瀏覽器，請定期匯出備份。</p>
       </div>
       <div class="backup-actions" aria-label="資料備份" data-role="admin">
         <button id="export-button" type="button">匯出備份</button>
@@ -109,7 +109,7 @@
         </form>
       </article>
       <article class="panel serial-panel"><h2>實物序號管理</h2><p>機車與電池每件一個原廠序號；舊庫存補登不增加數量。出貨前須補齊。</p><form id="serial-form">
-        <div class="field"><label for="serial-category">分類</label><select id="serial-category"><option value="">全部分類</option value="機車">機車</option><option value="電池">電池</option></select></div>
+        <div class="field"><label for="serial-category">分類</label><select id="serial-category"><option value="">全部分類</option><option value="機車">機車</option><option value="電池">電池</option></select></div>
         <div class="field"><label for="serial-item">機車／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><div class="field"><label for="serial-search">搜尋原廠序號</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table><thead><tr><th>品項</th><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th></tr></thead><tbody id="serial-list"></tbody></table></div></article>
     </section>
     <section class="app-page grid forms" data-page="suppliers" aria-label="供應商管理" data-role="admin" hidden>

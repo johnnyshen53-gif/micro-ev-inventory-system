@@ -44,8 +44,8 @@
 
 回復：將 `usernameLoginEnabled` 回復 false 並回復已保留的舊版網頁入口；原 Auth UUID/密碼不變。不要回滾已完成的停用／重設，不刪除帳號對照、營運資料或原備援。若部署中有安全驗證失敗，明示未完成，不把僅本機測試通過稱為正式可用。
 
-2026-10-11：三項審查問題已有本機回歸修正：重複建立不再停用已完成帳號、延遲登入不能解除登出、儲存失敗時的重新整理拒絕恢復。登出只移除 SDK 的認證鍵，並保留庫存與備份；分頁另保留 sessionStorage 鎖。IP 需求已由核准的全站限流替代。公開自行註冊已經使用者即時確認後在後台關閉；新 profiles 預設 inactive。店長原密碼、建立／重設／停用的真實 Auth 整合驗收仍待完成，正式開關保持 false。
+2026-10-11：三項審查問題已有本機回歸修正：重複建立不再停用已完成帳號、延遲登入不能解除登出、儲存失敗時的重新整理拒絕恢復。登出只移除 SDK 的認證鍵，並保留庫存與備份；分頁另保留 sessionStorage 鎖。IP 需求已由核准的全站限流替代。公開自行註冊已經使用者即時確認後在後台關閉；新 profiles 預設 inactive。店長原密碼與管理員登入已完成驗證，正式開關目前為 true；建立／重設／停用店員帳號仍須以專用測試帳號完成正式 Auth 整合驗收。
 
-最後驗收：以 Chrome 開啟根目錄 `verify-login.html`，由店長本人輸入原密碼。此頁不讀寫庫存、不儲存 token，會測試 staff-login 和受保護 staff-admin，再將測試 session 登出；顯示驗證成功後才允許正式切換。請勿在對話提供密碼。
+重新驗收登入時：以 Chrome 開啟根目錄 `verify-login.html`，由店長本人輸入原密碼。此頁不讀寫庫存、不儲存 token，會測試 staff-login 和受保護 staff-admin，再將測試 session 登出。請勿在對話提供密碼。
 
 Advisor 記錄：四張 app_private 表沒有 client policy 是預期的 deny-by-default；僅 service_role 存取。`current_staff_session_valid` 的 SECURITY DEFINER 警告為有意設計：只以驗證後的 auth.uid/session_id 回傳本人有效性布林值，不接受其他 user_id、不洩露對照。外洩密碼保護仍未啟用；評估方案限制後處理，不擅自升級付費方案。
