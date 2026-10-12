@@ -1,0 +1,19 @@
+{
+  "id": "d2e0a971-7116-40fe-bd8d-6cce10c22f90",
+  "slug": "staff-admin",
+  "name": "staff-admin",
+  "status": "ACTIVE",
+  "version": 1,
+  "created_at": 1791599732990,
+  "updated_at": 1791599732990,
+  "verify_jwt": false,
+  "import_map": false,
+  "entrypoint_path": "/tmp/user_fn_uezwoxoikfeapkrekqzg_d2e0a971-7116-40fe-bd8d-6cce10c22f90_1/source/index.ts",
+  "ezbr_sha256": "06fb0d5651349a9526ea6d860e10b327e5c0c0412955c454c2bac91ba8261c08",
+  "files": [
+    {
+      "name": "index.ts",
+      "content": "import { createClient } from 'npm:@supabase/supabase-js@2'\n\nconst cors = {\n  'Access-Control-Allow-Origin': '*',\n  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',\n  'Content-Type': 'application/json',\n}\n\nfunction response(body: object, status = 200) {\n  return new Response(JSON.stringify(body), { status, headers: cors })\n}\n\nfunction defaultKey(name: string) {\n  const values = JSON.parse(Deno.env.get(name) ?? '{}')\n  return values.default ?? ''\n}\n\nDeno.serve(async (req) => {\n  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })\n  if (req.method !== 'POST') return response({ error: '只接受 POST 請求' }, 405)\n\n  const authorization = req.headers.get('Authorization')\n  if (!authorization?.startsWith('Bearer ')) return response({ error: '請先登入' }, 401)\n\n  const url = Deno.env.get('SUPABASE_URL') ?? ''\n  const publishableKey = defaultKey('SUPABASE_PUBLISHABLE_KEYS') || Deno.env.get('SUPABASE_ANON_KEY') || ''\n  const secretKey = defaultKey('SUPABASE_SECRET_KEYS') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''\n  const userClient = createClient(url, publishableKey, { global: { headers: { Authorization: authorization } } })\n  const token = authorization.slice('Bearer '.length)\n  const { data: { user }, error: userError } = await userClient.auth.getUser(token)\n  if (userError || !user) return response({ error: '登入已失效，請重新登入' }, 401)\n\n  const { data: profile } = await userClient.from('profiles').select('role, active').eq('id', user.id).maybeSingle()\n  if (!profile?.active || profile.role !== 'admin') return response({ error: '僅管理員可管理帳號' }, 403)\n\n  const admin = createClient(url, secretKey, { auth: { autoRefreshToken: false, persistSession: false } })\n  const body = await req.json().catch(() => null)\n  if (!body || typeof body.action !== 'string') return response({ error: '請提供操作內容' }, 400)\n\n  if (body.action === 'invite') {\n    const email = typeof body.email === 'string' ? body.email.trim() : ''\n    const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : ''\n    if (!/^\\S+@\\S+\\.\\S+$/.test(email)) return response({ error: 'Email 格式不正確' }, 400)\n    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { data: { display_name: displayName } })\n    if (error) return response({ error: error.message }, 400)\n    return response({ userId: data.user.id })\n  }\n\n  if (body.action === 'deactivate') {\n    const userId = typeof body.userId === 'string' ? body.userId : ''\n    if (!/^[0-9a-f-]{36}$/i.test(userId) || userId === user.id) return response({ error: '無法停用此帳號' }, 400)\n    const { error } = await admin.from('profiles').update({ active: false }).eq('id', userId)\n    if (error) return response({ error: error.message }, 400)\n    await admin.auth.admin.signOut(userId, 'global')\n    return response({ ok: true })\n  }\n\n  return response({ error: '不支援的帳號操作' }, 400)\n})\n"
+    }
+  ]
+}

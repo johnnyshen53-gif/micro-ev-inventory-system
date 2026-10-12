@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微型機車店庫存</title>
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body data-page="list">
+  <main id="auth-shell" class="page auth-page" hidden>
+    <section class="panel auth-panel" aria-labelledby="login-title">
+      <p class="eyebrow">MOTORCYCLE SHOP</p>
+      <h1 id="login-title">登入庫存系統</h1>
+      <p>請使用店家管理員建立的帳號登入。</p>
+      <form id="login-form">
+        <div class="field"><label for="login-email">Email</label><input id="login-email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="login-password">密碼</label><input id="login-password" type="password" autocomplete="current-password" required></div>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <button id="login-submit" type="submit">登入</button>
+      </form>
+    </section>
+  </main>
+  <main id="app-shell" class="page" hidden>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">OFFLINE INVENTORY</p>
+        <h1>微型機車店庫存</h1>
+        <p>此資料只存於目前瀏覽器。請定期匯出備份。</p>
+      </div>
+      <div class="backup-actions" aria-label="資料備份" data-role="admin">
+        <button id="export-button" type="button">匯出備份</button>
+        <label class="button secondary" for="import-file">匯入備份</label>
+        <input id="import-file" type="file" accept="application/json" hidden>
+      </div>
+    </header>
+
+    <p id="status" class="status" aria-live="polite" aria-atomic="true" role="status" tabindex="-1"></p>
+
+    <nav class="page-nav" aria-label="主要功能">
+      <button class="page-tab" type="button" data-page-target="sales">銷售管理</button>
+      <button class="page-tab" type="button" data-page-target="list" aria-current="page">庫存清單</button>
+      <button class="page-tab" type="button" data-page-target="manage" data-role="admin">庫存管理</button>
+      <button class="page-tab" type="button" data-page-target="suppliers" data-role="admin">供應商管理</button>
+      <button class="page-tab" type="button" data-page-target="purchases" data-role="admin">進貨管理</button>
+      <button class="page-tab" type="button" data-page-target="customers">客戶管理</button>
+      <button class="page-tab" type="button" data-page-target="salespeople" data-role="admin">業務管理</button>
+      <button class="page-tab" type="button" data-page-target="quotations">報價單</button>
+      <button class="page-tab" type="button" data-page-target="warranties">保固管理</button>
+      <button class="page-tab" type="button" data-page-target="monthly-sales">月銷售</button>
+    </nav>
+
+    <div class="app-page" data-page="list">
+      <section aria-labelledby="overview-title">
+      <div class="section-heading"><h2 id="overview-title">庫存總覽</h2></div>
+      <div class="cards">
+        <article class="card"><span>品項總數</span><strong id="item-count">0</strong><small>可管理的車輛、零件與用品</small></article>
+        <article class="card"><span>庫存總數</span><strong id="stock-count">0</strong><small>目前可售／可用數量</small></article>
+        <article class="card"><span>總庫存成本</span><strong id="inventory-cost">NT$ 0</strong><small>成本價 × 目前庫存量</small></article>
+        <article class="card warning"><span>低庫存品項</span><strong id="low-stock-count">0</strong><small>庫存等於或低於最低值</small></article>
+      </div>
+      <div class="grid two-columns">
+        <article class="panel"><h3>低庫存提示</h3><ul id="low-stock-list" class="plain-list"></ul></article>
+        <article class="panel"><h3>最近異動</h3><ul id="recent-transactions" class="plain-list"></ul></article>
+      </div>
+      </section>
+
+      <section aria-labelledby="inventory-title">
+        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號或分類"></label></div>
+        <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>料號</th><th>條碼</th><th>售價</th><th>庫存</th><th>最低</th><th>供應商</th><th>操作</th></tr></thead><tbody id="item-list"></tbody></table></div>
+      </section>
+    </div>
+
+    <section class="app-page grid forms" data-page="manage" aria-label="庫存操作" data-role="admin" hidden>
+      <article class="panel">
+        <h2 id="item-form-title">新增品項</h2>
+        <form id="item-form">
+          <input id="item-id" type="hidden">
+          <div class="field"><label for="item-name">品項名稱</label><input id="item-name" required></div>
+          <div class="field"><label for="item-supplier">供應商（選填）</label><select id="item-supplier"><option value="">未指定供應商</option></select><small>每個品項限一家供應商，未指定品項須先指定才能建立進貨單。</small></div>
+          <div class="field"><label for="item-category">分類</label><select id="item-category" required><option value="機車">機車</option><option value="零件" selected>零件</option><option value="用品">用品</option><option value="電池">電池</option></select></div>
+          <div id="battery-fields" class="split-fields" hidden>
+            <div class="field"><label for="item-voltage">電壓（V，1～99 整數）</label><input id="item-voltage" type="number" min="1" max="99" step="1"></div>
+            <div class="field"><label for="item-capacity">容量（Ah，1～99 整數）</label><input id="item-capacity" type="number" min="1" max="99" step="1"></div>
+          </div>
+          <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
+          <div class="field"><label for="item-barcode">條碼（選填，13 碼數字可列印）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
+          <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required></div></div>
+          <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
+          <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>機車、電池每件一個序號；初始庫存為 0 可留空。編輯庫存請使用盤點調整。</small></div>
+          <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
+          <div class="field"><label for="item-notes">備註（選填）</label><textarea id="item-notes" rows="2"></textarea></div>
+          <p id="item-form-error" class="form-error" role="alert" hidden></p>
+          <div class="form-actions"><button type="submit">儲存品項</button><button id="item-print-barcode" class="secondary" type="button" disabled>列印條碼</button><button id="item-cancel" class="secondary" type="button" hidden>取消編輯</button></div>
+        </form>
+      </article>
+
+      <article class="panel">
+        <h2>登記庫存異動</h2>
+        <form id="transaction-form">
+          <div class="field"><label for="transaction-item">品項</label><select id="transaction-item" required></select></div>
+          <div class="field"><label for="transaction-barcode">掃描／輸入條碼</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描後自動選取品項"><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div>
+          <div class="field"><label for="transaction-type">異動類型</label><select id="transaction-type" required><option value="in">進貨</option><option value="out">出庫／移出（銷售請至銷售管理）</option><option value="warranty_out">出保固（免費更換）</option><option value="adjust">盤點調整</option></select></div>
+          <div id="transaction-warranty-fields" class="serial-box" hidden><div class="field"><label for="transaction-warranty">原保固紀錄</label><select id="transaction-warranty" disabled aria-describedby="transaction-warranty-summary"><option value="">請選擇原保固</option></select></div><p id="transaction-warranty-summary" aria-live="polite"></p><small>免費更換會扣除所選品項庫存，不算銷售；更換品沿用原到期日，故障品不自動入庫。</small></div>
+          <div class="field"><label for="transaction-quantity">數量</label><input id="transaction-quantity" type="number" min="0" step="1" required></div>
+          <div id="transaction-serial-fields" class="serial-box" hidden><p id="transaction-serial-hint" aria-live="polite"></p><div class="field"><label for="transaction-serial-numbers">新增原廠序號（每行一個）</label><textarea id="transaction-serial-numbers" rows="3" autocomplete="off"></textarea></div><div class="field"><label for="transaction-serial-ids">移出在庫序號（可多選）</label><select id="transaction-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div></div>
+          <div class="field"><label for="transaction-note">備註／移出原因（移出序號時必填）</label><textarea id="transaction-note" rows="2"></textarea></div>
+          <p id="transaction-form-error" class="form-error" role="alert" hidden></p>
+          <button type="submit">記錄異動</button>
+        </form>
+      </article>
+      <article class="panel serial-panel"><h2>實物序號管理</h2><p>機車與電池每件一個原廠序號；舊庫存補登不增加數量。出貨前須補齊。</p><form id="serial-form">
+        <div class="field"><label for="serial-category">分類</label><select id="serial-category"><option value="">全部分類</option value="機車">機車</option><option value="電池">電池</option></select></div>
+        <div class="field"><label for="serial-item">機車／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><div class="field"><label for="serial-search">搜尋原廠序號</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table><thead><tr><th>品項</th><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th></tr></thead><tbody id="serial-list"></tbody></table></div></article>
+    </section>
+    <section class="app-page grid forms" data-page="suppliers" aria-label="供應商管理" data-role="admin" hidden>
+      <article class="panel">
+        <h2 id="supplier-form-title">新增供應商</h2>
+        <form id="supplier-form">
+          <input id="supplier-id" type="hidden">
+          <div class="field"><label for="supplier-name">供應商名稱</label><input id="supplier-name" required></div>
+          <div class="field"><label for="supplier-contact">聯絡人</label><input id="supplier-contact"></div>
+          <div class="field"><label for="supplier-phone">電話</label><input id="supplier-phone" type="tel"></div>
+          <div class="field"><label for="supplier-address">地址</label><input id="supplier-address"></div>
+          <div class="field"><label for="supplier-tax-id">統編（選填，8 碼）</label><input id="supplier-tax-id" inputmode="numeric" pattern="[0-9]{8}" maxlength="8"></div>
+          <div class="field"><label for="supplier-note">備註</label><textarea id="supplier-note" rows="2"></textarea></div>
+          <p id="supplier-form-error" class="form-error" role="alert" hidden></p>
+          <div class="form-actions"><button type="submit">儲存供應商</button><button id="supplier-cancel" type="button" class="secondary" hidden>取消編輯</button></div>
+        </form>
+      </article>
+      <article class="panel">
+        <h2>供應商資料</h2>
+        <div class="split-fields"><div class="field"><label for="supplier-search">搜尋供應商</label><input id="supplier-search" type="search" placeholder="名稱、聯絡人、電話或統編"></div><div class="field"><label for="supplier-status-filter">狀態</label><select id="supplier-status-filter"><option value="">全部</option><option value="active">啟用</option><option value="inactive">已停用</option></select></div></div>
+        <div class="table-wrap"><table><thead><tr><th>名稱</th><th>聯絡人</th><th>電話</th><th>地址</th><th>統編</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="supplier-list"></tbody></table></div>
+      </article>
+    </section>
+    <section class="app-page" data-page="purchases" aria-label="進貨管理" data-role="admin" hidden>
+      <article class="panel">
+        <h2 id="purchase-form-title">新增進貨草稿</h2>
+        <p class="muted">先存草稿，再確認整張收貨。確認收貨才增加庫存並以本次單價更新成本，不改售價。</p>
+        <form id="purchase-form">
+          <input id="purchase-id" type="hidden">
+          <div class="field"><label for="purchase-supplier">供應商</label><select id="purchase-supplier" required><option value="">請選供應商</option></select></div>
+          <div class="purchase-entry">
+            <div class="field"><label for="purchase-item">進貨品項</label><select id="purchase-item"><option value="">請選此供應商的品項</option></select><small>只列出已綁定此供應商的品項。</small></div>
+            <div class="field"><label for="purchase-quantity">數量</label><input id="purchase-quantity" type="number" min="1" step="1" value="1"></div>
+            <div class="field"><label for="purchase-unit-cost">進貨單價（NT$）</label><input id="purchase-unit-cost" type="number" min="0" step="0.01"><small>預設成本四捨五入至兩位小數，可修改。</small></div>
+            <button id="purchase-add-line" type="button" class="secondary">加入明細</button>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>品項</th><th>料號</th><th>數量</th><th>進貨單價</th><th>小計</th><th>操作</th></tr></thead><tbody id="purchase-lines"></tbody></table></div>
+          <p class="purchase-total" aria-live="polite">進貨總額 NT$ <strong id="purchase-total">0</strong></p>
+          <div class="field"><label for="purchase-note">備註</label><textarea id="purchase-note" rows="2"></textarea></div>
+          <p id="purchase-form-error" class="form-error" role="alert" hidden></p>
+          <div class="form-actions"><button type="submit">儲存草稿（不入庫）</button><button id="purchase-cancel" type="button" class="secondary">清除／取消編輯</button></div>
+        </form>
+      </article>
+      <article class="panel">
+        <h2>進貨單紀錄</h2>
+        <p class="muted">已收貨單不能改刪或撤銷。誤收須另外登記庫存調整，原進貨紀錄與成本不會自動還原。付款標記不代表已執行轉帳。</p>
+        <div class="purchase-filters">
+          <div class="field"><label for="purchase-search">搜尋進貨單</label><input id="purchase-search" type="search" placeholder="單號或供應商名稱"></div>
+          <div class="field"><label for="purchase-status-filter">收貨狀態</label><select id="purchase-status-filter"><option value="">全部</option><option value="draft">草稿</option><option value="received">已收貨</option></select></div>
+          <div class="field"><label for="purchase-payment-filter">付款狀態</label><select id="purchase-payment-filter"><option value="">全部</option><option value="unpaid">未付款</option><option value="paid">已付款</option></select></div>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>單號</th><th>供應商</th><th>總額</th><th>收貨</th><th>付款</th><th>操作</th></tr></thead><tbody id="purchase-list"></tbody></table></div>
+        <section id="purchase-receipt-panel" class="serial-box" aria-label="整張收貨序號" hidden><h3>收貨序號登錄</h3><p>依最後儲存的進貨單，每件輸入一個原廠序號。儲存失敗會保留輸入。</p><div id="purchase-receipt-fields"></div><button id="purchase-receipt-confirm" type="button">確認序號並整張收貨</button><button id="purchase-receipt-cancel" type="button" class="secondary">取消收貨登錄</button></section>
+        <section id="purchase-detail" aria-label="進貨單明細" class="purchase-detail" hidden></section>
+      </article>
+    </section>
+    <section class="app-page grid forms" data-page="customers" aria-label="客戶管理" hidden>
+      <article class="panel"><h2 id="customer-form-title">新增客戶</h2><form id="customer-form"><input id="customer-id" type="hidden"><div class="field"><label for="customer-member-number">會員編號</label><input id="customer-member-number" readonly placeholder="儲存後自動產生"></div><div class="field"><label for="customer-name">姓名</label><input id="customer-name" required></div><div class="field"><label for="customer-phone">電話</label><input id="customer-phone" required></div><div class="field"><label for="customer-address">地址（選填）</label><input id="customer-address" autocomplete="street-address"></div><div class="field"><label for="customer-note">備註</label><textarea id="customer-note" rows="2"></textarea></div><p id="customer-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存客戶</button><button id="customer-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
+      <article class="panel"><div class="section-heading"><h2>客戶資料</h2><input id="customer-search" class="search" type="search" placeholder="搜尋會員編號、姓名、電話或地址"></div><div class="table-wrap"><table><thead><tr><th>會員編號</th><th>姓名</th><th>電話</th><th>地址</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="customer-list"></tbody></table></div></article>
+    </section>
+    <section class="app-page grid forms" data-page="salespeople" aria-label="業務管理" data-role="admin" hidden>
+      <article id="staff-panel" class="panel" hidden>
+        <div class="section-heading"><h2>登入帳號管理（店長專用）</h2><button id="staff-refresh" class="secondary" type="button">重新整理帳號</button></div>
+        <p>雲端登入帳號與本機業務資料分開管理。停用登入不會刪除歷史紀錄。</p>
+        <p id="staff-message" role="status" aria-live="polite"></p>
+        <form id="staff-create-form">
+          <h3>新增業務員登入帳號</h3>
+          <div class="field"><label for="staff-name">顯示姓名</label><input id="staff-name" maxlength="100" required autocomplete="off"></div>
+          <div class="field"><label for="staff-username">登入帳號</label><input id="staff-username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]{3,32}" autocomplete="off" required aria-describedby="staff-username-hint"><small id="staff-username-hint">3–32 字元：英文、數字、底線或連字號；不分大小寫。</small></div>
+          <div class="field"><label for="staff-password">初始密碼</label><input id="staff-password" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required></div>
+          <div class="field"><label for="staff-link-person">連結本機業務（選填）</label><select id="staff-link-person"></select></div>
+          <button id="staff-create-submit" type="submit">建立業務員帳號</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>姓名</th><th>帳號</th><th>權限</th><th>狀態</th><th>操作</th></tr></thead><tbody id="staff-list"></tbody></table></div>
+        <form id="staff-link-form"><h3>連結既有登入帳號與本機業務</h3><div class="field"><label for="staff-existing-user">雲端帳號</label><select id="staff-existing-user" required></select></div><div class="field"><label for="staff-existing-person">本機業務</label><select id="staff-existing-person" required></select></div><button type="submit" class="secondary">儲存連結／重試連結</button></form>
+        <section id="staff-reset-panel" hidden><h3>重設密碼</h3><form id="staff-reset-form"><input id="staff-reset-user" type="hidden"><div class="field"><label for="staff-new-password">新密碼（至少 12 字元）</label><input id="staff-new-password" type="password" minlength="12" autocomplete="new-password" required></div><div class="field"><label for="staff-confirm-password">再次輸入新密碼</label><input id="staff-confirm-password" type="password" minlength="12" autocomplete="new-password" required></div><button type="submit">確認重設密碼</button></form></section>
+      </article>
+      <article class="panel"><h2 id="salesperson-form-title">新增業務</h2><form id="salesperson-form"><input id="salesperson-id" type="hidden"><div class="field"><label for="salesperson-name">姓名</label><input id="salesperson-name" required></div><p id="salesperson-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存業務</button><button id="salesperson-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
+      <article class="panel"><div class="section-heading"><h2>業務人員</h2><label class="search"><span class="sr-only">搜尋業務</span><input id="salesperson-search" type="search" placeholder="搜尋姓名"></label></div><div class="table-wrap"><table><thead><tr><th>姓名</th><th>狀態</th><th>操作</th></tr></thead><tbody id="salesperson-list"></tbody></table></div></article>
+    </section>
+    <section class="app-page" data-page="quotations" aria-label="報價單" hidden>
+      <article class="panel"><h2>建立報價單</h2><form id="quotation-form"><div class="field"><label for="quotation-customer">客戶</label><select id="quotation-customer" required></select></div><div class="field"><label for="quotation-salesperson">業務人員</label><select id="quotation-salesperson" required></select></div><div class="split-fields"><div class="field"><label for="quotation-item">品項</label><select id="quotation-item"></select></div><div class="field"><label for="quotation-quantity">數量</label><input id="quotation-quantity" type="number" min="1" value="1"></div></div><button id="quotation-add-line" class="secondary" type="button">加入明細</button><div class="table-wrap"><table><thead><tr><th>品項</th><th>庫存</th><th>單價</th><th>數量</th><th>小計</th><th>操作</th></tr></thead><tbody id="quotation-lines"></tbody><tfoot><tr><th colspan="4">合計</th><th id="quotation-total">0</th><th></th></tr></tfoot></table></div><div class="field"><label for="quotation-note">備註</label><textarea id="quotation-note" rows="2"></textarea></div><p id="quotation-form-error" class="form-error" role="alert" hidden></p><button type="submit">建立報價單</button></form></article>
+      <section><div class="section-heading"><h2>報價紀錄</h2><input id="quotation-search" class="search" type="search" placeholder="搜尋編號、客戶或電話"></div><div class="table-wrap"><table><thead><tr><th>編號</th><th>日期</th><th>客戶</th><th>業務</th><th>總額</th><th>操作</th></tr></thead><tbody id="quotation-list"></tbody></table></div></section>
+      <section id="quotation-detail" class="panel print-document" hidden><div class="section-heading no-print"><h2>報價詳情</h2><button id="print-quotation" type="button">列印報價單</button></div><div id="quotation-print-content"></div></section>
+    </section>
+    <section class="app-page warranty-page" data-page="warranties" aria-label="保固管理" hidden>
+      <div class="field serial-box"><label for="warranty-serial">手動保固：選擇已售原廠序號</label><select id="warranty-serial" form="warranty-form"><option value="">請選擇已售序號（機車／電池必選）</option></select><small>選序號會帶入售出時的客戶與品項；已有保固的序號不會再次列出。</small></div>
+      <div class="grid forms">
+        <article class="panel"><h2 id="warranty-form-title">手動建立保固</h2><form id="warranty-form"><input id="warranty-id" type="hidden"><div class="field"><label for="warranty-customer">客戶</label><select id="warranty-customer" required></select></div><div class="field"><label for="warranty-item">品項</label><select id="warranty-item" required></select></div><div class="split-fields"><div class="field"><label for="warranty-purchased-at">購買日期</label><input id="warranty-purchased-at" type="date" required></div><div class="field"><label for="warranty-expires-at">到期日期</label><input id="warranty-expires-at" type="date" required></div></div><div class="field"><label for="warranty-note">備註</label><textarea id="warranty-note" rows="2"></textarea></div><p id="warranty-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存保固</button><button id="warranty-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
+        <article class="panel"><div class="section-heading"><h2>保固紀錄</h2></div><div class="warranty-filters"><div class="field"><label for="warranty-search">搜尋客戶、品項或條碼</label><input id="warranty-search" type="search" placeholder="客戶、品項或條碼"></div><div class="field"><label for="warranty-status">保固狀態</label><select id="warranty-status"><option value="">全部</option><option value="active">有效中</option><option value="expiring">即將到期</option><option value="expired">已到期</option><option value="in_progress">案件處理中</option></select></div></div><div class="table-wrap"><table><thead><tr><th>客戶</th><th>品項</th><th>條碼</th><th>到期日</th><th>狀態</th><th>操作</th></tr></thead><tbody id="warranty-list"></tbody></table></div></article>
+      </div>
+      <section id="warranty-detail" class="panel" hidden><h2>保固詳情與送修案件</h2><p id="warranty-detail-summary"></p><p id="warranty-detail-status" class="warranty-state"></p><h3 id="warranty-case-form-title">新增送修案件</h3><form id="warranty-case-form"><input id="warranty-case-id" type="hidden"><div class="field"><label for="warranty-case-issue">故障說明</label><textarea id="warranty-case-issue" rows="2" required></textarea></div><div class="split-fields"><div class="field"><label for="warranty-case-status">案件狀態</label><select id="warranty-case-status"><option value="pending">待處理</option><option value="in_progress">處理中</option><option value="completed">已完成</option><option value="not_covered">不符保固</option></select></div><div class="field"><label for="warranty-case-handled-at">處理日期（選填）</label><input id="warranty-case-handled-at" type="date"></div></div><div class="field"><label for="warranty-case-resolution-note">處理備註</label><textarea id="warranty-case-resolution-note" rows="2"></textarea></div><p id="warranty-case-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存案件</button><button id="warranty-case-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form><div class="table-wrap"><table><thead><tr><th>故障說明</th><th>狀態</th><th>處理日期</th><th>處理備註</th><th>操作</th></tr></thead><tbody id="warranty-case-list"></tbody></table></div><h3>出保固更換紀錄</h3><div class="table-wrap"><table><thead><tr><th>日期</th><th>換出品項</th><th>數量</th><th>換出序號</th><th>沿用到期日</th><th>原因</th><th>操作帳號</th></tr></thead><tbody id="warranty-replacement-list"></tbody></table></div></section>
+    </section>
+    <section class="app-page grid forms" data-page="sales" aria-label="銷售管理" hidden>
+      <article class="panel sale-panel">
+        <div class="section-heading"><div><p class="eyebrow">POS</p><h2>銷售管理</h2></div><p class="sale-hint">掃描後按 Enter，或由庫存選擇品項，加入同一購物車。</p></div>
+        <form id="sale-form">
+          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入條碼</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="請掃描條碼"></div><div id="sale-item-info" class="scan-result" hidden></div><div class="field"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入購物車</button></div>
+          <fieldset class="sale-picker"><legend>由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>機車</option><option>零件</option><option>用品</option><option>電池</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="split-fields"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入購物車</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
+          <div id="sale-serial-panel" class="serial-box" hidden><h3>指定本次實物序號</h3><p id="sale-serial-hint" aria-live="polite"></p><div class="field"><label for="sale-serial-scan">掃描原廠序號（非商品條碼）</label><input id="sale-serial-scan" type="text" autocomplete="off" placeholder="掃描後按 Enter 選取"></div><div class="field"><label for="sale-serial-ids">選擇在庫序號（可多選）</label><select id="sale-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div><button id="sale-serial-add" type="button">確認序號並加入購物車</button></div>
+          <p id="sale-form-error" class="form-error" role="alert" hidden></p>
+          <div class="table-wrap sale-cart-wrap"><table><thead><tr><th>品項</th><th>單價</th><th>數量</th><th>小計</th><th>操作</th></tr></thead><tbody id="sale-cart"></tbody><tfoot><tr><th colspan="3">合計</th><th id="sale-cart-total">0</th><th></th></tr></tfoot></table></div>
+          <div class="field sale-customer"><label for="sale-customer">客戶（機車／電池必選；有保固月數時會建立保固）</label><select id="sale-customer"><option value="">不指定客戶</option></select></div>
+          <div class="sale-checkout"><span>確認購物車內容後結帳</span><button type="submit">一次結帳</button></div>
+        </form>
+      </article>
+    </section>
+    <section class="app-page" data-page="monthly-sales" aria-label="月銷售" hidden><div class="section-heading"><h2>月銷售清單</h2><input id="monthly-sales-month" type="month"></div><div class="cards"><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售總額</span><strong id="monthly-sales-total">0</strong></article></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div></section>
+    <section id="barcode-label" class="print-document barcode-label" hidden><div id="barcode-label-content"></div></section>
+    <footer class="account-bar"><span id="current-user"></span><button id="sign-out-button" type="button" class="secondary">登出</button></footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js?v=3"></script>
+  <script src="supabase-client.js?v=4"></script>
+  <script src="idle-session.js?v=2"></script>
+  <script src="auth-ui.js?v=3"></script>
+  <script src="staff-ui.js?v=1"></script>
+  <script src="inventory.js?v=15"></script>
+  <script src="storage.js?v=1"></script>
+  <script src="app.js?v=25"></script>
+</body>
+</html>
