@@ -45,6 +45,7 @@ let appSessionEpoch = 0;
 let pendingSave = null;
 let receiptPurchaseId = '';
 let receiptSerialNumbersByItem = {};
+let manageApproved = false;
 
 function setAppEnabled(enabled) {
   document.querySelectorAll('#app-shell button, #app-shell input, #app-shell select, #app-shell textarea').forEach((element) => { element.disabled = !enabled; });
@@ -58,6 +59,10 @@ function setAppEnabled(enabled) {
 setAppEnabled(false);
 
 function showPage(page) {
+  if (page === 'manage' && !manageApproved) {
+    openManageAuth();
+    page = 'list';
+  } else if (page === 'manage') manageApproved = false;
   const section = document.querySelector(`.app-page[data-page="${page}"]`);
   if (section?.dataset.role === 'admin' && document.body.dataset.role !== 'admin') page = 'sales';
   document.querySelectorAll('.app-page[data-page]').forEach((section) => {
@@ -370,10 +375,49 @@ function showScannedItem(item) {
   result.hidden = false;
 }
 
+function openManageAuth() {
+  $('manage-auth-error').hidden = true;
+  $('manage-auth-password').value = '';
+  $('manage-auth-dialog').showModal();
+  $('manage-auth-password').focus();
+}
+
+function requestPage(page) {
+  if (page === 'manage') return openManageAuth();
+  location.hash = page;
+}
+
 document.querySelector('.page-nav').addEventListener('click', (event) => {
   const button = event.target.closest('[data-page-target]');
-  if (button) location.hash = button.dataset.pageTarget;
+  if (button) requestPage(button.dataset.pageTarget);
 });
+
+$('manage-auth-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = $('manage-auth-submit');
+  button.disabled = true;
+  $('manage-auth-error').hidden = true;
+  try {
+    const { error } = await window.AppAuth.signIn(currentUser.username, $('manage-auth-password').value);
+    if (error) throw error;
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.id !== currentUser.id || user.role !== 'admin') throw new Error('帳號權限不符。');
+    currentUser = user;
+    manageApproved = true;
+    $('manage-auth-dialog').close();
+    if (location.hash === '#manage') showPage('manage');
+    else location.hash = 'manage';
+  } catch {
+    $('manage-auth-error').textContent = '密碼不正確，或登入已失效。';
+    $('manage-auth-error').hidden = false;
+    $('manage-auth-password').focus();
+  } finally {
+    $('manage-auth-password').value = '';
+    button.disabled = false;
+  }
+});
+
+$('manage-auth-cancel')?.addEventListener('click', () => $('manage-auth-dialog').close());
 
 window.addEventListener('hashchange', () => showPage(currentPage()));
 

@@ -19,8 +19,7 @@
     $('login-email').focus();
   }
 
-  function showApp(user) {
-    applyRole(user);
+  function showApp() {
     $('auth-shell').hidden = true;
     $('app-shell').hidden = false;
   }
@@ -42,8 +41,9 @@
     const watcher=window.IdleSession.start({userId:user.id,fresh,onExpire:logout});
     if(token!==generation){watcher.stop();return;}
     idle=watcher;
+    applyRole(user);
     await onAuthenticated(user,()=>token===generation&&active);
-    if(token===generation&&active)showApp(user);
+    if(token===generation&&active)showApp();
   }
 
   function start(onAuthenticated,cleanup=()=>{}) {

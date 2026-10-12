@@ -371,7 +371,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 
   assert.match(html, /<script src="inventory\.js\?v=15"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=25"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=26"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -417,7 +417,7 @@ test('prints only the quotation document', async () => {
 test('uses hash routes and redirects legacy entry pages to the single app', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   assert.match(app, /addEventListener\('hashchange'/);
-  assert.match(app, /location\.hash = button\.dataset\.pageTarget/);
+  assert.match(app, /requestPage\(button\.dataset\.pageTarget\)/);
 
   for (const [file, page] of [['manage.html', 'manage'], ['customers.html', 'customers'], ['quotations.html', 'quotations']]) {
     const html = await readFile(new URL(`./${file}`, import.meta.url), 'utf8');
@@ -425,11 +425,33 @@ test('uses hash routes and redirects legacy entry pages to the single app', asyn
   }
 });
 
-test('opens inventory management directly without password approval', async () => {
+test('inventory management requires the current account password on every entry', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
-
-  assert.doesNotMatch(app, /manageUnlocked|openManageAuth|InventoryAuth|authStorageKey/);
-  assert.match(app, /if \(button\) location\.hash = button\.dataset\.pageTarget/);
+  const start = app.indexOf('function openManageAuth(');
+  assert.ok(start >= 0, 'inventory password gate is implemented');
+  const end = app.indexOf('function backupTimestamp(', start);
+  const elements = new Map();
+  function node() { return { value: '', textContent: '', hidden: true, open: false, disabled: false, listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; }, showModal() { this.open = true; }, close() { this.open = false; }, focus() {} }; }
+  const $ = (id) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
+  const nav = node();
+  let signIns = 0;
+  const context = { $, currentUser: { id: 'manager', username: 'johnny', role: 'admin' }, manageApproved: false, location: { hash: '#customers' },
+    showPage() {},
+    document: { querySelector: (selector) => selector === '.page-nav' ? nav : null },
+    window: { addEventListener() {}, AppAuth: { async signIn(username, password) { signIns++; return username === 'johnny' && password === 'correct-password' ? { error: null } : { error: new Error('帳號或密碼不正確') }; }, async requireActiveUser() { return context.currentUser; } } },
+  };
+  vm.runInNewContext(app.slice(start, end), context);
+  nav.listeners.click({ target: { closest: () => ({ dataset: { pageTarget: 'manage' } }) } });
+  assert.equal(context.location.hash, '#customers');
+  assert.equal($('manage-auth-dialog').open, true);
+  $('manage-auth-password').value = 'correct-password';
+  await $('manage-auth-form').listeners.submit({ preventDefault() {} });
+  assert.equal(signIns, 1);
+  assert.equal(context.location.hash, 'manage');
+  assert.equal($('manage-auth-dialog').open, false);
+  context.location.hash = '#customers';
+  nav.listeners.click({ target: { closest: () => ({ dataset: { pageTarget: 'manage' } }) } });
+  assert.equal($('manage-auth-dialog').open, true);
 });
 
 test('exports timestamped backups and safeguards data before import', async () => {

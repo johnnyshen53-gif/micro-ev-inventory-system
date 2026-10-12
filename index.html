@@ -219,16 +219,25 @@
     </section>
     <section class="app-page" data-page="monthly-sales" aria-label="月銷售" hidden><div class="section-heading"><h2>月銷售清單</h2><input id="monthly-sales-month" type="month"></div><div class="cards"><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售總額</span><strong id="monthly-sales-total">0</strong></article></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div></section>
     <section id="barcode-label" class="print-document barcode-label" hidden><div id="barcode-label-content"></div></section>
+    <dialog id="manage-auth-dialog" aria-labelledby="manage-auth-title">
+      <form id="manage-auth-form">
+        <h2 id="manage-auth-title">進入庫存管理</h2>
+        <p>請重新輸入目前帳號的密碼。</p>
+        <div class="field"><label for="manage-auth-password">密碼</label><input id="manage-auth-password" type="password" autocomplete="current-password" required></div>
+        <p id="manage-auth-error" class="form-error" role="alert" hidden></p>
+        <div class="form-actions"><button id="manage-auth-submit" type="submit">確認進入</button><button id="manage-auth-cancel" class="secondary" type="button">取消</button></div>
+      </form>
+    </dialog>
     <footer class="account-bar"><span id="current-user"></span><button id="sign-out-button" type="button" class="secondary">登出</button></footer>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=3"></script>
   <script src="supabase-client.js?v=4"></script>
   <script src="idle-session.js?v=2"></script>
-  <script src="auth-ui.js?v=3"></script>
+  <script src="auth-ui.js?v=4"></script>
   <script src="staff-ui.js?v=1"></script>
   <script src="inventory.js?v=15"></script>
   <script src="storage.js?v=1"></script>
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>

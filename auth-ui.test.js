@@ -8,7 +8,7 @@ async function fixture({restore,signIn=async()=>({error:null}),signOut=async()=>
   let expire,cleanups=0;const user={id:'manager',role:'admin',displayName:'店長'};
   const ctx={window:{AppConfig:{usernameLoginEnabled:true},AppAuth:{requireActiveUser:restore||(async()=>user),signIn,signOut},IdleSession:{start({onExpire}){expire=onExpire;return {stop(){},lock(){onExpire('manual');}};}}},document:{getElementById:$,querySelectorAll:()=>[],querySelector:()=>({textContent:''}),body:{dataset:{}}}};
   vm.runInNewContext(source,ctx);
-  ctx.window.AppAuthUI.start(bootstrap,async()=>cleanups++);
+  ctx.window.AppAuthUI.start((...args)=>bootstrap(...args,ctx),async()=>cleanups++);
   await new Promise(resolve=>setImmediate(resolve));
   return {ctx,$,expire:()=>expire('idle'),cleanups:()=>cleanups};
 }
@@ -38,6 +38,11 @@ test('username gateway uses a text field and manual logout also clears active id
   const {$,ctx,cleanups}=await fixture();assert.equal($('login-email').type,'text');
   await $('sign-out-button').listeners.click();
   await new Promise(resolve=>setImmediate(resolve));assert.equal(cleanups(),1);assert.equal(ctx.window.AppAuthUI.isActive(),false);
+});
+test('bootstrap renders with the authenticated role already applied',async()=>{
+  let roleDuringBootstrap;
+  await fixture({bootstrap:async(_user,_current,ctx)=>{roleDuringBootstrap=ctx.document.body.dataset.role;}});
+  assert.equal(roleDuringBootstrap,'admin');
 });
 test('offline signout and failed storage writes cannot restore the app after reload',async()=>{
   const idleSource=await readFile(new URL('./idle-session.js',import.meta.url),'utf8');
