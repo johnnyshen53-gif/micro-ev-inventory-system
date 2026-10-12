@@ -502,6 +502,18 @@ test('checks out multiple products under one sale number', () => {
   assert.equal(sold.sales[0].subtotal + sold.sales[1].subtotal, 590);
 });
 
+test('stores the checkout operator name on every sale line', () => {
+  const stocked = addItem(emptyState(), item);
+  const sold = recordSaleBatch(stocked, {
+    createdBy: 'clerk-1',
+    createdByAccount: '王業務',
+    lines: [{ barcode: item.barcode, quantity: 1 }],
+  });
+
+  assert.equal(sold.sales[0].createdBy, 'clerk-1');
+  assert.equal(sold.sales[0].createdByAccount, '王業務');
+});
+
 test('defaults warranty months to zero and rejects non-integer or negative months', () => {
   assert.equal(addItem(emptyState(), item).items[0].warrantyMonths, 0);
   for (const warrantyMonths of [-1, 1.5, 'abc']) {

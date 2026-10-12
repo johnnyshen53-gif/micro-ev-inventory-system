@@ -865,7 +865,7 @@ function recordSale(state, fields) {
   const quantity = positiveInteger(fields?.quantity, '銷售數量');
   if (item.stock < quantity) throw new Error('庫存不足，無法售出');
   const createdAt = new Date().toISOString();
-  const sale = { id: crypto.randomUUID(), itemId: item.id, itemName: item.name, barcode: item.barcode, quantity, unitPrice: item.price, subtotal: item.price * quantity, createdAt, serialIds: [], serialNumbers: [] };
+  const sale = { id: crypto.randomUUID(), itemId: item.id, itemName: item.name, barcode: item.barcode, quantity, unitPrice: item.price, subtotal: item.price * quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), serialIds: [], serialNumbers: [] };
   const transaction = { id: crypto.randomUUID(), itemId: item.id, type: 'out', quantity, createdAt, note: '銷售管理' };
   return { ...current, items: current.items.map((candidate) => candidate.id === item.id ? { ...candidate, stock: candidate.stock - quantity } : candidate), transactions: [...current.transactions, transaction], sales: [...current.sales, sale] };
 }
@@ -897,7 +897,7 @@ function recordSaleBatch(state, fields) {
   const createdAt = new Date().toISOString();
   const saleNumber = `S${createdAt.slice(0, 10).replaceAll('-', '')}-${String(current.sales.length + 1).padStart(4, '0')}`;
   const purchasedAt = taipeiDate(createdAt);
-  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), saleNumber, itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
+  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), saleNumber, itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
     return sale ? { ...serial, status: 'sold', saleId: sale.id, customerId: customer.id, soldAt: createdAt } : serial;

@@ -600,6 +600,30 @@ test('checkout sends the authenticated bootstrap user as the warranty creator', 
   assert.equal(checkoutFields.createdBy, 'authenticated-user-id');
 });
 
+test('shows salespeople in monthly sales only to administrators', async () => {
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const elements = new Map();
+  const node = () => ({ value: '', textContent: '', hidden: false, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const $ = (id) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
+  const context = {
+    $, document: { body: { dataset: { role: 'admin' } }, createElement: node },
+    state: { items: [], transactions: [], customers: [], salespeople: [], quotations: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [], sales: [{ createdAt: '2026-10-12T09:00:00.000Z', itemName: '安全帽', barcode: '123', unitPrice: 500, quantity: 1, subtotal: 500, createdByAccount: '王業務', serialIds: [], serialNumbers: [] }] },
+    salesForMonth: (state, month) => state.sales.filter((sale) => sale.createdAt.startsWith(month)), formatNumber: String,
+    appendEmpty() {},
+  };
+  vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales()'), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
+  $('monthly-sales-month').value = '2026-10';
+
+  context.renderMonthlySales();
+  assert.equal($('monthly-salesperson-heading').hidden, false);
+  assert.equal($('monthly-sales-list').children[0].children.at(-1).textContent, '王業務');
+
+  context.document.body.dataset.role = 'clerk';
+  context.renderMonthlySales();
+  assert.equal($('monthly-salesperson-heading').hidden, true);
+  assert.equal($('monthly-sales-list').children[0].children.length, 6);
+});
+
 test('keeps warranty deletion admin-only and requires confirmation', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   assert.match(app, /document\.body\.dataset\.role === 'admin'/);

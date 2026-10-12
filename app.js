@@ -1342,7 +1342,7 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (pendingSave) return;
   try {
-    const next = recordSaleBatch(state, { lines: saleCart, customerId: $('sale-customer').value, createdBy: currentUser?.id });
+    const next = recordSaleBatch(state, { lines: saleCart, customerId: $('sale-customer').value, createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id });
     if (!await saveState(next)) return;
     saleCart = []; saleSerialItemId = ''; saleSerialQuantity = 1;
     $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1';
@@ -1350,7 +1350,7 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
     clearFormError('sale-form'); renderSaleCart(); render(); setStatus('銷售已完成。');
   } catch (error) { showFormError('sale-form', error.message); }
 });
-function renderMonthlySales() { const month = $('monthly-sales-month').value || new Date().toISOString().slice(0, 7); if (!$('monthly-sales-month').value) $('monthly-sales-month').value = month; const sales = salesForMonth(state, month); const list = $('monthly-sales-list'); list.replaceChildren(); sales.forEach((sale) => { const row = document.createElement('tr'); [new Date(sale.createdAt).toLocaleDateString('zh-TW'), sale.itemName, sale.barcode, formatNumber(sale.unitPrice), formatNumber(sale.quantity), formatNumber(sale.subtotal)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); list.append(row); }); if (!list.children.length) appendEmpty(list, '本月尚未有銷售紀錄。'); $('monthly-sales-quantity').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.quantity, 0)); $('monthly-sales-total').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.subtotal, 0)); }
+function renderMonthlySales() { const month = $('monthly-sales-month').value || new Date().toISOString().slice(0, 7); if (!$('monthly-sales-month').value) $('monthly-sales-month').value = month; const sales = salesForMonth(state, month); const isAdmin = document.body.dataset.role === 'admin'; $('monthly-salesperson-heading').hidden = !isAdmin; const list = $('monthly-sales-list'); list.replaceChildren(); sales.forEach((sale) => { const row = document.createElement('tr'); [...[new Date(sale.createdAt).toLocaleDateString('zh-TW'), sale.itemName, sale.barcode, formatNumber(sale.unitPrice), formatNumber(sale.quantity), formatNumber(sale.subtotal)], ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); list.append(row); }); if (!list.children.length) appendEmpty(list, '本月尚未有銷售紀錄。'); $('monthly-sales-quantity').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.quantity, 0)); $('monthly-sales-total').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.subtotal, 0)); }
 $('monthly-sales-month')?.addEventListener('change', renderMonthlySales);
 
 async function resetAppSession() {
