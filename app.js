@@ -337,6 +337,15 @@ function parseUnitQr(value) {
   return barcode && serialNumber && !extra && /^\d{13}$/.test(barcode) ? { barcode, serialNumber: serialNumber.trim() } : { barcode: raw, serialNumber: '' };
 }
 $('item-search')?.addEventListener('input', renderItems);
+function handleItemSearchScan(decodedText) {
+  const scan = parseUnitQr(decodedText);
+  const item = state.items.find((candidate) => candidate.barcode === scan.barcode);
+  if (!item) { setStatus('找不到此 QR Code 對應的品項。', true, true); return false; }
+  $('item-search').value = item.barcode;
+  renderItems();
+  setStatus(`已找到：${item.name}。`);
+  return true;
+}
 $('item-search')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   const barcode = event.currentTarget.value.trim();
@@ -350,26 +359,54 @@ $('item-name')?.addEventListener('input', updateItemPrintButton);
 $('item-barcode')?.addEventListener('input', updateItemPrintButton);
 $('item-print-qr')?.addEventListener('click', () => showQrLabel({ name: $('item-name').value.trim(), sku: $('item-sku').value.trim(), barcode: $('item-barcode').value.trim() }));
 
-$('transaction-barcode')?.addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter') return;
-  event.preventDefault();
-  const scan = parseUnitQr(event.currentTarget.value);
+function handleTransactionScan(decodedText) {
+  const scan = parseUnitQr(decodedText);
   const item = state.items.find((candidate) => candidate.barcode === scan.barcode);
   if (!item) {
     $('transaction-scan-result').hidden = true;
     showFormError('transaction-form', scan.barcode ? '找不到此條碼的品項。' : '請先掃描或輸入條碼。');
-    return;
+    return false;
   }
   $('transaction-item').value = item.id;
   renderTransactionSerials();
   clearFormError('transaction-form');
   if (scan.serialNumber) selectTransactionSerial(scan.serialNumber);
-  event.currentTarget.value = '';
+  $('transaction-barcode').value = '';
   showScannedItem(item);
-  if (!$('transaction-form-error').hidden) return;
+  if (!$('transaction-form-error').hidden) return false;
   $('transaction-quantity').focus();
   setStatus(`已選取：${item.name}。請輸入數量。`);
-});
+  return true;
+}
+$('transaction-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); handleTransactionScan(event.currentTarget.value); });
+
+const cameraScanners = new Map();
+async function stopCameraScan(prefix) {
+  const scanner = cameraScanners.get(prefix);
+  cameraScanners.delete(prefix);
+  if (scanner) { try { await scanner.stop(); } catch {} try { await scanner.clear?.(); } catch {} }
+  $(`${prefix}-camera-scanner`).hidden = true;
+  $(`${prefix}-camera-scan`).disabled = false;
+  $(`${prefix}-camera-stop`).hidden = true;
+}
+async function startCameraScan(prefix, onDecoded, reportError) {
+  if (!window.Html5Qrcode || !navigator.mediaDevices?.getUserMedia) return reportError('此瀏覽器無法使用相機掃描，請改用 HTTPS 網址或手動輸入 QR Code。');
+  $(`${prefix}-camera-scanner`).hidden = false;
+  $(`${prefix}-camera-scan`).disabled = true;
+  $(`${prefix}-camera-stop`).hidden = false;
+  const scanner = new Html5Qrcode(`${prefix}-camera-reader`);
+  cameraScanners.set(prefix, scanner);
+  try {
+    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } }, async (decodedText) => {
+      if (cameraScanners.get(prefix) !== scanner || !onDecoded(decodedText)) return;
+      await stopCameraScan(prefix);
+    });
+  } catch (error) { await stopCameraScan(prefix); reportError(`無法開啟相機：${error.message || '請確認已允許相機權限。'}`); }
+}
+$('item-camera-scan')?.addEventListener('click', () => startCameraScan('item', handleItemSearchScan, (message) => setStatus(message, true, true)));
+$('item-camera-stop')?.addEventListener('click', () => stopCameraScan('item'));
+$('transaction-camera-scan')?.addEventListener('click', () => startCameraScan('transaction', handleTransactionScan, (message) => showFormError('transaction-form', message)));
+$('transaction-camera-stop')?.addEventListener('click', () => stopCameraScan('transaction'));
 
 function selectTransactionSerial(serialNumber) {
   const type = $('transaction-type').value;

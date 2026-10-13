@@ -65,7 +65,7 @@
       </section>
 
       <section aria-labelledby="inventory-title">
-        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號或分類"></label></div>
+        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號或分類"></label><button id="item-camera-scan" type="button" class="secondary">開啟相機掃描</button><button id="item-camera-stop" type="button" class="danger" hidden>停止相機</button></div><div id="item-camera-scanner" class="camera-scanner" hidden><div id="item-camera-reader"></div></div>
         <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>料號</th><th>條碼</th><th>售價</th><th>庫存</th><th>最低</th><th>供應商</th><th>操作</th></tr></thead><tbody id="item-list"></tbody></table></div>
       </section>
     </div>
@@ -98,7 +98,7 @@
         <h2>登記庫存異動</h2>
         <form id="transaction-form">
           <div class="field"><label for="transaction-item">品項</label><select id="transaction-item" required></select></div>
-          <div class="field"><label for="transaction-barcode">掃描／輸入條碼</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描後自動選取品項"><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div>
+          <div class="field"><label for="transaction-barcode">掃描／輸入 QR Code</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後自動選取品項"><button id="transaction-camera-scan" type="button" class="secondary">開啟相機掃描</button><button id="transaction-camera-stop" type="button" class="danger" hidden>停止相機</button><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div><div id="transaction-camera-scanner" class="camera-scanner" hidden><div id="transaction-camera-reader"></div></div>
           <div class="field"><label for="transaction-type">異動類型</label><select id="transaction-type" required><option value="in">進貨</option><option value="out">出庫／移出（銷售請至銷售管理）</option><option value="warranty_out">出保固（免費更換）</option><option value="adjust">盤點調整</option></select></div>
           <div id="transaction-warranty-fields" class="serial-box" hidden><div class="field"><label for="transaction-warranty">原保固紀錄</label><select id="transaction-warranty" disabled aria-describedby="transaction-warranty-summary"><option value="">請選擇原保固</option></select></div><p id="transaction-warranty-summary" aria-live="polite"></p><small>免費更換會扣除所選品項庫存，不算銷售；更換品沿用原到期日，故障品不自動入庫。</small></div>
           <div class="field"><label for="transaction-quantity">數量</label><input id="transaction-quantity" type="number" min="0" step="1" required></div>

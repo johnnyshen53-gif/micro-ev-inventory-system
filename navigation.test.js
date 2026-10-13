@@ -495,7 +495,7 @@ test('encodes and scans a unit QR as item identifier plus manufacturer serial nu
 
   assert.match(app, /function parseUnitQr\(value\)/);
   assert.match(app, /qr\.addData\(item\.serialNumber \? `\$\{item\.barcode\}\|\$\{item\.serialNumber\}` : item\.barcode\)/);
-  assert.match(app, /const scan = parseUnitQr\(event\.currentTarget\.value\)/);
+  assert.match(app, /function handleTransactionScan\(decodedText\)[\s\S]{0,120}const scan = parseUnitQr\(decodedText\)/);
   assert.match(app, /renderTransactionSerials\(\);\s+clearFormError\('transaction-form'\);\s+if \(scan\.serialNumber\) selectTransactionSerial\(scan\.serialNumber\)/);
   assert.match(app, /selectTransactionSerial\(scan\.serialNumber\)/);
   assert.match(app, /const scan = parseUnitQr\(\$\('sale-barcode'\)\.value\)/);
@@ -547,6 +547,21 @@ test('offers mobile camera QR scanning for sales', async () => {
   assert.match(app, /facingMode: 'environment'/);
   assert.match(app, /handleSaleScan\(decodedText\)/);
   assert.match(app, /sale-camera-stop'\)\?\.addEventListener\('click', stopSaleCameraScan/);
+});
+
+test('offers mobile camera QR scanning for inventory transactions and item search', async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL('./index.html', import.meta.url), 'utf8'),
+    readFile(new URL('./app.js', import.meta.url), 'utf8'),
+  ]);
+
+  for (const id of ['item-camera-scan', 'item-camera-stop', 'item-camera-scanner', 'transaction-camera-scan', 'transaction-camera-stop', 'transaction-camera-scanner']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(app, /function handleItemSearchScan\(decodedText\)/);
+  assert.match(app, /function handleTransactionScan\(decodedText\)/);
+  assert.match(app, /startCameraScan\('item', handleItemSearchScan/);
+  assert.match(app, /startCameraScan\('transaction', handleTransactionScan/);
+  assert.match(app, /handleItemSearchScan\(decodedText\)/);
+  assert.match(app, /handleTransactionScan\(decodedText\)/);
 });
 
 test('allows checkout after a scanned barcode field has been cleared', async () => {
