@@ -379,7 +379,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=15"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=1"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=28"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=29"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -522,6 +522,31 @@ test('adds scanned sale items directly to the cart', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
 
   assert.match(app, /sale-barcode'[\s\S]{0,700}addSaleLine/);
+});
+
+test('labels the sales scanner for QR Code while keeping the existing input field', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const saleForm = html.match(/<form id="sale-form">[\s\S]*?<\/form>/)?.[0] ?? '';
+
+  assert.match(saleForm, /<label for="sale-barcode">掃描／輸入 QR Code<\/label>/);
+  assert.match(saleForm, /id="sale-barcode"[^>]*placeholder="掃描 QR Code 後按 Enter"/);
+  assert.match(saleForm, /掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。/);
+});
+
+test('offers mobile camera QR scanning for sales', async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL('./index.html', import.meta.url), 'utf8'),
+    readFile(new URL('./app.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(html, /html5-qrcode@2\.3\.8\/html5-qrcode\.min\.js/);
+  assert.match(html, /id="sale-camera-scan"/);
+  assert.match(html, /id="sale-camera-stop"/);
+  assert.match(html, /id="sale-camera-scanner"/);
+  assert.match(app, /new Html5Qrcode\('sale-camera-reader'\)/);
+  assert.match(app, /facingMode: 'environment'/);
+  assert.match(app, /handleSaleScan\(decodedText\)/);
+  assert.match(app, /sale-camera-stop'\)\?\.addEventListener\('click', stopSaleCameraScan/);
 });
 
 test('allows checkout after a scanned barcode field has been cleared', async () => {
