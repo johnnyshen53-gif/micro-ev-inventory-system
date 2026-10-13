@@ -358,6 +358,13 @@ test('places sales management first in the main navigation', async () => {
   assert.match(nav, /^\s*<nav[^>]*>\s*<button[^>]*data-page-target="sales"/);
 });
 
+test('marks non-migrated modules unavailable before cloud multi-device use', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  for (const page of ['suppliers', 'purchases', 'warranties', 'quotations']) {
+    assert.match(html, new RegExp(`data-page-target="${page}"[^>]*data-cloud-disabled`));
+  }
+});
+
 test('serial category selector offers valid motorcycle and battery options', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const select = html.match(/<select id="serial-category">([\s\S]*?)<\/select>/)?.[1] ?? '';

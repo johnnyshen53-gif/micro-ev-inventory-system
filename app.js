@@ -59,6 +59,7 @@ function setAppEnabled(enabled) {
 setAppEnabled(false);
 
 function showPage(page) {
+  if (document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled !== undefined) page = 'list';
   if (page === 'manage' && !manageApproved) {
     openManageAuth();
     page = 'list';
@@ -77,7 +78,7 @@ function showPage(page) {
 
 function currentPage() {
   const page = location.hash.slice(1);
-  return document.querySelector(`.app-page[data-page="${page}"]`) ? page : 'list';
+  return document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled === undefined && document.querySelector(`.app-page[data-page="${page}"]`) ? page : 'list';
 }
 
 
