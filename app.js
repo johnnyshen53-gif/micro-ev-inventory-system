@@ -45,6 +45,8 @@ let pendingSave = null;
 let receiptPurchaseId = '';
 let receiptSerialNumbersByItem = {};
 let manageApproved = false;
+const mobileAllowedPages = new Set(['list', 'manage', 'monthly-sales']);
+function isMobileView() { return window.matchMedia?.('(max-width: 700px)')?.matches === true; }
 
 function setAppEnabled(enabled) {
   document.querySelectorAll('#app-shell button, #app-shell input, #app-shell select, #app-shell textarea').forEach((element) => { element.disabled = !enabled; });
@@ -58,6 +60,7 @@ function setAppEnabled(enabled) {
 setAppEnabled(false);
 
 function showPage(page) {
+  if (isMobileView() && !mobileAllowedPages.has(page)) page = 'list';
   if (document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled !== undefined) page = 'list';
   if (page === 'manage' && !manageApproved) {
     openManageAuth();
@@ -77,6 +80,7 @@ function showPage(page) {
 
 function currentPage() {
   const page = location.hash.slice(1);
+  if (isMobileView() && !mobileAllowedPages.has(page)) return 'list';
   return document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled === undefined && document.querySelector(`.app-page[data-page="${page}"]`) ? page : 'list';
 }
 

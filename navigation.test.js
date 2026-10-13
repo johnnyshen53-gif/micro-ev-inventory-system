@@ -358,6 +358,18 @@ test('places sales management first in the main navigation', async () => {
   assert.match(nav, /^\s*<nav[^>]*>\s*<button[^>]*data-page-target="sales"/);
 });
 
+test('limits mobile navigation to inventory list, management, and monthly sales', async () => {
+  const [html, app, css] = await Promise.all([
+    readFile(new URL('./index.html', import.meta.url), 'utf8'),
+    readFile(new URL('./app.js', import.meta.url), 'utf8'),
+    readFile(new URL('./style.css', import.meta.url), 'utf8'),
+  ]);
+  for (const page of ['list', 'manage', 'monthly-sales']) assert.match(html, new RegExp(`data-page-target="${page}"[^>]*data-mobile-page`));
+  assert.match(css, /\.page-tab:not\(\[data-mobile-page\]\) \{ display: none; \}/);
+  assert.match(app, /const mobileAllowedPages = new Set\(\['list', 'manage', 'monthly-sales'\]\)/);
+  assert.match(app, /isMobileView\(\) && !mobileAllowedPages\.has\(page\)/);
+});
+
 test('marks non-migrated modules unavailable before cloud multi-device use', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   for (const page of ['suppliers', 'purchases', 'warranties', 'quotations']) {
