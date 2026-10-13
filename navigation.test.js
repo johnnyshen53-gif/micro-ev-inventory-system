@@ -378,7 +378,8 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 
   assert.match(html, /<script src="inventory\.js\?v=15"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=26"><\/script>/);
+  assert.match(html, /<script src="cloud-data\.js\?v=1"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=27"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);

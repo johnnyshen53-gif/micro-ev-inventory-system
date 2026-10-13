@@ -13,7 +13,7 @@ await db.exec(`
   grant execute on function auth.uid(),auth.jwt() to authenticated;
 `);
 try {
-  for(const name of ['20261010000000_multiuser_inventory.sql','20261010000001_lock_down_function_permissions.sql','20261010000002_move_sale_privilege_to_private_schema.sql','20261010000003_add_parts_warranties.sql']) {
+  for(const name of ['20261010000000_multiuser_inventory.sql','20261010000001_lock_down_function_permissions.sql','20261010000002_move_sale_privilege_to_private_schema.sql','20261010000003_add_parts_warranties.sql','20261013050201_atomic_inventory_adjustment.sql']) {
     // PGlite has gen_random_uuid built in; pgcrypto itself is not packaged here.
     await db.exec((await readFile(new URL('../migrations/'+name,import.meta.url),'utf8')).replace('create extension if not exists pgcrypto;',''));
   }

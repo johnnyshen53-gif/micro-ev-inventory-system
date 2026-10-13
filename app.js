@@ -108,7 +108,7 @@ async function saveState(nextState) {
   const epoch = appSessionEpoch;
   setAppEnabled(false);
   try {
-    pendingSave = InventoryStorage.saveState(nextState);
+    pendingSave = window.AppData?.saveSnapshot ? window.AppData.saveSnapshot(state, nextState) : InventoryStorage.saveState(nextState);
     const validState = await pendingSave;
     if (epoch !== appSessionEpoch) return false;
     state = validState;
@@ -1376,17 +1376,18 @@ async function resetAppSession() {
 async function bootstrap(user, isCurrent = () => true) {
   try {
     currentUser = user;
-    const result = await InventoryStorage.loadState();
+    const result = window.AppData?.loadSnapshot ? await window.AppData.loadSnapshot() : await InventoryStorage.loadState();
     if (!isCurrent()) return;
     state = result.state;
     render();
     renderSaleCart();
     showPage(currentPage());
-    setAppEnabled(true);
+    setAppEnabled(!result.readonly);
     updateItemPrintButton();
     renderTransactionItems();
     resetWarrantyForm();
-    if (result.migrated) setStatus('已完成首次資料遷移；舊版資料已保留作為備援。');
+    if (result.readonly) setStatus('目前無法連線雲端，已開啟本機快取唯讀模式。', true, true);
+    else if (result.migrated) setStatus('已完成首次資料遷移；舊版資料已保留作為備援。');
     await window.StaffUI?.start(user, {
       getSalespeople: () => state.salespeople,
       link: async (personId, authUserId) => {

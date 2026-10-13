@@ -194,6 +194,18 @@ begin
   if v_count <> 1 or exists (select 1 from public.warranty_cases where id = v_case) then
     raise exception 'admin delete or case cascade failed';
   end if;
+  select stock into v_stock from public.items where id = v_item;
+  perform public.adjust_inventory(v_item, 'in', 2, 'SQL atomic adjustment test');
+  if (select stock from public.items where id = v_item) <> v_stock + 2
+    or not exists (select 1 from public.inventory_transactions where item_id = v_item and type = 'in' and quantity = 2 and note = 'SQL atomic adjustment test') then
+    raise exception 'atomic inventory adjustment did not persist';
+  end if;
+  begin
+    perform public.adjust_inventory(v_item, 'out', 999999, 'must fail');
+    raise exception 'insufficient adjustment accepted';
+  exception when raise_exception then
+    if sqlerrm = 'insufficient adjustment accepted' then raise; end if;
+  end;
   reset role;
 end $$;
 rollback;
