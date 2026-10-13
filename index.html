@@ -83,14 +83,14 @@
             <div class="field"><label for="item-capacity">容量（Ah，1～99 整數）</label><input id="item-capacity" type="number" min="1" max="99" step="1"></div>
           </div>
           <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
-          <div class="field"><label for="item-barcode">條碼（選填，13 碼數字可列印）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
+          <div class="field"><label for="item-barcode">品項識別碼（選填，13 碼數字可列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
           <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required></div></div>
           <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
           <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>機車、電池每件一個序號；初始庫存為 0 可留空。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
           <div class="field"><label for="item-notes">備註（選填）</label><textarea id="item-notes" rows="2"></textarea></div>
           <p id="item-form-error" class="form-error" role="alert" hidden></p>
-          <div class="form-actions"><button type="submit">儲存品項</button><button id="item-print-barcode" class="secondary" type="button" disabled>列印條碼</button><button id="item-cancel" class="secondary" type="button" hidden>取消編輯</button></div>
+          <div class="form-actions"><button type="submit">儲存品項</button><button id="item-print-qr" class="secondary" type="button" disabled>列印 QR Code</button><button id="item-cancel" class="secondary" type="button" hidden>取消編輯</button></div>
         </form>
       </article>
 
@@ -110,7 +110,7 @@
       </article>
       <article class="panel serial-panel"><h2>實物序號管理</h2><p>機車與電池每件一個原廠序號；舊庫存補登不增加數量。出貨前須補齊。</p><form id="serial-form">
         <div class="field"><label for="serial-category">分類</label><select id="serial-category"><option value="">全部分類</option><option value="機車">機車</option><option value="電池">電池</option></select></div>
-        <div class="field"><label for="serial-item">機車／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><div class="field"><label for="serial-search">搜尋原廠序號</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table><thead><tr><th>品項</th><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th></tr></thead><tbody id="serial-list"></tbody></table></div></article>
+        <div class="field"><label for="serial-item">機車／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><div class="field"><label for="serial-search">搜尋原廠序號</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table><thead><tr><th>品項</th><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th><th>操作</th></tr></thead><tbody id="serial-list"></tbody></table></div></article>
     </section>
     <section class="app-page grid forms" data-page="suppliers" aria-label="供應商管理" data-role="admin" hidden>
       <article class="panel">
@@ -218,7 +218,7 @@
       </article>
     </section>
     <section class="app-page" data-page="monthly-sales" aria-label="月銷售" hidden><div class="section-heading"><h2>月銷售清單</h2><input id="monthly-sales-month" type="month"></div><div class="cards"><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售總額</span><strong id="monthly-sales-total">0</strong></article></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th><th id="monthly-salesperson-heading" hidden>業務員</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div></section>
-    <section id="barcode-label" class="print-document barcode-label" hidden><div id="barcode-label-content"></div></section>
+    <section id="qr-label" class="print-document barcode-label" hidden><div id="qr-label-content"></div></section>
     <dialog id="manage-auth-dialog" aria-labelledby="manage-auth-title">
       <form id="manage-auth-form">
         <h2 id="manage-auth-title">進入庫存管理</h2>
@@ -239,6 +239,7 @@
   <script src="inventory.js?v=15"></script>
   <script src="storage.js?v=1"></script>
   <script src="cloud-data.js?v=1"></script>
-  <script src="app.js?v=27"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
+  <script src="app.js?v=28"></script>
 </body>
 </html>

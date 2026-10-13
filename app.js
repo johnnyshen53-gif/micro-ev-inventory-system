@@ -15,7 +15,6 @@ const {
   deleteItem,
   deleteWarranty,
   deleteWarrantyCase,
-  code128Modules,
   emptyState,
   inventoryCost,
   recordSale,
@@ -202,9 +201,9 @@ function renderItems() {
     if (/^\d{13}$/.test(item.barcode)) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = '列印條碼';
+      button.textContent = '列印 QR Code';
       button.className = 'secondary';
-      button.dataset.action = 'print-barcode';
+      button.dataset.action = 'print-qr';
       button.dataset.id = item.id;
       actions.append(button);
     }
@@ -287,7 +286,7 @@ function resetItemForm() {
 }
 
 function updateItemPrintButton() {
-  const button = $('item-print-barcode');
+  const button = $('item-print-qr');
   if (button) button.disabled = !$('item-name').value.trim() || !/^\d{13}$/.test($('item-barcode').value.trim());
 }
 
@@ -332,6 +331,11 @@ function updateBatteryFields() {
   $('item-stock').readOnly = Boolean($('item-id').value) && requiresSerial(state.items.find(item => item.id === $('item-id').value));
 }
 $('item-category').addEventListener('change', updateBatteryFields);
+function parseUnitQr(value) {
+  const raw = String(value || '').trim();
+  const [barcode, serialNumber, extra] = raw.split('|');
+  return barcode && serialNumber && !extra && /^\d{13}$/.test(barcode) ? { barcode, serialNumber: serialNumber.trim() } : { barcode: raw, serialNumber: '' };
+}
 $('item-search')?.addEventListener('input', renderItems);
 $('item-search')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
@@ -344,26 +348,43 @@ $('item-search')?.addEventListener('keydown', (event) => {
 });
 $('item-name')?.addEventListener('input', updateItemPrintButton);
 $('item-barcode')?.addEventListener('input', updateItemPrintButton);
-$('item-print-barcode')?.addEventListener('click', () => showBarcodeLabel({ name: $('item-name').value.trim(), sku: $('item-sku').value.trim(), barcode: $('item-barcode').value.trim() }));
+$('item-print-qr')?.addEventListener('click', () => showQrLabel({ name: $('item-name').value.trim(), sku: $('item-sku').value.trim(), barcode: $('item-barcode').value.trim() }));
 
 $('transaction-barcode')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   event.preventDefault();
-  const barcode = event.currentTarget.value.trim();
-  const item = state.items.find((candidate) => candidate.barcode === barcode);
+  const scan = parseUnitQr(event.currentTarget.value);
+  const item = state.items.find((candidate) => candidate.barcode === scan.barcode);
   if (!item) {
     $('transaction-scan-result').hidden = true;
-    showFormError('transaction-form', barcode ? '找不到此條碼的品項。' : '請先掃描或輸入條碼。');
+    showFormError('transaction-form', scan.barcode ? '找不到此條碼的品項。' : '請先掃描或輸入條碼。');
     return;
   }
   $('transaction-item').value = item.id;
   renderTransactionSerials();
+  clearFormError('transaction-form');
+  if (scan.serialNumber) selectTransactionSerial(scan.serialNumber);
   event.currentTarget.value = '';
   showScannedItem(item);
-  clearFormError('transaction-form');
+  if (!$('transaction-form-error').hidden) return;
   $('transaction-quantity').focus();
   setStatus(`已選取：${item.name}。請輸入數量。`);
 });
+
+function selectTransactionSerial(serialNumber) {
+  const type = $('transaction-type').value;
+  if (type === 'in') {
+    const input = $('transaction-serial-numbers');
+    const serials = serialNumbersFromInput(input.value);
+    if (!serials.includes(serialNumber)) input.value = [...serials, serialNumber].join('\n');
+    return;
+  }
+  const select = $('transaction-serial-ids');
+  const serial = state.serials.find((entry) => entry.itemId === $('transaction-item').value && entry.serialNumber === serialNumber && entry.status === 'in_stock');
+  const option = Array.from(select.options).find((entry) => entry.value === serial?.id);
+  if (!option) return showFormError('transaction-form', '找不到此品項可移出的在庫原廠序號。');
+  option.selected = true;
+}
 
 function showScannedItem(item) {
   const result = $('transaction-scan-result');
@@ -440,9 +461,9 @@ if ($('item-list')) $('item-list').addEventListener('click', async (event) => {
   if (!button) return;
   const item = state.items.find((candidate) => candidate.id === button.dataset.id);
   if (!item) return;
-  if (button.dataset.action !== 'print-barcode' && document.body.dataset.role !== 'admin') return;
+  if (button.dataset.action !== 'print-qr' && document.body.dataset.role !== 'admin') return;
   if (button.dataset.action === 'edit') startEditing(item);
-  if (button.dataset.action === 'print-barcode') showBarcodeLabel(item);
+  if (button.dataset.action === 'print-qr') showQrLabel(item);
   if (button.dataset.action === 'delete' && confirm(`確定刪除「${item.name}」及其全部異動紀錄？`)) {
     try {
       if (!await saveState(deleteItem(state, item.id))) return;
@@ -454,32 +475,27 @@ if ($('item-list')) $('item-list').addEventListener('click', async (event) => {
   }
 });
 
-function showBarcodeLabel(item) {
-  const label = $('barcode-label');
-  const content = $('barcode-label-content');
-  const modules = code128Modules(item.barcode);
+function showQrLabel(item) {
+  const label = $('qr-label');
+  const content = $('qr-label-content');
+  if (!window.qrcode) throw new Error('QR Code 元件尚未載入，請確認網路後重試。');
   content.replaceChildren();
   const name = document.createElement('strong');
   name.textContent = item.name;
   const sku = document.createElement('span');
   sku.textContent = item.sku ? `料號：${item.sku}` : '';
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${modules.length} 64`);
-  svg.setAttribute('shape-rendering', 'crispEdges');
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', `Code 128 條碼 ${item.barcode}`);
-  [...modules].forEach((module, index) => {
-    if (module === '0') return;
-    const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bar.setAttribute('x', String(index));
-    bar.setAttribute('width', '1');
-    bar.setAttribute('height', '55');
-    svg.append(bar);
-  });
+  const serial = document.createElement('span');
+  serial.textContent = `原廠序號：${item.serialNumber || '未指定'}`;
+  const qr = window.qrcode(0, 'M');
+  qr.addData(item.serialNumber ? `${item.barcode}|${item.serialNumber}` : item.barcode);
+  qr.make();
+  const svg = document.createElement('div');
+  svg.className = 'qr-code';
+  svg.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0 });
   const number = document.createElement('span');
   number.className = 'barcode-number';
   number.textContent = item.barcode;
-  content.append(name, sku, svg, number);
+  content.append(name, sku, serial, svg, number);
   label.hidden = false;
   document.body.classList.add('printing-barcode');
   window.print();
@@ -487,7 +503,7 @@ function showBarcodeLabel(item) {
 
 window.addEventListener('afterprint', () => {
   document.body.classList.remove('printing-barcode');
-  $('barcode-label').hidden = true;
+  $('qr-label').hidden = true;
 });
 
 if ($('transaction-form')) $('transaction-form').addEventListener('submit', async (event) => {
@@ -576,6 +592,11 @@ function renderSerialInventory() {
     const row = document.createElement('tr');
     const product = state.items.find(item => item.id === serial.itemId), customer = state.customers.find(c => c.id === serial.customerId);
     [product.name, serial.serialNumber, { in_stock: '在庫', sold: '已售', removed: '已移出', warranty_out: '已出保固' }[serial.status], customer?.name || '—', serial.soldAt ? new Date(serial.soldAt).toLocaleDateString('zh-TW') : serial.status === 'warranty_out' ? new Date(serial.removedAt).toLocaleDateString('zh-TW') : '—'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    const actions = document.createElement('td');
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'secondary'; button.textContent = '列印 QR Code';
+    button.dataset.action = 'print-serial-qr'; button.dataset.id = serial.id;
+    actions.append(button); row.append(actions);
     list.append(row);
   });
   if (!list.children.length) appendEmpty(list, '沒有符合條件的序號紀錄。');
@@ -617,6 +638,13 @@ $('serial-form')?.addEventListener('submit', async event => {
 $('serial-item')?.addEventListener('change', () => { $('serial-numbers').value = ''; renderSerialInventory(); });
 $('serial-category')?.addEventListener('change', () => { $('serial-item').value = ''; $('serial-numbers').value = ''; clearFormError('serial-form'); renderSerialInventory(); });
 $('serial-search')?.addEventListener('input', renderSerialInventory);
+$('serial-list')?.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action="print-serial-qr"]');
+  if (!button) return;
+  const serial = state.serials.find(entry => entry.id === button.dataset.id);
+  const item = state.items.find(entry => entry.id === serial?.itemId);
+  if (serial && item) showQrLabel({ ...item, serialNumber: serial.serialNumber });
+});
 for (const id of ['item-serial-numbers', 'serial-numbers', 'transaction-serial-numbers']) $(id)?.addEventListener('keydown', keepSerialEnterInField);
 $('transaction-item')?.addEventListener('change', () => { $('transaction-serial-numbers').value = ''; renderTransactionSerials(); });
 $('transaction-type')?.addEventListener('change', () => { $('transaction-serial-numbers').value = ''; $('transaction-serial-ids').value = ''; renderTransactionSerials(); renderTransactionWarranty(); });
@@ -1312,8 +1340,16 @@ function renderSaleCart() {
   });
   $('sale-cart-total').textContent = formatNumber(saleCart.reduce((sum, line) => sum + line.subtotal, 0));
 }
-function addSaleLine() { const barcode = $('sale-barcode').value.trim(); const item = barcode && state.items.find(candidate => candidate.barcode === barcode); if (requiresSerial(item)) return beginSaleSerialSelection(item, Number($('sale-quantity').value)); if (!addSaleItem(item, Number($('sale-quantity').value))) return; $('sale-barcode').value = ''; $('sale-quantity').value = '1'; $('sale-item-info').hidden = true; $('sale-barcode').focus(); }
-$('sale-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); const item = state.items.find((candidate) => candidate.barcode === event.currentTarget.value.trim()); if (!item) return showFormError('sale-form', '找不到此條碼的品項。'); addSaleLine(); });
+function selectSaleSerial(serialNumber) {
+  const select = $('sale-serial-ids');
+  const serial = state.serials.find((entry) => entry.itemId === saleSerialItemId && entry.serialNumber === serialNumber && entry.status === 'in_stock');
+  const option = Array.from(select.options).find((entry) => entry.value === serial?.id);
+  if (!option || option.selected) return showFormError('sale-form', '找不到可選序號，或序號已被選取／加入購物車。');
+  option.selected = true;
+  renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId));
+}
+function addSaleLine() { const scan = parseUnitQr($('sale-barcode').value); const item = scan.barcode && state.items.find(candidate => candidate.barcode === scan.barcode); if (requiresSerial(item)) { beginSaleSerialSelection(item, Number($('sale-quantity').value)); if (scan.serialNumber) selectSaleSerial(scan.serialNumber); return; } if (!addSaleItem(item, Number($('sale-quantity').value))) return; $('sale-barcode').value = ''; $('sale-quantity').value = '1'; $('sale-item-info').hidden = true; $('sale-barcode').focus(); }
+$('sale-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); const scan = parseUnitQr(event.currentTarget.value); const item = state.items.find((candidate) => candidate.barcode === scan.barcode); if (!item) return showFormError('sale-form', '找不到此條碼的品項。'); addSaleLine(); });
 $('sale-add')?.addEventListener('click', addSaleLine);
 $('sale-category')?.addEventListener('change', () => { $('sale-item').value = ''; $('sale-pick-quantity').value = '1'; renderSalePicker(); });
 $('sale-item')?.addEventListener('change', renderSalePicker);

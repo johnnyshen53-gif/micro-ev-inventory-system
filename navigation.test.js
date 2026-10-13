@@ -379,7 +379,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=15"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=1"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=27"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=28"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -468,19 +468,38 @@ test('exports timestamped backups and safeguards data before import', async () =
   assert.match(app, /downloadBackup\(state, 'motorcycle-inventory-before-import'\)/);
 });
 
-test('provides a print-only EAN-13 label for items with barcodes', async () => {
+test('provides a print-only QR label that encodes the existing item identifier', async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL('./index.html', import.meta.url), 'utf8'),
     readFile(new URL('./app.js', import.meta.url), 'utf8'),
     readFile(new URL('./style.css', import.meta.url), 'utf8'),
   ]);
-  assert.match(html, /id="barcode-label"/);
-  assert.match(html, /id="item-print-barcode"/);
-  assert.match(html, /13 碼數字.*列印/);
-  assert.match(app, /code128Modules/);
-  assert.match(app, /dataset\.action = 'print-barcode'/);
-  assert.match(app, /item-print-barcode/);
+  assert.match(html, /qrcode-generator@2\.0\.4\/dist\/qrcode\.js/);
+  assert.match(html, /id="qr-label"/);
+  assert.match(html, /id="item-print-qr"/);
+  assert.match(html, /13 碼數字.*QR Code/);
+  assert.match(app, /qrcode\(0, 'M'\)/);
+  assert.match(app, /dataset\.action = 'print-qr'/);
+  assert.match(app, /item-print-qr/);
+  assert.match(html, /<th>操作<\/th><\/tr><\/thead><tbody id="serial-list"/);
+  assert.match(app, /dataset\.action = 'print-serial-qr'/);
+  assert.match(app, /原廠序號：\$\{item\.serialNumber \|\| '未指定'\}/);
+  assert.match(app, /showQrLabel\(\{ \.\.\.item, serialNumber: serial\.serialNumber \}\)/);
   assert.match(css, /printing-barcode/);
+  assert.match(css, /body\.printing-barcode #qr-label/);
+  assert.match(css, /\.qr-code \{ display: flex; justify-content: center; \}/);
+});
+
+test('encodes and scans a unit QR as item identifier plus manufacturer serial number', async () => {
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+
+  assert.match(app, /function parseUnitQr\(value\)/);
+  assert.match(app, /qr\.addData\(item\.serialNumber \? `\$\{item\.barcode\}\|\$\{item\.serialNumber\}` : item\.barcode\)/);
+  assert.match(app, /const scan = parseUnitQr\(event\.currentTarget\.value\)/);
+  assert.match(app, /renderTransactionSerials\(\);\s+clearFormError\('transaction-form'\);\s+if \(scan\.serialNumber\) selectTransactionSerial\(scan\.serialNumber\)/);
+  assert.match(app, /selectTransactionSerial\(scan\.serialNumber\)/);
+  assert.match(app, /const scan = parseUnitQr\(\$\('sale-barcode'\)\.value\)/);
+  assert.match(app, /selectSaleSerial\(scan\.serialNumber\)/);
 });
 
 test('shows product details after a barcode scan', async () => {
