@@ -1,5 +1,28 @@
 # Supabase 多人版初始化
 
+## 2026-10-13 Free 多機驗證目標
+
+正式驗證目標為 `kruflsixtejmhaucjikc`（Supabase Free、`ap-south-1`），瀏覽器設定必須使用它的 URL 與啟用中的 publishable key；不得使用舊專案 `uezwoxoikfeapkrekqzg` 的設定。
+
+此專案在 2026-10-13 已依序套用下列庫存系統 migrations：
+
+1. `20261013015844` `multiuser_inventory`
+2. `20261013015858` `lock_down_function_permissions`
+3. `20261013015901` `move_sale_privilege_to_private_schema`
+4. `20261013015904` `add_parts_warranties`
+5. `20261013015910` `username_login`
+
+它原有的 `member_*` 與 `inventory_*` 資料表不是此系統的一部分；庫存系統只使用 `profiles`、`items`、`inventory_transactions`、`customers`、`sales`、`cloud_backups`、保固與其相關資料表。不得刪除或改名原有資料表。
+
+本機 SQL 安全基準可用暫存 PGlite 驗證：
+
+```sh
+PGLITE_MODULE=/temporary/node_modules/@electric-sql/pglite/dist/index.js \
+  node supabase/tests/run-username-local.mjs supabase/migrations/20261010125025_username_login.sql
+```
+
+Security advisor 對 `app_private` 四張僅 service-role 存取的表顯示「RLS enabled no policy」是 deny-by-default 的預期結果；`current_staff_session_valid()` 的 SECURITY DEFINER 警告是已驗證登入者只能查自己 session 的既有設計。`auth_leaked_password_protection` 尚未啟用，需由管理員在 Auth 設定另行決定，不能由前端或 migration 自行開啟。
+
 1. 已套用 `20261010000000_multiuser_inventory.sql`；所有公開資料表均啟用 RLS。
 2. 在 Supabase Dashboard 的 **Authentication → Users** 建立 `johnnyshen53@gmail.com`，以正常的邀請或重設密碼流程設定密碼。不要將密碼交給任何人或寫入專案。
 3. 帳號建立後，以專案管理工具將此使用者的 `profiles.role` 提升為 `admin`，再登入網頁。

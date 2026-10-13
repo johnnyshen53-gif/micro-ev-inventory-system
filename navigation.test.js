@@ -358,6 +358,13 @@ test('places sales management first in the main navigation', async () => {
   assert.match(nav, /^\s*<nav[^>]*>\s*<button[^>]*data-page-target="sales"/);
 });
 
+test('marks non-migrated modules unavailable before cloud multi-device use', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  for (const page of ['suppliers', 'purchases', 'warranties', 'quotations']) {
+    assert.match(html, new RegExp(`data-page-target="${page}"[^>]*data-cloud-disabled`));
+  }
+});
+
 test('serial category selector offers valid motorcycle and battery options', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const select = html.match(/<select id="serial-category">([\s\S]*?)<\/select>/)?.[1] ?? '';
@@ -371,7 +378,8 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
 
   assert.match(html, /<script src="inventory\.js\?v=15"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=26"><\/script>/);
+  assert.match(html, /<script src="cloud-data\.js\?v=1"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=27"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
