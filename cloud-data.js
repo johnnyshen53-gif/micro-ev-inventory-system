@@ -50,7 +50,7 @@
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const rows = (state, key) => state[key] ?? [];
   const byId = values => new Map(values.map(value => [value.id, value]));
-  const itemRow = item => ({ id: item.id, name: item.name, category: item.category, sku: item.sku, barcode: item.barcode, price: item.price, stock: item.stock, minimum_stock: item.minimumStock, warranty_months: item.warrantyMonths ?? 0, notes: item.notes });
+  const itemRow = item => ({ id: item.id, name: item.name, category: item.category, sku: item.sku, barcode: item.barcode, price: item.price, ...(item.stock === undefined ? {} : { stock: item.stock }), minimum_stock: item.minimumStock, warranty_months: item.warrantyMonths ?? 0, notes: item.notes });
   const customerRow = customer => ({ id: customer.id, member_number: customer.memberNumber, name: customer.name, phone: customer.phone, address: customer.address, note: customer.note, active: customer.active });
   async function mutate(client, table, method, value) {
     const request = client.from(table)[method](value);
@@ -73,7 +73,11 @@
     }
     const changedStock = new Set([...saleItemIds, ...addedTransactions.map(value => value.itemId)]);
     const originalItems = byId(rows(previous, 'items'));
-    const desiredItems = rows(next, 'items').map(value => changedStock.has(value.id) && originalItems.has(value.id) ? { ...value, stock: originalItems.get(value.id).stock } : value);
+    const desiredItems = rows(next, 'items').map(value => {
+      if (!changedStock.has(value.id) || !originalItems.has(value.id)) return value;
+      const { stock, ...itemWithoutStock } = value;
+      return itemWithoutStock;
+    });
     await mutate(client, 'items', 'upsert', desiredItems.map(itemRow));
     await mutate(client, 'item_costs', 'upsert', desiredItems.map(value => ({ item_id: value.id, cost: value.cost })));
     await mutate(client, 'customers', 'upsert', rows(next, 'customers').map(customerRow));
