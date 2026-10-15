@@ -109,20 +109,34 @@
     }
     const changedStock = new Set([...saleItemIds, ...addedTransactions.map(value => value.itemId), ...receivedItemIds]);
     const originalItems = byId(rows(previous, 'items'));
+    const oldSerialIds = new Set(rows(previous, 'serials').map(serial => serial.id));
+    const addedSerials = rows(next, 'serials').filter(serial => !oldSerialIds.has(serial.id) && !serial.purchaseId);
+    const newSerializedItems = rows(next, 'items').filter(item => !originalItems.has(item.id) && addedSerials.some(serial => serial.itemId === item.id));
+    const newSerializedItemIds = new Set(newSerializedItems.map(item => item.id));
+    for (const item of newSerializedItems) {
+      const serials = addedSerials.filter(serial => serial.itemId === item.id).map(serial => ({ id: serial.id, serialNumber: serial.serialNumber }));
+      const { error } = await client.rpc('create_serialized_item', { p_item: itemRow(item), p_cost: item.cost, p_serials: serials });
+      if (error) throw error;
+    }
     const desiredItems = rows(next, 'items').map(value => {
       if (!changedStock.has(value.id) || !originalItems.has(value.id)) return value;
       const { stock, ...itemWithoutStock } = value;
       return itemWithoutStock;
     }).filter(value => {
-      if (receivedItemIds.has(value.id)) return false;
+      if (receivedItemIds.has(value.id) || newSerializedItemIds.has(value.id)) return false;
       const original = originalItems.get(value.id);
       if (!original) return true;
       const { stock, ...withoutStock } = original;
       return !same(value, value.stock === undefined ? withoutStock : original);
     });
     if (desiredItems.length) await mutate(client, 'items', 'upsert', desiredItems.map(itemRow));
-    const changedCosts = rows(next, 'items').filter(value => !receivedItemIds.has(value.id) && (!originalItems.has(value.id) || originalItems.get(value.id).cost !== value.cost));
+    const changedCosts = rows(next, 'items').filter(value => !receivedItemIds.has(value.id) && !newSerializedItemIds.has(value.id) && (!originalItems.has(value.id) || originalItems.get(value.id).cost !== value.cost));
     if (changedCosts.length) await mutate(client, 'item_costs', 'upsert', changedCosts.map(value => ({ item_id: value.id, cost: value.cost })));
+    for (const itemId of new Set(addedSerials.filter(serial => !newSerializedItemIds.has(serial.itemId)).map(serial => serial.itemId))) {
+      const serials = addedSerials.filter(serial => serial.itemId === itemId).map(serial => ({ id: serial.id, serialNumber: serial.serialNumber }));
+      const { error } = await client.rpc('register_inventory_serials', { p_item_id: itemId, p_serials: serials });
+      if (error) throw error;
+    }
     const oldCustomers = byId(rows(previous, 'customers'));
     const changedCustomers = rows(next, 'customers').filter(value => !same(oldCustomers.get(value.id), value));
     if (changedCustomers.length) await mutate(client, 'customers', 'upsert', changedCustomers.map(customerRow));
@@ -132,7 +146,6 @@
       const { error } = await client.rpc('save_quotation', { p_quotation: quotation, p_lines: quotation.lines });
       if (error) throw error;
     }
-    const oldSerialIds = new Set(rows(previous, 'serials').map(serial => serial.id));
     for (const purchase of rows(next, 'purchases')) {
       const old = oldPurchases.get(purchase.id);
       if (!old || (old.status === 'draft' && purchase.status === 'draft' && !same(old, purchase))) {
@@ -180,7 +193,11 @@
       const { error } = await client.rpc('delete_warranty', { p_warranty_id: warranty.id });
       if (error) throw error;
     }
-    return loadSnapshot();
+    const result = await loadSnapshot();
+    if (result.readonly || addedSerials.some(serial => !result.state.serials?.some(saved => saved.id === serial.id && saved.itemId === serial.itemId && saved.serialNumber === serial.serialNumber))) {
+      throw new Error('序號未在雲端確認，請重新整理核對後再操作。');
+    }
+    return result;
   }
 
   async function saveSnapshot(previous, next) {

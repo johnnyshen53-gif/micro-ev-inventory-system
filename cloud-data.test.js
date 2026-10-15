@@ -238,6 +238,36 @@ test('purchase receipt uses one RPC and never replays its stock transaction', as
   assert.equal(calls.some(call => call.table === 'item_costs'), false);
 });
 
+test('new serialized item uses one cloud write for item, cost, and initial serials', async () => {
+  const calls = [];
+  const item = { id: 'item-new', name: '機車', category: '機車', sku: '11001', barcode: '11001', stock: 1, cost: 10, price: 20, minimumStock: 0 };
+  const serial = { id: 'serial-new', itemId: item.id, serialNumber: 'FACTORY-1', status: 'in_stock' };
+  const old = { items: [], serials: [] };
+  const next = { ...old, items: [item], serials: [serial] };
+  const appData = await loadCloudData({
+    client: { rpc: async (name, args) => { calls.push({ name, args }); return { error: null }; }, from: table => ({ upsert: async () => { calls.push({ table }); return { error: null }; }, select: async () => ({ data: [], error: null }) }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await assert.rejects(() => appData.saveSnapshot(old, next), /序號.*雲端/);
+  assert.equal(calls.filter(call => call.name === 'create_serialized_item').length, 1);
+  assert.equal(calls.some(call => call.table === 'items' || call.table === 'item_costs'), false);
+});
+
+test('existing serial registration reaches cloud and missing persistence is not reported as success', async () => {
+  const calls = [];
+  const item = { id: 'item-1', category: '電池', stock: 1, cost: 5 };
+  const old = { items: [item], serials: [] };
+  const next = { ...old, serials: [{ id: 'serial-1', itemId: item.id, serialNumber: 'FACTORY-2', status: 'in_stock' }] };
+  const appData = await loadCloudData({
+    client: { rpc: async (name, args) => { calls.push({ name, args }); return { error: null }; }, from: () => ({ select: async () => ({ data: [], error: null }) }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await assert.rejects(() => appData.saveSnapshot(old, next), /序號.*雲端/);
+  assert.equal(calls.filter(call => call.name === 'register_inventory_serials').length, 1);
+});
+
 test('cloud reload retains sold serial, warranty, and repair case relationships', async () => {
   const now = '2026-10-15T00:00:00Z';
   const tables = {
