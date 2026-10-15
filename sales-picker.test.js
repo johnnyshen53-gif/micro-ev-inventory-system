@@ -15,6 +15,7 @@ function fixture() {
   context.requiresSerial = inventoryContext.window.Inventory.requiresSerial;
   context.state.serials = [];
   context.saleSerialItemId = ''; context.saleSerialQuantity = 1;
+  vm.runInContext(app.slice(app.indexOf('function parseUnitQr('), app.indexOf("$('item-search')?.addEventListener('input', renderItems);")), context);
   vm.runInContext(app.slice(app.indexOf('function renderSalePicker()'), app.indexOf("if ($('sale-form'))")), context);
   return context;
 }

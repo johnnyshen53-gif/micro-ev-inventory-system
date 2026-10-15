@@ -37,6 +37,14 @@ test('cart can select distinct products without barcodes and mix scanning', () =
   assert.equal(state.items[2].stock, 2);
 });
 
+test('customer association survives a sale without an automatic warranty', () => {
+  let state = addItem(emptyState(), { ...item, warrantyMonths: 0 });
+  state = addCustomer(state, { name: '王小明', phone: '0912' });
+  const sold = recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1 }] });
+  assert.equal(sold.sales[0].customerId, state.customers[0].id);
+  assert.equal(sold.warranties.length, 0);
+});
+
 test('salespeople preserve optional login links and reject duplicate linked identities',()=>{
   const I=context.window.Inventory;
   let state=I.addSalesperson(I.emptyState(),{name:'業務一',authUserId:'staff-id'});

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -25,12 +25,14 @@
       <div>
         <p class="eyebrow">SECURE LOCAL INVENTORY</p>
         <h1>微型機車店庫存</h1>
-        <p>帳號登入需要網路；營運資料只存於目前瀏覽器，請定期匯出備份。</p>
+        <p>營運資料以雲端為主，本機保留唯讀快取；請定期匯出備份。</p>
       </div>
       <div class="backup-actions" aria-label="資料備份" data-role="admin">
         <button id="export-button" type="button">匯出備份</button>
         <label class="button secondary" for="import-file">匯入備份</label>
         <input id="import-file" type="file" accept="application/json" hidden>
+        <label class="button secondary desktop-only" for="migration-file">首次資料移轉</label>
+        <input id="migration-file" type="file" accept="application/json" hidden>
       </div>
     </header>
 
@@ -238,11 +240,11 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=4"></script>
   <script src="staff-ui.js?v=1"></script>
-  <script src="inventory.js?v=15"></script>
+  <script src="inventory.js?v=16"></script>
   <script src="storage.js?v=1"></script>
-  <script src="cloud-data.js?v=1"></script>
+  <script src="cloud-data.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>
