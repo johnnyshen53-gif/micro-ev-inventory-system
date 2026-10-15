@@ -455,7 +455,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=3"><\/script>/, 'cloud persistence fix must use a new asset URL to bypass cached v=2');
+  assert.match(html, /<script src="cloud-data\.js\?v=4"><\/script>/, 'customer persistence fix must use a new asset URL to bypass cached v=3');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);

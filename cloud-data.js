@@ -80,7 +80,7 @@
     const { error } = await request;
     if (error) throw error;
   }
-  async function replaceCore(previous, next) {
+  async function replaceCore(previous, next, actorId) {
     const client = window.AppAuth.client;
     const oldPurchases = byId(rows(previous, 'purchases'));
     const receivedPurchases = rows(next, 'purchases').filter(purchase => purchase.status === 'received' && oldPurchases.get(purchase.id)?.status === 'draft');
@@ -139,7 +139,10 @@
     }
     const oldCustomers = byId(rows(previous, 'customers'));
     const changedCustomers = rows(next, 'customers').filter(value => !same(oldCustomers.get(value.id), value));
-    if (changedCustomers.length) await mutate(client, 'customers', 'upsert', changedCustomers.map(customerRow));
+    const addedCustomers = changedCustomers.filter(value => !oldCustomers.has(value.id));
+    const updatedCustomers = changedCustomers.filter(value => oldCustomers.has(value.id));
+    if (addedCustomers.length) await mutate(client, 'customers', 'insert', addedCustomers.map(value => ({ ...customerRow(value), created_by: actorId })));
+    if (updatedCustomers.length) await mutate(client, 'customers', 'upsert', updatedCustomers.map(customerRow));
     const oldQuotations = byId(rows(previous, 'quotations'));
     for (const quotation of rows(next, 'quotations')) {
       if (same(oldQuotations.get(quotation.id), quotation)) continue;
@@ -201,8 +204,8 @@
   }
 
   async function saveSnapshot(previous, next) {
-    await window.AppAuth.requireActiveUser();
-    const result = await replaceCore(previous, next);
+    const user = await window.AppAuth.requireActiveUser();
+    const result = await replaceCore(previous, next, user.id);
     if (result.readonly) throw result.error || new Error('雲端連線中斷');
     return result.state;
   }

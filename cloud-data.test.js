@@ -156,6 +156,31 @@ test('cloud inventory adjustment does not upsert the stale stock value after the
   }
 });
 
+test('new customers include the signed-in creator without changing existing customer ownership', async () => {
+  const calls = [];
+  const oldCustomer = { id: 'customer-1', memberNumber: 'M000001', name: '舊客戶', phone: '', address: '', note: '', active: true };
+  const newCustomer = { id: 'customer-2', memberNumber: 'M000002', name: '新客戶', phone: '', address: '', note: '', active: true };
+  const old = { items: [], transactions: [], customers: [oldCustomer], salespeople: [], sales: [] };
+  const appData = await loadCloudData({
+    client: {
+      from: table => ({
+        insert: async value => { calls.push({ table, method: 'insert', value }); return { error: null }; },
+        upsert: async value => { calls.push({ table, method: 'upsert', value }); return { error: null }; },
+        select: async () => ({ data: [], error: null }),
+      }),
+    },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+
+  await appData.saveSnapshot(old, { ...old, customers: [{ ...oldCustomer, name: '已更新' }, newCustomer] });
+
+  const customerCalls = calls.filter(call => call.table === 'customers');
+  assert.equal(customerCalls.length, 2);
+  assert.equal(customerCalls.find(call => call.method === 'insert')?.value[0].created_by, 'admin');
+  assert.equal('created_by' in customerCalls.find(call => call.method === 'upsert')?.value[0], false);
+});
+
 test('cloud reload retains supplier and quotation details', async () => {
   const now = '2026-10-15T00:00:00Z';
   const tables = {
