@@ -358,16 +358,18 @@ test('places sales management first in the main navigation', async () => {
   assert.match(nav, /^\s*<nav[^>]*>\s*<button[^>]*data-page-target="sales"/);
 });
 
-test('limits mobile navigation to inventory list, management, and monthly sales', async () => {
+test('limits mobile navigation to monthly sales only', async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL('./index.html', import.meta.url), 'utf8'),
     readFile(new URL('./app.js', import.meta.url), 'utf8'),
     readFile(new URL('./style.css', import.meta.url), 'utf8'),
   ]);
-  for (const page of ['list', 'manage', 'monthly-sales']) assert.match(html, new RegExp(`data-page-target="${page}"[^>]*data-mobile-page`));
+  assert.match(html, /data-page-target="monthly-sales"[^>]*data-mobile-page/);
+  for (const page of ['list', 'manage']) assert.doesNotMatch(html, new RegExp(`data-page-target="${page}"[^>]*data-mobile-page`));
   assert.match(css, /\.page-tab:not\(\[data-mobile-page\]\) \{ display: none; \}/);
-  assert.match(app, /const mobileAllowedPages = new Set\(\['list', 'manage', 'monthly-sales'\]\)/);
+  assert.match(app, /const mobileAllowedPages = new Set\(\['monthly-sales'\]\)/);
   assert.match(app, /isMobileView\(\) && !mobileAllowedPages\.has\(page\)/);
+  assert.match(app, /page = 'monthly-sales'/);
 });
 
 test('marks non-migrated modules unavailable before cloud multi-device use', async () => {

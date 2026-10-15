@@ -45,7 +45,7 @@ let pendingSave = null;
 let receiptPurchaseId = '';
 let receiptSerialNumbersByItem = {};
 let manageApproved = false;
-const mobileAllowedPages = new Set(['list', 'manage', 'monthly-sales']);
+const mobileAllowedPages = new Set(['monthly-sales']);
 function isMobileView() { return window.matchMedia?.('(max-width: 700px)')?.matches === true; }
 
 function setAppEnabled(enabled) {
@@ -60,7 +60,7 @@ function setAppEnabled(enabled) {
 setAppEnabled(false);
 
 function showPage(page) {
-  if (isMobileView() && !mobileAllowedPages.has(page)) page = 'list';
+  if (isMobileView() && !mobileAllowedPages.has(page)) page = 'monthly-sales';
   if (document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled !== undefined) page = 'list';
   if (page === 'manage' && !manageApproved) {
     openManageAuth();
@@ -80,7 +80,7 @@ function showPage(page) {
 
 function currentPage() {
   const page = location.hash.slice(1);
-  if (isMobileView() && !mobileAllowedPages.has(page)) return 'list';
+  if (isMobileView() && !mobileAllowedPages.has(page)) return 'monthly-sales';
   return document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled === undefined && document.querySelector(`.app-page[data-page="${page}"]`) ? page : 'list';
 }
 
