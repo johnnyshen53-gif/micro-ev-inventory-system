@@ -41,7 +41,8 @@
   $('staff-create-form')?.addEventListener('submit',event=>{
     event.preventDefault();return action(async token=>{
       const username=$('staff-username').value.trim().toLowerCase();
-      if(!request||request.username!==username)request={username,requestId:crypto.randomUUID()};
+      const role=$('staff-role').value;
+      if(!request||request.username!==username||request.role!==role)request={username,role,requestId:crypto.randomUUID()};
       const personId=$('staff-link-person').value;
       const result=await window.AppAuth.manageStaff({action:'create',...request,displayName:$('staff-name').value,password:$('staff-password').value});
       if(token!==generation)return;

@@ -18,6 +18,7 @@ try {
     await db.exec((await readFile(new URL('../migrations/'+name,import.meta.url),'utf8')).replace('create extension if not exists pgcrypto;',''));
   }
   if (process.argv[2]) await db.exec(await readFile(process.argv[2], 'utf8'));
+  await db.exec(await readFile(new URL('../migrations/20261015071615_allow_staff_admin_creation.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('./username_auth.test.sql', import.meta.url), 'utf8'));
   await db.exec(await readFile(new URL('./multiuser_inventory.test.sql', import.meta.url), 'utf8'));
 } catch (error) {

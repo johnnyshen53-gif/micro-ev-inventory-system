@@ -37,7 +37,7 @@ export function dependencies():Dependencies {
     profile,
     list:async()=>{const {data,error}=await admin.from('profiles').select('id,username,display_name,role,active').order('display_name');if(error)throw error;return data||[];},
     create:async(actor,body)=>{
-      const prepared=await rpc('prepare_staff_account',{p_actor:actor,p_request:body.requestId,p_username:body.username});
+      const prepared=await rpc('prepare_staff_account',{p_actor:actor,p_request:body.requestId,p_username:body.username,p_role:body.role});
       if(prepared.status==='complete')return (await profile(prepared.user_id))!;
       const target=prepared.reserved_user_id;
       const existing=await admin.auth.admin.getUserById(target);

@@ -74,11 +74,26 @@ do $$ declare r jsonb; begin
   r:=public.prepare_staff_account('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','new_staff');
   assert r->>'status'='pending';
   assert public.prepare_staff_account('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','new_staff')=r;
+  r:=public.prepare_staff_account('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000003','new_admin_2','admin');
+  assert r->>'role'='admin', 'admin role not reserved';
+  begin
+    perform public.prepare_staff_account('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000003','new_admin_2','clerk');
+    raise exception 'retry changed role';
+  exception when insufficient_privilege then null; end;
+  insert into auth.users(id,email) values((r->>'reserved_user_id')::uuid,'auth-test-new-admin@example.invalid');
+  perform public.complete_staff_account('10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000003','新店長');
+  assert (select role from public.profiles where id=(r->>'reserved_user_id')::uuid)='admin', 'admin role not applied';
+  assert (select ready from app_private.staff_logins where user_id=(r->>'reserved_user_id')::uuid), 'admin login not ready';
   begin
     perform public.prepare_staff_account('10000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000002','another_staff');
     raise exception 'clerk managed accounts';
   exception when insufficient_privilege then null; end;
+  begin
+    perform public.prepare_staff_account('10000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000004','another_admin','admin');
+    raise exception 'clerk created admin';
+  exception when insufficient_privilege then null; end;
   assert not has_function_privilege('authenticated','public.prepare_staff_account(uuid,uuid,text)','execute');
+  assert not has_function_privilege('authenticated','public.prepare_staff_account(uuid,uuid,text,public.staff_role)','execute');
   begin
     perform public.link_staff_account('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','new_staff');
     raise exception 'reserved username reused';

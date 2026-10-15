@@ -67,7 +67,17 @@ test('staff list excludes emails and management validates password and role',asy
   const {deps}=fixture();
   assertEquals(await (await handleAdmin(request({action:'list'}),deps)).json(),{users:[{id:manager,username:'johnny',displayName:'店長',role:'admin',active:true}]});
   assertEquals((await handleAdmin(request({action:'create',username:'staff01',password:'short',displayName:'業務'}),deps)).status,400);
-  assertEquals((await handleAdmin(request({action:'create',role:'admin',username:'staff01',password:'long-password',displayName:'業務'}),deps)).status,400);
+  assertEquals((await handleAdmin(request({action:'create',role:'owner',username:'staff01',password:'long-password',displayName:'業務'}),deps)).status,400);
+});
+test('manager can create an admin only with an explicit supported role',async()=>{
+  const {deps}=fixture();
+  deps.create=async (_actor:string,body:Record<string,unknown>)=>({id:'new-admin',username:body.username as string,display_name:body.displayName as string,role:body.role as string,active:true});
+  const valid={action:'create',requestId:'20000000-0000-4000-8000-000000000001',username:'new_admin',displayName:'新店長',password:'long-password'};
+  const created=await handleAdmin(request({...valid,role:'admin'}),deps);
+  assertEquals(created.status,200);
+  assertEquals((await created.json()).user.role,'admin');
+  assertEquals((await handleAdmin(request({...valid,role:'owner'}),deps)).status,400);
+  assertEquals((await handleAdmin(request({...valid,role:null}),deps)).status,400);
 });
 test('only supported HTTP methods are accepted',async()=>{
   const {deps}=fixture();

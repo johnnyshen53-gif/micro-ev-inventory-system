@@ -178,12 +178,13 @@
         <p>雲端登入帳號與本機業務資料分開管理。停用登入不會刪除歷史紀錄。</p>
         <p id="staff-message" role="status" aria-live="polite"></p>
         <form id="staff-create-form">
-          <h3>新增業務員登入帳號</h3>
+          <h3>新增登入帳號</h3>
           <div class="field"><label for="staff-name">顯示姓名</label><input id="staff-name" maxlength="100" required autocomplete="off"></div>
           <div class="field"><label for="staff-username">登入帳號</label><input id="staff-username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]{3,32}" autocomplete="off" required aria-describedby="staff-username-hint"><small id="staff-username-hint">3–32 字元：英文、數字、底線或連字號；不分大小寫。</small></div>
           <div class="field"><label for="staff-password">初始密碼</label><input id="staff-password" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required></div>
+          <div class="field"><label for="staff-role">權限</label><select id="staff-role"><option value="clerk">業務員</option><option value="admin">店長</option></select></div>
           <div class="field"><label for="staff-link-person">連結本機業務（選填）</label><select id="staff-link-person"></select></div>
-          <button id="staff-create-submit" type="submit">建立業務員帳號</button>
+          <button id="staff-create-submit" type="submit">建立登入帳號</button>
         </form>
         <div class="table-wrap"><table><thead><tr><th>姓名</th><th>帳號</th><th>權限</th><th>狀態</th><th>操作</th></tr></thead><tbody id="staff-list"></tbody></table></div>
         <form id="staff-link-form"><h3>連結既有登入帳號與本機業務</h3><div class="field"><label for="staff-existing-user">雲端帳號</label><select id="staff-existing-user" required></select></div><div class="field"><label for="staff-existing-person">本機業務</label><select id="staff-existing-person" required></select></div><button type="submit" class="secondary">儲存連結／重試連結</button></form>

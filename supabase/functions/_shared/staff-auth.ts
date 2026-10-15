@@ -57,12 +57,13 @@ export async function handleAdmin(req:Request,deps:Dependencies):Promise<Respons
     if(!profile?.active||profile.role!=='admin')return json({error:'僅店長可管理帳號'},403);
     const body=await readBody(req);
     if(body.action==='list')return json({users:(await deps.list()).map(summary)});
-    if('role' in body)return json({error:'不可指定或變更權限'},400);
     if(body.action==='create') {
       body.username=username(body.username);
-      if(!validName(body.username as string)||!validId(body.requestId)||typeof body.displayName!=='string'||!body.displayName.trim()||body.displayName.length>100||typeof body.password!=='string'||body.password.length<12||body.password.length>1024)return json({error:'請確認帳號、姓名及至少 12 字元的密碼'},400);
+      if(!('role' in body))body.role='clerk';
+      if(!['admin','clerk'].includes(body.role as string)||!validName(body.username as string)||!validId(body.requestId)||typeof body.displayName!=='string'||!body.displayName.trim()||body.displayName.length>100||typeof body.password!=='string'||body.password.length<12||body.password.length>1024)return json({error:'請確認權限、帳號、姓名及至少 12 字元的密碼'},400);
       return json({user:summary(await deps.create(user.id,body))});
     }
+    if('role' in body)return json({error:'不可變更權限'},400);
     if(!validId(body.userId))return json({error:'帳號識別不正確'},400);
     if(body.action==='link-existing') {
       body.username=username(body.username);
