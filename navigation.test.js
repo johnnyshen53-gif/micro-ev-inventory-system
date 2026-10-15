@@ -395,11 +395,50 @@ test('limits mobile navigation to monthly sales only', async () => {
   assert.match(app, /page = 'monthly-sales'/);
 });
 
-test('marks non-migrated modules unavailable before cloud multi-device use', async () => {
-  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  for (const page of ['suppliers', 'purchases', 'warranties', 'quotations']) {
-    assert.match(html, new RegExp(`data-page-target="${page}"[^>]*data-cloud-disabled`));
+test('opens cloud operations on desktop while retaining mobile and clerk access limits', async () => {
+  const [html, app] = await Promise.all([
+    readFile(new URL('./index.html', import.meta.url), 'utf8'),
+    readFile(new URL('./app.js', import.meta.url), 'utf8'),
+  ]);
+  const buttons = new Map([...html.matchAll(/<button class="page-tab"[^>]*data-page-target="([^"]+)"[^>]*>/g)].map(([tag, page]) => [page, {
+    dataset: { pageTarget: page, ...(tag.includes('data-cloud-disabled') ? { cloudDisabled: '' } : {}) },
+    disabled: /\sdisabled(?:\s|>)/.test(tag),
+    setAttribute() {}, removeAttribute() {},
+  }]));
+  const sections = new Map([...html.matchAll(/<section class="app-page[^"]*" data-page="([^"]+)"([^>]*)>/g)].map(([, page, attrs]) => [page, {
+    dataset: { page, role: /data-role="admin"/.test(attrs) ? 'admin' : '' }, hidden: true,
+  }]));
+  let mobile = false;
+  const context = {
+    window: { matchMedia: () => ({ matches: mobile }) }, location: { hash: '' }, manageApproved: false,
+    document: {
+      body: { dataset: { role: 'admin' } },
+      querySelector(selector) {
+        return selector.startsWith('[data-page-target=') ? buttons.get(selector.match(/data-page-target="([^"]+)"/)?.[1]) : sections.get(selector.match(/data-page="([^"]+)"/)?.[1]);
+      },
+      querySelectorAll(selector) { return selector === '[data-page-target]' ? [...buttons.values()] : [...sections.values()]; },
+    },
+  };
+  vm.runInNewContext(app.slice(app.indexOf('const mobileAllowedPages'), app.indexOf('function setAppEnabled')), context);
+  vm.runInNewContext(app.slice(app.indexOf('function showPage'), app.indexOf('function setStatus')), context);
+  for (const page of ['suppliers', 'purchases', 'quotations', 'warranties']) {
+    assert.equal(buttons.get(page).disabled, false, `${page} desktop tab is enabled`);
+    assert.equal(buttons.get(page).dataset.cloudDisabled, undefined);
+    context.location.hash = `#${page}`;
+    assert.equal(context.currentPage(), page);
+    context.showPage(page);
+    assert.equal(sections.get(page).hidden, false);
   }
+  context.document.body.dataset.role = 'clerk';
+  for (const page of ['suppliers', 'purchases']) {
+    context.showPage(page);
+    assert.equal(sections.get(page).hidden, true);
+    assert.equal(sections.get('sales').hidden, false);
+  }
+  mobile = true;
+  context.showPage('quotations');
+  assert.equal(sections.get('quotations').hidden, true);
+  assert.equal(sections.get('monthly-sales').hidden, false);
 });
 
 test('serial category selector offers valid motorcycle and battery options', async () => {
