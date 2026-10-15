@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -67,7 +67,7 @@
       </section>
 
       <section aria-labelledby="inventory-title">
-        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號或分類"></label><button id="item-camera-scan" type="button" class="secondary">開啟相機掃描</button><button id="item-camera-stop" type="button" class="danger" hidden>停止相機</button></div><div id="item-camera-scanner" class="camera-scanner" hidden><div id="item-camera-reader"></div></div>
+        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號或分類"></label></div>
         <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>料號</th><th>條碼</th><th>售價</th><th>庫存</th><th>最低</th><th>供應商</th><th>操作</th></tr></thead><tbody id="item-list"></tbody></table></div>
       </section>
     </div>
@@ -100,7 +100,7 @@
         <h2>登記庫存異動</h2>
         <form id="transaction-form">
           <div class="field"><label for="transaction-item">品項</label><select id="transaction-item" required></select></div>
-          <div class="field"><label for="transaction-barcode">掃描／輸入 QR Code</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後自動選取品項"><button id="transaction-camera-scan" type="button" class="secondary">開啟相機掃描</button><button id="transaction-camera-stop" type="button" class="danger" hidden>停止相機</button><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div><div id="transaction-camera-scanner" class="camera-scanner" hidden><div id="transaction-camera-reader"></div></div>
+          <div class="field"><label for="transaction-barcode">掃描／輸入 QR Code</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後自動選取品項"><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div>
           <div class="field"><label for="transaction-type">異動類型</label><select id="transaction-type" required><option value="in">進貨</option><option value="out">出庫／移出（銷售請至銷售管理）</option><option value="warranty_out">出保固（免費更換）</option><option value="adjust">盤點調整</option></select></div>
           <div id="transaction-warranty-fields" class="serial-box" hidden><div class="field"><label for="transaction-warranty">原保固紀錄</label><select id="transaction-warranty" disabled aria-describedby="transaction-warranty-summary"><option value="">請選擇原保固</option></select></div><p id="transaction-warranty-summary" aria-live="polite"></p><small>免費更換會扣除所選品項庫存，不算銷售；更換品沿用原到期日，故障品不自動入庫。</small></div>
           <div class="field"><label for="transaction-quantity">數量</label><input id="transaction-quantity" type="number" min="0" step="1" required></div>
@@ -209,9 +209,8 @@
       <article class="panel sale-panel">
         <div class="section-heading"><div><p class="eyebrow">POS</p><h2>銷售管理</h2></div><p class="sale-hint">掃描後按 Enter，或由庫存選擇品項，加入同一購物車。</p></div>
         <form id="sale-form">
-          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div id="sale-item-info" class="scan-result" hidden></div><div class="field"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入購物車</button><button id="sale-camera-scan" type="button" class="secondary">開啟相機掃描</button><button id="sale-camera-stop" type="button" class="danger" hidden>停止相機</button></div>
+          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div id="sale-item-info" class="scan-result" hidden></div><div class="field"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入購物車</button></div>
           <p class="sale-hint">掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。</p>
-          <div id="sale-camera-scanner" class="sale-camera-scanner" hidden><div id="sale-camera-reader"></div></div>
           <fieldset class="sale-picker"><legend>由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>機車</option><option>零件</option><option>用品</option><option>電池</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="split-fields"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入購物車</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
           <div id="sale-serial-panel" class="serial-box" hidden><h3>指定本次實物序號</h3><p id="sale-serial-hint" aria-live="polite"></p><div class="field"><label for="sale-serial-scan">掃描原廠序號（非商品條碼）</label><input id="sale-serial-scan" type="text" autocomplete="off" placeholder="掃描後按 Enter 選取"></div><div class="field"><label for="sale-serial-ids">選擇在庫序號（可多選）</label><select id="sale-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div><button id="sale-serial-add" type="button">確認序號並加入購物車</button></div>
           <p id="sale-form-error" class="form-error" role="alert" hidden></p>
@@ -244,7 +243,6 @@
   <script src="storage.js?v=1"></script>
   <script src="cloud-data.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=31"></script>
 </body>
 </html>

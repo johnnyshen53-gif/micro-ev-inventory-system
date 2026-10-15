@@ -341,15 +341,6 @@ function parseUnitQr(value) {
   return barcode && serialNumber && !extra && /^\d{13}$/.test(barcode) ? { barcode, serialNumber: serialNumber.trim() } : { barcode: raw, serialNumber: '' };
 }
 $('item-search')?.addEventListener('input', renderItems);
-function handleItemSearchScan(decodedText) {
-  const scan = parseUnitQr(decodedText);
-  const item = state.items.find((candidate) => candidate.barcode === scan.barcode);
-  if (!item) { setStatus('找不到此 QR Code 對應的品項。', true, true); return false; }
-  $('item-search').value = item.barcode;
-  renderItems();
-  setStatus(`已找到：${item.name}。`);
-  return true;
-}
 $('item-search')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   const barcode = event.currentTarget.value.trim();
@@ -383,34 +374,6 @@ function handleTransactionScan(decodedText) {
   return true;
 }
 $('transaction-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); handleTransactionScan(event.currentTarget.value); });
-
-const cameraScanners = new Map();
-async function stopCameraScan(prefix) {
-  const scanner = cameraScanners.get(prefix);
-  cameraScanners.delete(prefix);
-  if (scanner) { try { await scanner.stop(); } catch {} try { await scanner.clear?.(); } catch {} }
-  $(`${prefix}-camera-scanner`).hidden = true;
-  $(`${prefix}-camera-scan`).disabled = false;
-  $(`${prefix}-camera-stop`).hidden = true;
-}
-async function startCameraScan(prefix, onDecoded, reportError) {
-  if (!window.Html5Qrcode || !navigator.mediaDevices?.getUserMedia) return reportError('此瀏覽器無法使用相機掃描，請改用 HTTPS 網址或手動輸入 QR Code。');
-  $(`${prefix}-camera-scanner`).hidden = false;
-  $(`${prefix}-camera-scan`).disabled = true;
-  $(`${prefix}-camera-stop`).hidden = false;
-  const scanner = new Html5Qrcode(`${prefix}-camera-reader`);
-  cameraScanners.set(prefix, scanner);
-  try {
-    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } }, async (decodedText) => {
-      if (cameraScanners.get(prefix) !== scanner || !onDecoded(decodedText)) return;
-      await stopCameraScan(prefix);
-    });
-  } catch (error) { await stopCameraScan(prefix); reportError(`無法開啟相機：${error.message || '請確認已允許相機權限。'}`); }
-}
-$('item-camera-scan')?.addEventListener('click', () => startCameraScan('item', handleItemSearchScan, (message) => setStatus(message, true, true)));
-$('item-camera-stop')?.addEventListener('click', () => stopCameraScan('item'));
-$('transaction-camera-scan')?.addEventListener('click', () => startCameraScan('transaction', handleTransactionScan, (message) => showFormError('transaction-form', message)));
-$('transaction-camera-stop')?.addEventListener('click', () => stopCameraScan('transaction'));
 
 function selectTransactionSerial(serialNumber) {
   const type = $('transaction-type').value;
@@ -1436,37 +1399,6 @@ function handleSaleScan(decodedText) {
 function addSaleLine() { const scan = parseUnitQr($('sale-barcode').value); const item = scan.barcode && state.items.find(candidate => candidate.barcode === scan.barcode); if (requiresSerial(item)) { beginSaleSerialSelection(item, Number($('sale-quantity').value)); if (scan.serialNumber) selectSaleSerial(scan.serialNumber); return; } if (!addSaleItem(item, Number($('sale-quantity').value))) return; $('sale-barcode').value = ''; $('sale-quantity').value = '1'; $('sale-item-info').hidden = true; $('sale-barcode').focus(); }
 $('sale-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); handleSaleScan(event.currentTarget.value); });
 $('sale-add')?.addEventListener('click', addSaleLine);
-let saleCameraScanner = null;
-async function stopSaleCameraScan() {
-  const scanner = saleCameraScanner;
-  saleCameraScanner = null;
-  if (scanner) {
-    try { await scanner.stop(); } catch {}
-    try { await scanner.clear?.(); } catch {}
-  }
-  $('sale-camera-scanner').hidden = true;
-  $('sale-camera-scan').disabled = false;
-  $('sale-camera-stop').hidden = true;
-}
-async function startSaleCameraScan() {
-  if (!window.Html5Qrcode || !navigator.mediaDevices?.getUserMedia) return showFormError('sale-form', '此瀏覽器無法使用相機掃描，請改用 HTTPS 網址或手動輸入 QR Code。');
-  clearFormError('sale-form');
-  $('sale-camera-scanner').hidden = false;
-  $('sale-camera-scan').disabled = true;
-  $('sale-camera-stop').hidden = false;
-  const scanner = saleCameraScanner = new Html5Qrcode('sale-camera-reader');
-  try {
-    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } }, async (decodedText) => {
-      if (scanner !== saleCameraScanner || !handleSaleScan(decodedText)) return;
-      await stopSaleCameraScan();
-    });
-  } catch (error) {
-    await stopSaleCameraScan();
-    showFormError('sale-form', `無法開啟相機：${error.message || '請確認已允許相機權限。'}`);
-  }
-}
-$('sale-camera-scan')?.addEventListener('click', startSaleCameraScan);
-$('sale-camera-stop')?.addEventListener('click', stopSaleCameraScan);
 $('sale-category')?.addEventListener('change', () => { $('sale-item').value = ''; $('sale-pick-quantity').value = '1'; renderSalePicker(); });
 $('sale-item')?.addEventListener('change', renderSalePicker);
 $('sale-pick-add')?.addEventListener('click', () => {

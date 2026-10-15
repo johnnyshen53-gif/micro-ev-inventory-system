@@ -570,35 +570,17 @@ test('labels the sales scanner for QR Code while keeping the existing input fiel
   assert.match(saleForm, /掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。/);
 });
 
-test('offers mobile camera QR scanning for sales', async () => {
+test('keeps QR input workflows without camera scanning controls or dependency', async () => {
   const [html, app] = await Promise.all([
     readFile(new URL('./index.html', import.meta.url), 'utf8'),
     readFile(new URL('./app.js', import.meta.url), 'utf8'),
   ]);
 
-  assert.match(html, /html5-qrcode@2\.3\.8\/html5-qrcode\.min\.js/);
-  assert.match(html, /id="sale-camera-scan"/);
-  assert.match(html, /id="sale-camera-stop"/);
-  assert.match(html, /id="sale-camera-scanner"/);
-  assert.match(app, /new Html5Qrcode\('sale-camera-reader'\)/);
-  assert.match(app, /facingMode: 'environment'/);
-  assert.match(app, /handleSaleScan\(decodedText\)/);
-  assert.match(app, /sale-camera-stop'\)\?\.addEventListener\('click', stopSaleCameraScan/);
-});
-
-test('offers mobile camera QR scanning for inventory transactions and item search', async () => {
-  const [html, app] = await Promise.all([
-    readFile(new URL('./index.html', import.meta.url), 'utf8'),
-    readFile(new URL('./app.js', import.meta.url), 'utf8'),
-  ]);
-
-  for (const id of ['item-camera-scan', 'item-camera-stop', 'item-camera-scanner', 'transaction-camera-scan', 'transaction-camera-stop', 'transaction-camera-scanner']) assert.match(html, new RegExp(`id="${id}"`));
-  assert.match(app, /function handleItemSearchScan\(decodedText\)/);
+  for (const id of ['item-search', 'transaction-barcode', 'sale-barcode']) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(app, /function handleTransactionScan\(decodedText\)/);
-  assert.match(app, /startCameraScan\('item', handleItemSearchScan/);
-  assert.match(app, /startCameraScan\('transaction', handleTransactionScan/);
-  assert.match(app, /handleItemSearchScan\(decodedText\)/);
-  assert.match(app, /handleTransactionScan\(decodedText\)/);
+  assert.match(app, /handleSaleScan\(decodedText\)/);
+  assert.doesNotMatch(html, /id="(?:item|transaction|sale)-camera-(?:scan|stop|scanner|reader)"|html5-qrcode/);
+  assert.doesNotMatch(app, /Html5Qrcode|getUserMedia|startCameraScan|startSaleCameraScan/);
 });
 
 test('allows checkout after a scanned barcode field has been cleared', async () => {
