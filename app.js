@@ -77,6 +77,7 @@ function showPage(page) {
     else button.removeAttribute('aria-current');
   });
   if (page === 'monthly-sales') renderMonthlySales(true);
+  if (page === 'repairs') window.RepairUI?.instance?.load();
 }
 
 function currentPage() {
@@ -106,6 +107,12 @@ function showFormError(formId, message) {
   error.hidden = false;
   setStatus(message, true, true);
 }
+
+if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
+  getState: () => state,
+  setState: next => { state = next; render(); },
+  notify: setStatus,
+});
 
 async function saveState(nextState) {
   if (window.AppAuthUI.isActive?.() === false) return false;
@@ -1179,7 +1186,7 @@ function renderWarrantyDetail() {
   detail.hidden = !warranty;
   if (!warranty) return;
   const expired = warranty.expiresAt < new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
-  $('warranty-detail-summary').textContent = `${warranty.customerName}｜${warranty.itemName}｜條碼：${warranty.barcode || '—'}｜序號：${warranty.serialNumber || '未登錄'}｜購買：${warranty.purchasedAt}｜到期：${warranty.expiresAt}｜來源：${warranty.source === 'sale' ? `銷售 ${warranty.saleNumber}` : '手動'}｜備註：${warranty.note || '—'}`;
+  $('warranty-detail-summary').textContent = `${warranty.customerName}｜${warranty.itemName}｜條碼：${warranty.barcode || '—'}｜序號：${warranty.serialNumber || '未登錄'}｜購買：${warranty.purchasedAt}｜到期：${warranty.expiresAt}｜來源：${warranty.source === 'sale' ? `銷售 ${warranty.saleNumber}` : warranty.source === 'repair' ? '維修單' : '手動'}｜備註：${warranty.note || '—'}`;
   $('warranty-detail-status').textContent = expired ? '已到期：仍可建立案件，請評估是否符合保固。' : '有效中';
   $('warranty-detail-status').classList.toggle('low', expired);
   const list = $('warranty-case-list');
@@ -1225,7 +1232,7 @@ function renderWarranties() {
     [warranty.customerName, warranty.itemName, `${warranty.barcode || '—'}｜序號：${warranty.serialNumber || '未登錄'}`, warranty.expiresAt, expired ? '已到期' : '有效中'].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; if (index === 4 && expired) cell.className = 'low'; row.append(cell); });
     const actions = document.createElement('td');
     actions.className = 'actions';
-    for (const [label, action] of [['查看', 'view'], ['編輯', 'edit'], ...(document.body.dataset.role === 'admin' ? [['刪除', 'delete']] : [])]) {
+    for (const [label, action] of [['查看', 'view'], ['編輯', 'edit'], ...(document.body.dataset.role === 'admin' && warranty.source !== 'repair' ? [['刪除', 'delete']] : [])]) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = action === 'delete' ? 'danger' : 'secondary';
@@ -1552,6 +1559,7 @@ $('monthly-sales-month')?.addEventListener('change', () => renderMonthlySales(tr
 
 async function resetAppSession() {
   appSessionEpoch++;
+  window.RepairUI?.instance?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
   renderMonthlySales.assignmentMonth = '';

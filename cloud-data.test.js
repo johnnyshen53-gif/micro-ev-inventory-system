@@ -15,6 +15,47 @@ async function loadCloudData({ client, cache, inventory }) {
   return context.window.AppData;
 }
 
+test('cloud repair-used serial and warranty retain repair links in the inventory snapshot', async () => {
+  const at = '2026-10-16T05:00:00Z';
+  const tables = {
+    inventory_transactions: [{ id: 'tx-1', item_id: 'item-1', type: 'out', quantity: 1, note: '維修單', repair_order_id: 'repair-1', serial_ids: ['serial-1'], serial_numbers: ['BAT-001'], created_at: at }],
+    inventory_serials: [{ id: 'serial-1', item_id: 'item-1', serial_number: 'BAT-001', status: 'repair_used', repair_order_id: 'repair-1', repair_used_at: at, warranty_id: 'warranty-1', created_by: 'staff-1', created_at: at }],
+    warranties: [{ id: 'warranty-1', customer_id: 'customer-1', customer_name: '會員甲', item_id: 'item-1', item_name: '電池', source: 'repair', repair_order_id: 'repair-1', serial_id: 'serial-1', serial_number: 'BAT-001', purchased_at: '2026-10-16', expires_at: '2027-10-16', created_by: 'staff-1', created_at: at }],
+  };
+  const appData = await loadCloudData({
+    client: { from: table => ({ select: async fields => {
+      if (table === 'inventory_serials') assert.match(fields, /repair_used_at/);
+      if (table === 'warranties') assert.match(fields, /repair_order_id/);
+      return { data: tables[table] ?? [], error: null };
+    } }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({ items: [], transactions: [], serials: [], warranties: [] }), validateState: value => value },
+  });
+  const { state } = await appData.loadSnapshot();
+  assert.equal(state.transactions[0].repairOrderId, 'repair-1');
+  assert.equal(state.serials[0].repairUsedAt, at);
+  assert.equal(state.warranties[0].repairOrderId, 'repair-1');
+  assert.equal(state.sales.length, 0);
+});
+
+test('repair adapter reads orders and uses guarded RPCs before reloading cloud state', async () => {
+  const calls = [];
+  const appData = await loadCloudData({
+    client: {
+      from: table => ({ select: async () => { calls.push(['read', table]); return { data: table === 'repair_orders' ? [{ id: 'repair-1', repair_number: 'R-1', status: 'quoted', total: 100 }] : table === 'repair_lines' ? [{ id: 'line-1', repair_order_id: 'repair-1', item_id: 'item-1', quantity: 1, unit_price: 100 }] : [], error: null }; } }),
+      rpc: async (name, args) => { calls.push(['rpc', name, args]); return { data: 'repair-1', error: null }; },
+    },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({ items: [], transactions: [], serials: [], warranties: [] }), validateState: value => value },
+  });
+  const rows = await appData.loadRepairOrders();
+  assert.equal(rows[0].lines[0].itemId, 'item-1');
+  await appData.saveRepairOrder({ status: 'intake' }, [], null);
+  await appData.completeRepairOrder('repair-1', { 'line-1': ['serial-1'] });
+  assert.deepEqual(calls.filter(call => call[0] === 'rpc').map(call => call[1]), ['save_repair_order', 'complete_repair_order']);
+  assert.ok(calls.filter(call => call[0] === 'read' && call[1] === 'repair_orders').length >= 3);
+});
+
 test('cloud read failure uses existing cache in read-only mode without overwriting it', async () => {
   const cached = { items: [], transactions: [], customers: [], salespeople: [], quotations: [], sales: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [] };
   let writes = 0;

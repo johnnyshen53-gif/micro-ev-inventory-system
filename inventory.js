@@ -13,11 +13,12 @@ function serialStock(stock) {
 }
 function normalizedSerial(value) {
   const status = value?.status;
-  if (!['in_stock', 'sold', 'removed', 'warranty_out'].includes(status)) throw new Error('序號狀態無效');
+  if (!['in_stock', 'sold', 'removed', 'warranty_out', 'repair_used'].includes(status)) throw new Error('序號狀態無效');
   return { id: id(value?.id, '序號 ID'), itemId: id(value?.itemId, '序號品項'), serialNumber: id(value?.serialNumber, '原廠序號'), status,
     purchaseId: text(value?.purchaseId), createdAt: date(value?.createdAt, '序號建立日期'), createdBy: text(value?.createdBy),
     saleId: text(value?.saleId), customerId: text(value?.customerId), soldAt: text(value?.soldAt), warrantyId: text(value?.warrantyId),
-    removedAt: text(value?.removedAt), removedBy: text(value?.removedBy), removalReason: text(value?.removalReason) };
+    removedAt: text(value?.removedAt), removedBy: text(value?.removedBy), removalReason: text(value?.removalReason),
+    repairOrderId: text(value?.repairOrderId), repairLineId: text(value?.repairLineId), repairUsedAt: text(value?.repairUsedAt) };
 }
 function newSerials(state, item, serialNumbers = [], createdBy, purchaseId = '') {
   if (!Array.isArray(serialNumbers)) throw new Error('序號清單格式無效');
@@ -65,8 +66,11 @@ function validateSerialRelations(serials, items, sales, customers, purchases, wa
     } else if (serial.status === 'warranty_out') {
       const warranty = warranties.find(w => w.id === serial.warrantyId);
       if (!warranty || warranty.customerId !== serial.customerId || serial.saleId || serial.soldAt || !transactions.some(t => t.type === 'warranty_out' && t.warrantyId === warranty.id && t.serialIds.includes(serial.id))) throw new Error('出保固序號關聯無效');
+    } else if (serial.status === 'repair_used') {
+      const warranty = warranties.find(w => w.id === serial.warrantyId);
+      if (!serial.repairOrderId || !serial.repairLineId || !warranty || warranty.source !== 'repair' || warranty.repairOrderId !== serial.repairOrderId || warranty.customerId !== serial.customerId || !serial.repairUsedAt || serial.saleId || serial.soldAt || !transactions.some(t => t.repairOrderId === serial.repairOrderId && t.itemId === serial.itemId && t.serialIds?.includes(serial.id))) throw new Error('維修序號關聯無效');
     } else if (serial.saleId || serial.customerId || serial.soldAt) throw new Error('未售序號不可有銷售關聯');
-    if (serial.status !== 'warranty_out' && serial.warrantyId) throw new Error('非出保固序號不可有更換關聯');
+    if (!['warranty_out', 'repair_used'].includes(serial.status) && serial.warrantyId) throw new Error('非出保固序號不可有更換關聯');
     if (serial.status === 'removed' || serial.status === 'warranty_out') {
       date(serial.removedAt, '移出日期'); id(serial.removedBy, '移出操作者'); id(serial.removalReason, '移出原因');
     } else if (serial.removedAt || serial.removedBy || serial.removalReason) throw new Error('未移出序號不可有移出資料');
@@ -102,10 +106,12 @@ function validateSerialRelations(serials, items, sales, customers, purchases, wa
   }
   const warrantySerialIds = new Set();
   for (const warranty of warranties) {
+    if (warranty.source === 'repair' && (!warranty.repairOrderId || !warranty.serialId || warranty.saleId)) throw new Error('維修保固關聯無效');
     if (Boolean(warranty.serialId) !== Boolean(warranty.serialNumber)) throw new Error('保固序號資料不完整');
     if (!warranty.serialId) continue;
     const serial = serials.find(s => s.id === warranty.serialId);
-    if (!serial || serial.status !== 'sold' || serial.itemId !== warranty.itemId || serial.customerId !== warranty.customerId || serial.serialNumber !== warranty.serialNumber || serial.saleId !== warranty.saleId || warrantySerialIds.has(serial.id)) throw new Error('保固序號關聯無效或重複');
+    if (!serial || serial.itemId !== warranty.itemId || serial.customerId !== warranty.customerId || serial.serialNumber !== warranty.serialNumber || warrantySerialIds.has(serial.id)) throw new Error('保固序號關聯無效或重複');
+    if (warranty.source === 'repair' ? serial.status !== 'repair_used' || serial.repairOrderId !== warranty.repairOrderId : serial.status !== 'sold' || serial.saleId !== warranty.saleId) throw new Error('保固序號來源關聯無效');
     warrantySerialIds.add(serial.id);
   }
 }
@@ -166,7 +172,13 @@ function normalizedTransaction(value, itemIds, fallbackId) {
     createdAt,
     note: text(value.note),
     purchaseId: text(value.purchaseId),
+    repairOrderId: text(value.repairOrderId),
   };
+  if (transaction.repairOrderId) {
+    if (transaction.type !== 'out' || !Array.isArray(value.serialIds) || !Array.isArray(value.serialNumbers) || value.serialIds.length !== value.serialNumbers.length) throw new Error('維修用料序號格式無效');
+    transaction.serialIds = value.serialIds.map(value => id(value, '維修序號 ID'));
+    transaction.serialNumbers = value.serialNumbers.map(value => id(value, '維修序號'));
+  }
   if (value.type === 'warranty_out') {
     if (!Array.isArray(value.serialIds) || !Array.isArray(value.serialNumbers)) throw new Error('出保固序號清單格式無效');
     Object.assign(transaction, { quantity: positiveInteger(value.quantity, '出保固數量'), warrantyId: id(value.warrantyId, '原保固'),
@@ -232,12 +244,12 @@ function normalizedWarranty(value) {
   const expiresAt = calendarDate(value?.expiresAt, '到期日期');
   if (expiresAt < purchasedAt) throw new Error('到期日期不可早於購買日期');
   const source = value?.source;
-  if (source !== 'manual' && source !== 'sale') throw new Error('保固來源無效');
+  if (source !== 'manual' && source !== 'sale' && source !== 'repair') throw new Error('保固來源無效');
   return {
     id: id(value?.id, '保固 ID'), customerId: id(value?.customerId, '客戶 ID'),
     customerName: id(value?.customerName, '客戶姓名'), itemId: id(value?.itemId, '品項 ID'),
     itemName: id(value?.itemName, '品項名稱'), barcode: text(value?.barcode), source,
-    saleId: text(value?.saleId), saleNumber: text(value?.saleNumber), serialId: text(value?.serialId), serialNumber: text(value?.serialNumber),
+    saleId: text(value?.saleId), saleNumber: text(value?.saleNumber), repairOrderId: text(value?.repairOrderId), serialId: text(value?.serialId), serialNumber: text(value?.serialNumber),
     purchasedAt, expiresAt, note: text(value?.note), createdBy: text(value?.createdBy),
     createdAt: date(value?.createdAt, '保固建立日期'),
   };

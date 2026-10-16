@@ -20,6 +20,21 @@ const item = {
   notes: '',
 };
 
+test('repair-used battery and repair-origin warranty remain valid without creating a sale', () => {
+  let state = addItem(emptyState(), { ...item, name: '電池', category: '電池', stock: 0, voltage: 72, capacity: 35, warrantyMonths: 12 });
+  state = addCustomer(state, { name: '會員甲', phone: '0900000001' });
+  const at = '2026-10-16T05:00:00Z';
+  const repairOrderId = 'repair-1';
+  state.serials = [{ id: 'serial-1', itemId: state.items[0].id, serialNumber: 'BAT-001', status: 'repair_used', repairOrderId, repairLineId: 'line-1', customerId: state.customers[0].id, warrantyId: 'warranty-1', repairUsedAt: at, createdAt: at, createdBy: 'staff-1' }];
+  state.transactions = [{ id: 'transaction-1', itemId: state.items[0].id, type: 'out', quantity: 1, note: '維修單 R-1', repairOrderId, serialIds: ['serial-1'], serialNumbers: ['BAT-001'], createdAt: at }];
+  state.warranties = [{ id: 'warranty-1', customerId: state.customers[0].id, customerName: '會員甲', itemId: state.items[0].id, itemName: '電池', source: 'repair', repairOrderId, serialId: 'serial-1', serialNumber: 'BAT-001', purchasedAt: '2026-10-16', expiresAt: '2027-10-16', createdBy: 'staff-1', createdAt: at }];
+  const normalized = validateState(state);
+  assert.equal(normalized.serials[0].status, 'repair_used');
+  assert.equal(normalized.warranties[0].source, 'repair');
+  assert.equal(normalized.sales.length, 0);
+  assert.throws(() => validateState({ ...state, warranties: [{ ...state.warranties[0], repairOrderId: 'wrong' }] }), /維修|保固/);
+});
+
 function withSalesperson(state) {
   return addSalesperson(state, { name: '陳業務' });
 }

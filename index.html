@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -48,6 +48,7 @@
       <button class="page-tab" type="button" data-page-target="salespeople" data-role="admin">業務管理</button>
       <button class="page-tab" type="button" data-page-target="quotations">報價單</button>
       <button class="page-tab" type="button" data-page-target="warranties">保固管理</button>
+      <button class="page-tab" type="button" data-page-target="repairs">維修單</button>
       <button class="page-tab" type="button" data-page-target="monthly-sales" data-mobile-page>月銷售</button>
     </nav>
 
@@ -222,7 +223,32 @@
         </form>
       </article>
     </section>
+    <section class="app-page repair-page" data-page="repairs" aria-label="維修單管理" hidden>
+      <div class="section-heading"><h2>維修單</h2><button id="repair-new" type="button" class="secondary">新增接修</button></div>
+      <p id="repair-status" role="status" aria-live="polite"></p>
+      <div class="grid forms">
+        <article class="panel">
+          <h3 id="repair-form-title">新增接修</h3>
+          <form id="repair-form">
+            <div class="field"><label for="repair-customer">既有會員（或改填臨時客）</label><select id="repair-customer"><option value="">臨時客</option></select><small>若用料包含電池，完工前須選擇既有會員，電池品項也須有保固月數。</small></div>
+            <div class="split-fields"><div class="field"><label for="repair-customer-name">客戶姓名</label><input id="repair-customer-name" required></div><div class="field"><label for="repair-customer-phone">電話</label><input id="repair-customer-phone" type="tel" required></div></div>
+            <div class="split-fields"><div class="field"><label for="repair-plate">車牌（與原廠序號至少填一項）</label><input id="repair-plate"></div><div class="field"><label for="repair-original-serial">車輛原廠序號</label><input id="repair-original-serial"></div></div>
+            <div class="field"><label for="repair-vehicle">車型／車輛描述</label><input id="repair-vehicle" required></div>
+            <div class="field"><label for="repair-issue">故障與需求</label><textarea id="repair-issue" required></textarea></div>
+            <div class="field"><label for="repair-diagnosis">檢查／處理說明</label><textarea id="repair-diagnosis"></textarea></div>
+            <div class="field"><label for="repair-labor">工資（NT$）</label><input id="repair-labor" type="number" min="0" step="0.01" value="0" required></div>
+            <div class="repair-material-entry"><div class="field"><label for="repair-item">零件／用品／電池</label><select id="repair-item"><option value="">選擇品項</option></select></div><div class="field"><label for="repair-quantity">數量</label><input id="repair-quantity" type="number" min="1" step="1" value="1"></div><div class="field"><label for="repair-price">單價（NT$）</label><input id="repair-price" type="number" min="0" step="0.01"></div><button id="repair-add-line" class="secondary" type="button">加入用料</button></div>
+            <div class="table-wrap"><table><thead><tr><th>用料</th><th>數量</th><th>單價</th><th>小計</th><th>操作</th></tr></thead><tbody id="repair-lines"></tbody></table></div>
+            <p>總額由資料庫計算，接修與報價均不扣庫存。</p>
+            <p id="repair-form-error" class="form-error" role="alert" hidden></p>
+            <div class="form-actions"><button id="repair-save" type="submit">儲存接修</button><button id="repair-quote" type="button" class="secondary" hidden>確認報價</button></div>
+          </form>
+        </article>
+        <article class="panel"><h3>維修單清單</h3><div class="field"><label for="repair-search">搜尋單號、電話、車牌或原廠序號</label><input id="repair-search" type="search"></div><div class="table-wrap"><table><thead><tr><th>單號</th><th>客戶</th><th>車牌／序號</th><th>狀態</th><th>總額</th><th>操作</th></tr></thead><tbody id="repair-list"></tbody></table></div><section id="repair-detail" class="repair-detail" aria-label="維修單明細" hidden></section></article>
+      </div>
+    </section>
     <section class="app-page" data-page="monthly-sales" aria-label="月銷售" hidden><div class="section-heading"><h2>月銷售清單</h2><input id="monthly-sales-month" type="month"></div><div class="cards"><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售總額</span><strong id="monthly-sales-total">0</strong></article></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th><th id="monthly-salesperson-heading" hidden>結帳人</th><th id="monthly-assignment-heading" hidden>業務員歸屬</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div><article id="monthly-performance-panel" class="panel" data-role="admin" hidden><h3>業務員月績效</h3><p id="monthly-performance-status" role="status" aria-live="polite"></p><div class="table-wrap"><table><thead><tr><th>業務員</th><th>售出件數</th><th>銷售金額</th></tr></thead><tbody id="monthly-performance-list"></tbody></table></div></article></section>
+    <section id="repair-print" class="print-document repair-print" hidden></section>
     <section id="qr-label" class="print-document barcode-label" hidden><div id="qr-label-content"></div></section>
     <dialog id="manage-auth-dialog" aria-labelledby="manage-auth-title">
       <form id="manage-auth-form">
@@ -241,10 +267,11 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=4"></script>
   <script src="staff-ui.js?v=1"></script>
-  <script src="inventory.js?v=18"></script>
+  <script src="inventory.js?v=19"></script>
   <script src="storage.js?v=1"></script>
-  <script src="cloud-data.js?v=8"></script>
+  <script src="cloud-data.js?v=9"></script>
+  <script src="repair-ui.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=34"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>

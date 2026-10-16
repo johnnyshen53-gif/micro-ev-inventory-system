@@ -421,7 +421,7 @@ test('opens cloud operations on desktop while retaining mobile and clerk access 
   };
   vm.runInNewContext(app.slice(app.indexOf('const mobileAllowedPages'), app.indexOf('function setAppEnabled')), context);
   vm.runInNewContext(app.slice(app.indexOf('function showPage'), app.indexOf('function setStatus')), context);
-  for (const page of ['suppliers', 'purchases', 'quotations', 'warranties']) {
+  for (const page of ['suppliers', 'purchases', 'quotations', 'warranties', 'repairs']) {
     assert.equal(buttons.get(page).disabled, false, `${page} desktop tab is enabled`);
     assert.equal(buttons.get(page).dataset.cloudDisabled, undefined);
     context.location.hash = `#${page}`;
@@ -439,6 +439,9 @@ test('opens cloud operations on desktop while retaining mobile and clerk access 
   context.showPage('quotations');
   assert.equal(sections.get('quotations').hidden, true);
   assert.equal(sections.get('monthly-sales').hidden, false);
+  context.showPage('repairs');
+  assert.equal(sections.get('repairs').hidden, true);
+  assert.equal(sections.get('monthly-sales').hidden, false);
 });
 
 test('serial category selector offers valid motorcycle and battery options', async () => {
@@ -455,9 +458,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=8"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=9"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=34"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=35"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
