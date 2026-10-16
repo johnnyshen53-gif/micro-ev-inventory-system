@@ -103,6 +103,7 @@
   }
   const saveRepairOrder = (order, lines, expectedUpdatedAt = null) => repairMutation('save_repair_order', { p_order: order, p_lines: lines, p_expected_updated_at: expectedUpdatedAt });
   const cancelRepairOrder = id => repairMutation('cancel_repair_order', { p_order_id: id });
+  const deleteRepairOrder = id => repairMutation('delete_repair_order', { p_order_id: id });
   const completeRepairOrder = (id, serialIdsByLine) => repairMutation('complete_repair_order', { p_order_id: id, p_serial_ids_by_line: serialIdsByLine });
   const markRepairPaid = id => repairMutation('mark_repair_paid', { p_order_id: id });
 
@@ -314,5 +315,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, loadRepairOrders, saveRepairOrder, cancelRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, loadRepairOrders, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();

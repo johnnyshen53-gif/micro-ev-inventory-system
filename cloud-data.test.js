@@ -52,7 +52,8 @@ test('repair adapter reads orders and uses guarded RPCs before reloading cloud s
   assert.equal(rows[0].lines[0].itemId, 'item-1');
   await appData.saveRepairOrder({ status: 'intake' }, [], null);
   await appData.completeRepairOrder('repair-1', { 'line-1': ['serial-1'] });
-  assert.deepEqual(calls.filter(call => call[0] === 'rpc').map(call => call[1]), ['save_repair_order', 'complete_repair_order']);
+  await appData.deleteRepairOrder('repair-1');
+  assert.deepEqual(calls.filter(call => call[0] === 'rpc').map(call => call[1]), ['save_repair_order', 'complete_repair_order', 'delete_repair_order']);
   assert.ok(calls.filter(call => call[0] === 'read' && call[1] === 'repair_orders').length >= 3);
 });
 

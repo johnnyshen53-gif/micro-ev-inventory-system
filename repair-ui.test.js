@@ -26,6 +26,46 @@ test('repair search and battery selection only expose relevant data', () => {
   assert.equal(actionState({ status: 'quoted', paymentStatus: 'unpaid' }).canComplete, true);
   assert.equal(actionState({ status: 'completed', paymentStatus: 'unpaid' }).canPay, true);
   assert.equal(actionState({ status: 'cancelled', paymentStatus: 'unpaid' }).canComplete, false);
+  for (const status of ['intake', 'quoted', 'cancelled']) {
+    assert.equal(actionState({ status, paymentStatus: 'unpaid' }, true).canDelete, true);
+    assert.equal(actionState({ status, paymentStatus: 'unpaid' }, false).canDelete, false);
+  }
+  assert.equal(actionState({ status: 'completed' }, true).canDelete, false);
+});
+
+test('only a manager can confirm and delete an unfinished repair order', async () => {
+  const nodes = new Map(), calls = [], confirms = [];
+  function node(tag = 'div') { return { tag, value: '', textContent: '', hidden: false, disabled: false, dataset: {}, children: [], classList: { add() {}, remove() {}, toggle() {} },
+    listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...values) { this.children.push(...values); },
+    replaceChildren(...values) { this.children = values; }, reset() {}, reportValidity: () => true }; }
+  const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  const order = { id: 'repair-1', number: 'R-1', status: 'cancelled', paymentStatus: 'unpaid', customerName: '甲', customerPhone: '0911', lines: [] };
+  let orders = [order], accepted = false;
+  const browser = { addEventListener() {}, confirm: text => { confirms.push(text); return accepted; }, AppAuthUI: { isActive: () => true }, AppData: {
+    loadRepairOrders: async () => orders,
+    async deleteRepairOrder(id) { calls.push(id); orders = []; return { id, orders, state: { customers: [], items: [], serials: [] } }; },
+  } };
+  const document = { getElementById: get, createElement: node, body: { dataset: { role: 'staff' }, classList: { add() {}, remove() {} } } };
+  vm.runInNewContext(source, { window: browser, document, Option: function Option(text, value) { return { text, value }; } });
+  const ui = browser.RepairUI.mount({ getState: () => ({ customers: [], items: [], serials: [] }), setState() {}, notify() {} });
+  await ui.load();
+  const open = () => get('repair-list').listeners.click({ target: { closest: () => ({ dataset: { repairId: order.id } }) } });
+  const remove = () => get('repair-detail').listeners.click({ target: { closest: () => ({ dataset: { repairAction: 'delete' } }) } });
+  open();
+  assert.equal(get('repair-detail').children.some(child => child.dataset.repairAction === 'delete'), false);
+  remove();
+  assert.deepEqual(calls, []);
+  document.body.dataset.role = 'admin';
+  open();
+  assert.equal(get('repair-detail').children.some(child => child.dataset.repairAction === 'delete'), true);
+  remove();
+  assert.match(confirms[0], /R-1/);
+  assert.deepEqual(calls, []);
+  accepted = true;
+  remove();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, ['repair-1']);
+  assert.equal(get('repair-detail').hidden, true);
 });
 
 test('choosing a member with multiple plates offers a dropdown and copies the selected plate', () => {

@@ -210,8 +210,54 @@ begin
   v_before := (select count(*) from public.warranties);
   if v_before <> 2 then raise exception 'failed completion changed warranties'; end if;
 end $$;
+do $$
+declare
+  v_order uuid;
+  v_denied boolean := false;
+begin
+  select id into v_order from public.repair_orders where status='cancelled' limit 1;
+  begin perform public.delete_repair_order(v_order); exception when insufficient_privilege then v_denied := true; end;
+  if not v_denied or not exists (select 1 from public.repair_orders where id=v_order) then
+    raise exception 'staff deleted unfinished repair'; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '70000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claims', '{"sub":"70000000-0000-4000-8000-000000000001","session_id":"70000000-0000-4000-8000-000000000011"}', true);
+set local role authenticated;
+do $$
+declare
+  v_order uuid;
+  v_status text;
+  v_denied boolean;
+begin
+  for v_status in select unnest(array['intake', 'quoted', 'cancelled']) loop
+    v_order := public.save_repair_order(
+      '{"customerName":"待刪客","customerPhone":"0911000000","plateNumber":"DEL","vehicleName":"車型","issue":"測試"}'::jsonb,
+      jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',1,'unitPrice',120)));
+    if v_status = 'quoted' then
+      perform public.save_repair_order(
+        jsonb_build_object('id',v_order,'customerName','待刪客','customerPhone','0911000000','plateNumber','DEL','vehicleName','車型','issue','測試','status','quoted'),
+        jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',1,'unitPrice',120)),
+        (select updated_at from public.repair_orders where id=v_order));
+    elsif v_status = 'cancelled' then
+      perform public.cancel_repair_order(v_order);
+    end if;
+    perform public.delete_repair_order(v_order);
+    if exists (select 1 from public.repair_orders where id=v_order)
+      or exists (select 1 from public.repair_lines where repair_order_id=v_order) then
+      raise exception 'deleted % repair still has rows', v_status;
+    end if;
+  end loop;
+  select id into v_order from public.repair_orders where status='completed' limit 1;
+  v_denied := false;
+  begin perform public.delete_repair_order(v_order); exception when others then v_denied := true; end;
+  if not v_denied or not exists (select 1 from public.repair_orders where id=v_order) then
+    raise exception 'completed repair could be deleted'; end if;
+end $$;
 reset role;
 update public.profiles set active = false where id = '70000000-0000-4000-8000-000000000002';
+select set_config('request.jwt.claim.sub', '70000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claims', '{"sub":"70000000-0000-4000-8000-000000000002","session_id":"70000000-0000-4000-8000-000000000012"}', true);
 set local role authenticated;
 do $$
 declare v_denied boolean := false;

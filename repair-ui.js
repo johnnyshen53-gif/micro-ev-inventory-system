@@ -3,9 +3,10 @@
   const filterOrders = (orders, term) => orders.filter(order => [order.number, order.customerName, order.customerPhone, order.plateNumber, order.originalSerialNumber]
     .some(value => String(value ?? '').toLocaleLowerCase().includes(String(term ?? '').trim().toLocaleLowerCase())));
   const availableSerials = (serials, itemId) => serials.filter(serial => serial.itemId === itemId && serial.status === 'in_stock');
-  const actionState = order => ({ canEdit: ['intake', 'quoted'].includes(order.status), canQuote: order.status === 'intake',
+  const actionState = (order, isAdmin = false) => ({ canEdit: ['intake', 'quoted'].includes(order.status), canQuote: order.status === 'intake',
     canComplete: order.status === 'quoted', canCancel: ['intake', 'quoted'].includes(order.status),
-    canPay: order.status === 'completed' && order.paymentStatus === 'unpaid' });
+    canPay: order.status === 'completed' && order.paymentStatus === 'unpaid',
+    canDelete: isAdmin && ['intake', 'quoted', 'cancelled'].includes(order.status) && order.paymentStatus === 'unpaid' });
   const statusLabel = order => ({ intake: '接修中', quoted: '已報價', completed: '已完工', cancelled: '已取消' })[order.status] ?? order.status;
   const money = value => `NT$ ${new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
   function element(tag, text = '', className = '') {
@@ -91,7 +92,7 @@
     function renderDetail() {
       const detail = $('repair-detail'), order = selectedOrder(); detail.replaceChildren(); detail.hidden = !order;
       if (!order) return;
-      const actions = actionState(order);
+      const actions = actionState(order, document.body.dataset?.role === 'admin');
       detail.append(element('h3', order.number), element('p', `${statusLabel(order)}｜${order.paymentStatus === 'paid' ? '已收款' : '未收款'}｜${money(order.total)}`));
       for (const [label, value] of [['客戶', `${order.customerName}｜${order.customerPhone}`], ['車牌', order.plateNumber],
         ['原廠序號', order.originalSerialNumber], ['車型', order.vehicleName], ['故障', order.issue], ['檢查／處理', order.diagnosis]])
@@ -107,9 +108,9 @@
         }
       }
       for (const [key, label, enabled] of [['complete', '確認完工並扣料', actions.canComplete], ['pay', '標記已收全款', actions.canPay],
-        ['cancel', '取消維修單', actions.canCancel], ['print', '列印維修單', true]]) {
+        ['cancel', '取消維修單', actions.canCancel], ['delete', '刪除維修單', actions.canDelete], ['print', '列印維修單', true]]) {
         if (!enabled) continue;
-        const button = element('button', label, key === 'cancel' ? 'danger' : 'secondary');
+        const button = element('button', label, ['cancel', 'delete'].includes(key) ? 'danger' : 'secondary');
         button.type = 'button'; button.dataset.repairAction = key; detail.append(button);
       }
     }
@@ -190,6 +191,12 @@
       const action = event.target.closest('button[data-repair-action]')?.dataset.repairAction, order = selectedOrder();
       if (!action || !order || busy) return;
       if (action === 'print') { printRepairOrder(order, order.lines, state().serials); return; }
+      if (action === 'delete') {
+        if (!actionState(order, document.body.dataset?.role === 'admin').canDelete
+          || !window.confirm(`確定永久刪除維修單 ${order.number} 與用料明細？此操作無法復原。`)) return;
+        mutation(() => window.AppData.deleteRepairOrder(order.id), '維修單已刪除。');
+        return;
+      }
       if (action === 'cancel' && !window.confirm(`確定取消維修單 ${order.number}？`)) return;
       if (action === 'complete') {
         if (!window.confirm(`確定將維修單 ${order.number} 標記完工並扣除用料庫存？完成後無法取消。`)) return;
