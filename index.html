@@ -195,7 +195,8 @@
       <article class="panel"><div class="section-heading"><h2>業務人員</h2><label class="search"><span class="sr-only">搜尋業務</span><input id="salesperson-search" type="search" placeholder="搜尋姓名"></label></div><div class="table-wrap"><table><thead><tr><th>姓名</th><th>狀態</th><th>操作</th></tr></thead><tbody id="salesperson-list"></tbody></table></div></article>
     </section>
     <section class="app-page" data-page="quotations" aria-label="報價單" hidden>
-      <article class="panel"><h2>建立報價單</h2><form id="quotation-form"><div class="field"><label for="quotation-customer">客戶</label><select id="quotation-customer" required></select></div><div class="field"><label for="quotation-salesperson">業務人員</label><select id="quotation-salesperson" required></select></div><div class="split-fields"><div class="field"><label for="quotation-item">品項</label><select id="quotation-item"></select></div><div class="field"><label for="quotation-quantity">數量</label><input id="quotation-quantity" type="number" min="1" value="1"></div></div><button id="quotation-add-line" class="secondary" type="button">加入明細</button><div class="table-wrap"><table><thead><tr><th>品項</th><th>庫存</th><th>單價</th><th>數量</th><th>小計</th><th>操作</th></tr></thead><tbody id="quotation-lines"></tbody><tfoot><tr><th colspan="4">合計</th><th id="quotation-total">0</th><th></th></tr></tfoot></table></div><div class="field"><label for="quotation-note">備註</label><textarea id="quotation-note" rows="2"></textarea></div><p id="quotation-form-error" class="form-error" role="alert" hidden></p><button type="submit">建立報價單</button></form></article>
+      <article class="panel" data-role="admin" hidden><h2>全店工時費率</h2><form id="shop-rate-form"><div class="field"><label for="shop-hourly-rate">每小時工資（元）</label><input id="shop-hourly-rate" type="number" min="0" step="0.01" required><small>只有店長可修改；新報價使用此費率，舊報價不變。</small></div><p id="shop-rate-form-error" class="form-error" role="alert" hidden></p><button type="submit">儲存費率</button></form></article>
+      <article class="panel"><h2>建立報價單</h2><form id="quotation-form"><div class="field"><label for="quotation-customer">客戶</label><select id="quotation-customer" required></select></div><div class="field"><label for="quotation-salesperson">業務人員</label><select id="quotation-salesperson" required></select></div><div class="split-fields"><div class="field"><label for="quotation-item">品項</label><select id="quotation-item"></select></div><div class="field"><label for="quotation-quantity">數量</label><input id="quotation-quantity" type="number" min="1" value="1"></div></div><div class="split-fields"><div class="field"><label for="quotation-installation-required">是否安裝</label><select id="quotation-installation-required"><option value="no">免安裝</option><option value="yes">需安裝</option></select></div><div class="field" id="quotation-labor-hours-wrap" hidden><label for="quotation-labor-hours">安裝工時（小時）</label><input id="quotation-labor-hours" type="number" min="0.01" step="0.01"></div></div><p>目前每小時工資：<span id="quotation-hourly-rate">0</span> 元</p><button id="quotation-add-line" class="secondary" type="button">加入明細</button><div class="table-wrap"><table><thead><tr><th>品項</th><th>庫存</th><th>單價</th><th>數量</th><th>安裝</th><th>工時</th><th>時薪</th><th>材料小計</th><th>工資</th><th>操作</th></tr></thead><tbody id="quotation-lines"></tbody><tfoot><tr><th colspan="8">合計</th><th id="quotation-total">0</th><th></th></tr></tfoot></table></div><div class="field"><label for="quotation-note">備註</label><textarea id="quotation-note" rows="2"></textarea></div><p id="quotation-form-error" class="form-error" role="alert" hidden></p><button type="submit">建立報價單</button></form></article>
       <section><div class="section-heading"><h2>報價紀錄</h2><input id="quotation-search" class="search" type="search" placeholder="搜尋編號、客戶或電話"></div><div class="table-wrap"><table><thead><tr><th>編號</th><th>日期</th><th>客戶</th><th>業務</th><th>總額</th><th>操作</th></tr></thead><tbody id="quotation-list"></tbody></table></div></section>
       <section id="quotation-detail" class="panel print-document" hidden><div class="section-heading no-print"><h2>報價詳情</h2><button id="print-quotation" type="button">列印報價單</button></div><div id="quotation-print-content"></div></section>
     </section>
@@ -268,11 +269,11 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=4"></script>
   <script src="staff-ui.js?v=1"></script>
-  <script src="inventory.js?v=20"></script>
+  <script src="inventory.js?v=21"></script>
   <script src="storage.js?v=1"></script>
-  <script src="cloud-data.js?v=11"></script>
+  <script src="cloud-data.js?v=12"></script>
   <script src="repair-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=36"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>

@@ -302,6 +302,21 @@ function normalizedSalesperson(value, fallbackId) {
   return { id: id(value?.id ?? fallbackId, '業務 ID'), name, authUserId: text(value?.authUserId), active: value?.active !== false, createdAt: date(value?.createdAt, '業務建立日期'), updatedAt: date(value?.updatedAt, '業務更新日期') };
 }
 
+function quotationDecimal(value, label, positive = false) {
+  const raw = String(value).trim();
+  const [whole, fraction = ''] = raw.split('.');
+  if ((typeof value !== 'number' && typeof value !== 'string') || !/^\d+(\.\d{1,2})?$/.test(raw)
+    || !Number.isSafeInteger(Number(whole) * 100 + Number(fraction.padEnd(2, '0')))
+    || (positive && Number(value) <= 0)) throw new Error(`${label}須為${positive ? '大於零' : '非負'}且最多兩位小數`);
+  return Number(value);
+}
+
+function quotationLabor(hours, rate) {
+  const cents = Math.round(Math.round(hours * 100) * Math.round(rate * 100) / 100);
+  if (!Number.isSafeInteger(cents)) throw new Error('工資超出安全範圍');
+  return cents / 100;
+}
+
 function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallbackId) {
   const customerId = id(value?.customerId, '客戶 ID');
   if (!customerIds.has(customerId)) throw new Error('報價客戶不存在');
@@ -315,10 +330,16 @@ function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallba
     if (subtotal !== quantity * unitPrice) throw new Error('報價小計無效');
     const itemName = text(line?.itemName);
     if (!itemName) throw new Error('報價品項名稱不可空白');
-    return { itemId, itemName, quantity, unitPrice, subtotal };
+    if (line.installationRequired !== undefined && typeof line.installationRequired !== 'boolean') throw new Error('安裝選項無效');
+    const installationRequired = line.installationRequired === true;
+    const laborHours = installationRequired ? quotationDecimal(line.laborHours, '工時', true) : number(line.laborHours ?? 0, '工時');
+    const hourlyRate = installationRequired ? quotationDecimal(line.hourlyRate, '工時費率', true) : number(line.hourlyRate ?? 0, '工時費率');
+    const laborAmount = number(line.laborAmount ?? 0, '工資');
+    if (installationRequired ? laborAmount !== quotationLabor(laborHours, hourlyRate) : laborHours !== 0 || hourlyRate !== 0 || laborAmount !== 0) throw new Error('報價工資無效');
+    return { itemId, itemName, quantity, unitPrice, subtotal, installationRequired, laborHours, hourlyRate, laborAmount };
   });
   const total = number(value?.total, '報價總額');
-  if (total !== lines.reduce((sum, line) => sum + line.subtotal, 0)) throw new Error('報價總額無效');
+  if (total !== Math.round(lines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0) * 100) / 100) throw new Error('報價總額無效');
   const numberValue = text(value?.number);
   const customerName = text(value?.customerName);
   const customerPhone = text(value?.customerPhone);
@@ -762,7 +783,12 @@ function createQuotation(state, fields) {
     const item = current.items.find((candidate) => candidate.id === line?.itemId);
     if (!item) throw new Error('找不到品項');
     const quantity = positiveInteger(line?.quantity, '報價數量');
-    return { itemId: item.id, itemName: item.name, quantity, unitPrice: item.price, subtotal: quantity * item.price };
+    const installationRequired = line.installationRequired === true;
+    const laborHours = installationRequired ? quotationDecimal(line.laborHours, '工時', true) : 0;
+    const hourlyRate = installationRequired ? quotationDecimal(fields.hourlyRate, '工時費率', true) : 0;
+    const laborAmount = installationRequired ? quotationLabor(laborHours, hourlyRate) : 0;
+    return { itemId: item.id, itemName: item.name, quantity, unitPrice: item.price, subtotal: quantity * item.price,
+      installationRequired, laborHours, hourlyRate, laborAmount };
   });
   const timestamp = new Date().toISOString();
   const datePrefix = timestamp.slice(0, 10).replaceAll('-', '');
@@ -779,7 +805,7 @@ function createQuotation(state, fields) {
     salespersonId: salesperson.id,
     salespersonName: salesperson.name,
     lines,
-    total: lines.reduce((sum, line) => sum + line.subtotal, 0),
+    total: Math.round(lines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0) * 100) / 100,
     note: text(fields.note),
     createdAt: timestamp,
   };

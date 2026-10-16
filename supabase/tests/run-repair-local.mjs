@@ -20,6 +20,7 @@ try {
     await db.exec(sql);
   }
   await db.exec(await readFile(new URL('./repair_orders.test.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('./quotation_labor.test.sql', import.meta.url), 'utf8'));
 } catch (error) {
   console.error(error.message, 'position:', error.position, 'context:', error.where);
   await db.close();

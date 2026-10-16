@@ -49,6 +49,40 @@ test('customer form stores multiple optional plates and shows them on edit', asy
   assert.equal(inventory.validateState(context.state).customers[0].plateNumbers.length, 2);
 });
 
+test('quotation builder prices installation hours and prints saved labor while only manager changes shop rate', async () => {
+  const { context, $, inventory: I } = await purchasingUi();
+  context.state = I.addSalesperson(I.addCustomer(I.addItem(context.state, { name: '煞車皮', category: '零件', price: 350, cost: 100, stock: 2, minimumStock: 0 }), { name: '甲', phone: '0911' }), { name: '乙' });
+  context.quotationLines = [];
+  context.hourlyRate = 800;
+  context.window = { AppData: { setHourlyRate: async rate => Number(rate) } };
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  vm.runInNewContext(app.slice(app.indexOf('function renderQuotationBuilder()'), app.indexOf('function renderSaleCustomers()')), context);
+  context.renderQuotationBuilder();
+  $('quotation-customer').value = context.state.customers[0].id;
+  $('quotation-salesperson').value = context.state.salespeople[0].id;
+  $('quotation-item').value = context.state.items[0].id;
+  $('quotation-quantity').value = '1';
+  $('quotation-installation-required').value = 'yes';
+  $('quotation-installation-required').listeners.change();
+  assert.equal($('quotation-labor-hours-wrap').hidden, false);
+  $('quotation-labor-hours').value = '1.5';
+  $('quotation-add-line').listeners.click();
+  assert.equal($('quotation-total').textContent, '1550');
+  await $('quotation-form').listeners.submit({ preventDefault() {} });
+  assert.equal(context.state.quotations[0].lines[0].hourlyRate, 800);
+  assert.equal(context.state.quotations[0].total, 1550);
+  context.showQuotation(context.state.quotations[0]);
+  assert.match(JSON.stringify($('quotation-print-content').children), /1200/);
+  context.document.body.dataset.role = 'clerk';
+  $('shop-hourly-rate').value = '900';
+  await $('shop-rate-form').listeners.submit({ preventDefault() {} });
+  assert.equal(context.hourlyRate, 800);
+  context.document.body.dataset.role = 'admin';
+  await $('shop-rate-form').listeners.submit({ preventDefault() {} });
+  assert.equal(context.hourlyRate, 900);
+  assert.equal(context.state.quotations[0].lines[0].hourlyRate, 800);
+});
+
 test('supplier UI creates edits searches and deactivates suppliers with role guards', async () => {
   const { context, $, submit, click } = await purchasingUi();
   $('supplier-name').value = '電池供應商';
@@ -474,9 +508,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=11"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=12"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=36"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=37"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);

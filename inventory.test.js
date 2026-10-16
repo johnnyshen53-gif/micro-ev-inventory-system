@@ -471,6 +471,34 @@ test('creates price snapshots without changing inventory', () => {
   assert.equal(next.quotations[0].total, 1050);
 });
 
+test('installation labor snapshots the shop hourly rate without changing material or old quotes', () => {
+  const stocked = addItem(emptyState(), item);
+  const ready = withSalesperson(addCustomer(stocked, { name: '王小明', phone: '0912-345-678' }));
+  const base = { customerId: ready.customers[0].id, salespersonId: ready.salespeople[0].id };
+  const old = createQuotation(ready, { ...base, lines: [{ itemId: ready.items[0].id, quantity: 1 }] });
+  const quoted = createQuotation(old, { ...base, hourlyRate: 800, lines: [{ itemId: ready.items[0].id, quantity: 2, installationRequired: true, laborHours: 1.5 }] });
+  assert.equal(quoted.quotations[0].total, 350);
+  assert.equal(quoted.quotations[1].lines[0].subtotal, 700);
+  assert.equal(quoted.quotations[1].lines[0].hourlyRate, 800);
+  assert.equal(quoted.quotations[1].lines[0].laborAmount, 1200);
+  assert.equal(quoted.quotations[1].total, 1900);
+  assert.equal(quoted.quotations[0].lines[0].installationRequired, false);
+  assert.equal(quoted.quotations[0].lines[0].laborAmount, 0);
+  assert.equal(JSON.parse(toBackup(quoted)).quotations[1].lines[0].laborHours, 1.5);
+  const fractional = createQuotation(ready, { ...base, hourlyRate: 0.29, lines: [{ itemId: ready.items[0].id, quantity: 1, installationRequired: true, laborHours: 0.5 }] });
+  assert.equal(fractional.quotations[0].lines[0].laborAmount, 0.15);
+});
+
+test('installation requires valid hours and a configured positive hourly rate', () => {
+  const stocked = addItem(emptyState(), item);
+  const ready = withSalesperson(addCustomer(stocked, { name: '王小明', phone: '0912-345-678' }));
+  const base = { customerId: ready.customers[0].id, salespersonId: ready.salespeople[0].id };
+  for (const laborHours of [0, -1, 0.001, Infinity, '']) {
+    assert.throws(() => createQuotation(ready, { ...base, hourlyRate: 800, lines: [{ itemId: ready.items[0].id, quantity: 1, installationRequired: true, laborHours }] }), /工時/);
+  }
+  assert.throws(() => createQuotation(ready, { ...base, hourlyRate: 0, lines: [{ itemId: ready.items[0].id, quantity: 1, installationRequired: true, laborHours: 1 }] }), /費率/);
+});
+
 test('rejects inactive customers and invalid quotation lines', () => {
   const stocked = addItem(emptyState(), item);
   const withCustomer = withSalesperson(addCustomer(stocked, { name: '王小明', phone: '0912-345-678', note: '' }));

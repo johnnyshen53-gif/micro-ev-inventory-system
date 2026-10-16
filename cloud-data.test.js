@@ -38,6 +38,39 @@ test('cloud repair-used serial and warranty retain repair links in the inventory
   assert.equal(state.sales.length, 0);
 });
 
+test('cloud quotation reload keeps installation labor snapshots and current shop rate separate', async () => {
+  const tables = {
+    shop_settings: [{ id: 1, hourly_rate: 900 }],
+    customers: [{ id: 'customer-1', name: '甲', phone: '0911' }],
+    items: [{ id: 'item-1', name: '煞車皮', category: '零件', sku: 'P1', price: 350, stock: 2, minimum_stock: 0 }],
+    quotations: [{ id: 'quote-1', quote_number: 'Q-1', customer_id: 'customer-1', total: 1550, note: '', created_at: '2026-10-16T00:00:00Z' }],
+    quotation_lines: [{ quotation_id: 'quote-1', item_id: 'item-1', item_name: '煞車皮', quantity: 1, unit_price: 350, subtotal: 350,
+      installation_required: true, labor_hours: 1.5, hourly_rate: 800, labor_amount: 1200 }],
+  };
+  const appData = await loadCloudData({
+    client: { from: table => ({ select: async () => ({ data: tables[table] ?? [], error: null }) }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => value },
+  });
+  const result = await appData.loadSnapshot();
+  assert.equal(result.hourlyRate, 900);
+  assert.equal(result.state.quotations[0].lines[0].hourlyRate, 800);
+  assert.equal(result.state.quotations[0].lines[0].laborAmount, 1200);
+});
+
+test('shop hourly rate update returns the persisted rate and reports a denied write', async () => {
+  let saved;
+  const appData = await loadCloudData({
+    client: { from: table => ({ update: value => { assert.equal(table, 'shop_settings'); saved = value.hourly_rate; return {
+      eq: () => ({ select: () => ({ single: async () => ({ data: { hourly_rate: saved }, error: null }) }) }),
+    }; } }) },
+    cache: {}, inventory: {},
+  });
+  assert.equal(await appData.setHourlyRate(850), 850);
+  assert.equal(saved, 850);
+  await assert.rejects(() => appData.setHourlyRate(-1), /費率/);
+});
+
 test('repair adapter reads orders and uses guarded RPCs before reloading cloud state', async () => {
   const calls = [];
   const appData = await loadCloudData({

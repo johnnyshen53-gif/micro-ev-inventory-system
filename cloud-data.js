@@ -27,7 +27,7 @@
       suppliers: suppliers.map(row => ({ id: row.id, name: row.name, contact: row.contact, phone: row.phone, address: row.address, taxId: row.tax_id, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
       purchases: purchases.map(row => ({ id: row.id, number: row.purchase_number, supplierId: row.supplier_id, supplierSnapshot: row.supplier_snapshot, status: row.status, paymentStatus: row.payment_status, lines: (linesByPurchase.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, sku: line.item_sku, barcode: line.item_barcode, quantity: Number(line.quantity), unitCost: Number(line.unit_cost), subtotal: Number(line.subtotal) })), total: Number(row.total), note: row.note, createdAt: row.created_at, updatedAt: row.updated_at, receivedAt: row.received_at ?? '', paidAt: row.paid_at ?? '', createdBy: row.created_by, receivedBy: row.received_by ?? '', paidBy: row.paid_by ?? '', createdByAccount: '', receivedByAccount: '', paidByAccount: '' })),
       serials: serials.map(row => ({ id: row.id, itemId: row.item_id, serialNumber: row.serial_number, status: row.status, purchaseId: admin ? row.purchase_id ?? '' : '', saleId: row.sale_line_id ?? '', customerId: row.customer_id ?? '', warrantyId: row.warranty_id ?? '', repairOrderId: row.repair_order_id ?? '', repairLineId: row.repair_line_id ?? '', repairUsedAt: row.repair_used_at ?? '', createdBy: row.created_by, createdAt: row.created_at, soldAt: row.sold_at ?? '', removedAt: row.removed_at ?? '', removedBy: row.removed_by ?? '', removalReason: row.removal_reason ?? '' })),
-      quotations: quotations.map(row => ({ id: row.id, number: row.quote_number, customerId: row.customer_id, customerName: customerById.get(row.customer_id)?.name ?? '', customerPhone: customerById.get(row.customer_id)?.phone ?? '', salespersonId: row.salesperson_id ?? '', salespersonName: row.salesperson_id ? salespersonById.get(row.salesperson_id)?.name ?? '' : '', lines: (linesByQuotation.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal) })), total: Number(row.total), note: row.note, createdAt: row.created_at })),
+      quotations: quotations.map(row => ({ id: row.id, number: row.quote_number, customerId: row.customer_id, customerName: customerById.get(row.customer_id)?.name ?? '', customerPhone: customerById.get(row.customer_id)?.phone ?? '', salespersonId: row.salesperson_id ?? '', salespersonName: row.salesperson_id ? salespersonById.get(row.salesperson_id)?.name ?? '' : '', lines: (linesByQuotation.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal), installationRequired: line.installation_required ?? false, laborHours: Number(line.labor_hours ?? 0), hourlyRate: Number(line.hourly_rate ?? 0), laborAmount: Number(line.labor_amount ?? 0) })), total: Number(row.total), note: row.note, createdAt: row.created_at })),
       sales: sales.flatMap(sale => (linesBySale.get(sale.id) ?? []).map(line => ({ id: line.id, saleNumber: sale.sale_number, customerId: sale.customer_id ?? '', itemId: line.item_id, itemName: line.item_name, barcode: line.barcode, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal), createdAt: sale.created_at, createdBy: sale.created_by, createdByAccount: '', serialIds: (serialsBySaleLine.get(line.id) ?? []).map(serial => serial.id), serialNumbers: (serialsBySaleLine.get(line.id) ?? []).map(serial => serial.serial_number) }))),
       warranties: warranties.map(row => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, itemId: row.item_id, itemName: row.item_name, barcode: row.barcode, source: row.source, saleId: row.sale_line_id ?? '', saleNumber: row.sale_number, repairOrderId: row.repair_order_id ?? '', serialId: row.serial_id ?? '', serialNumber: row.serial_number ?? '', purchasedAt: row.purchased_at, expiresAt: row.expires_at, note: row.note, createdBy: row.created_by, createdAt: row.created_at })),
       warrantyCases: warrantyCases.map(row => ({ id: row.id, warrantyId: row.warranty_id, issue: row.issue, status: row.status, handledAt: row.handled_at ?? '', resolutionNote: row.resolution_note, itemName: row.item_name, purchasedAt: row.purchased_at, expiresAt: row.expires_at, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at })),
@@ -46,7 +46,7 @@
       const user = await window.AppAuth.requireActiveUser();
       const admin = user.role === 'admin';
       const client = window.AppAuth.client;
-      const [items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases] = await Promise.all([
+      const [items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, shopSettings] = await Promise.all([
         query(client, 'items', 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id'),
         admin ? query(client, 'item_costs', 'item_id,cost') : [], query(client, 'inventory_transactions', 'id,item_id,type,quantity,note,purchase_id,repair_order_id,warranty_id,customer_id,item_name,expires_at,unit_cost_snapshot,serial_ids,serial_numbers,created_by,created_at'),
         query(client, 'customers', 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at'),
@@ -54,20 +54,31 @@
         query(client, 'sale_lines', 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,subtotal'),
         admin ? query(client, 'suppliers', 'id,name,contact,phone,address,tax_id,note,active,created_at,updated_at') : [],
         query(client, 'quotations', 'id,quote_number,customer_id,salesperson_id,total,note,created_at'),
-        query(client, 'quotation_lines', 'quotation_id,item_id,item_name,quantity,unit_price,subtotal'),
+        query(client, 'quotation_lines', 'quotation_id,item_id,item_name,quantity,unit_price,subtotal,installation_required,labor_hours,hourly_rate,labor_amount'),
         admin ? query(client, 'purchases', 'id,purchase_number,supplier_id,supplier_snapshot,status,payment_status,total,note,created_by,received_by,paid_by,created_at,updated_at,received_at,paid_at') : [],
         admin ? query(client, 'purchase_lines', 'purchase_id,item_id,item_name,item_sku,item_barcode,quantity,unit_cost,subtotal') : [],
         query(client, 'inventory_serials', 'id,item_id,serial_number,status,purchase_id,sale_line_id,customer_id,warranty_id,repair_order_id,repair_line_id,repair_used_at,created_by,created_at,sold_at,removed_at,removed_by,removal_reason'),
         query(client, 'warranties', 'id,customer_id,customer_name,item_id,item_name,barcode,source,sale_line_id,sale_number,repair_order_id,serial_id,serial_number,purchased_at,expires_at,note,created_by,created_at'),
         query(client, 'warranty_cases', 'id,warranty_id,issue,status,handled_at,resolution_note,item_name,purchased_at,expires_at,created_by,created_at,updated_at'),
+        query(client, 'shop_settings', 'id,hourly_rate'),
       ]);
       const state = snapshotFromRows({ items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, admin });
       await window.InventoryStorage.saveState(state);
-      return { state, source: 'cloud', readonly: false };
+      return { state, hourlyRate: Number(shopSettings[0]?.hourly_rate ?? 0), source: 'cloud', readonly: false };
     } catch (error) {
-      if (cache.state) return { state: cache.state, source: 'cache', readonly: true, error };
+      if (cache.state) return { state: cache.state, hourlyRate: 0, source: 'cache', readonly: true, error };
       throw error;
     }
+  }
+
+  async function setHourlyRate(rate) {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可維護工時費率');
+    if (!/^\d+(\.\d{1,2})?$/.test(String(rate)) || !Number.isFinite(Number(rate))) throw new Error('工時費率須為非負金額，最多兩位小數');
+    const { data, error } = await window.AppAuth.client.from('shop_settings').update({ hourly_rate: Number(rate) }).eq('id', 1).select('hourly_rate').single();
+    if (error) throw error;
+    if (!data) throw new Error('工時費率未儲存');
+    return Number(data.hourly_rate);
   }
 
   async function loadRepairOrders() {
@@ -315,5 +326,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, loadRepairOrders, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();
