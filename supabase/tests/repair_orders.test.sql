@@ -9,6 +9,13 @@ insert into auth.sessions(id, user_id) values
   ('70000000-0000-4000-8000-000000000012', '70000000-0000-4000-8000-000000000002');
 insert into public.customers(id, member_number, name, phone, created_by) values
   ('70000000-0000-4000-8000-000000000021', 'M700001', '會員甲', '0900000001', '70000000-0000-4000-8000-000000000001');
+do $$ begin
+  if (select plate_numbers from public.customers where member_number='M700001') <> '{}'::text[] then
+    raise exception 'legacy customer plate list does not default to empty'; end if;
+  update public.customers set plate_numbers=array['ABC-1234','DEF-5678'] where member_number='M700001';
+  if (select plate_numbers from public.customers where member_number='M700001') <> array['ABC-1234','DEF-5678'] then
+    raise exception 'customer plate list did not persist'; end if;
+end $$;
 insert into public.items(id, name, category, sku, price, stock, created_by) values
   ('70000000-0000-4000-8000-000000000031', '煞車片', '零件', 'PART-1', 120, 5, '70000000-0000-4000-8000-000000000001');
 insert into public.items(id, name, category, sku, price, stock, warranty_months, created_by) values

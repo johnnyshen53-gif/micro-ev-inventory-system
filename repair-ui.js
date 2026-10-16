@@ -45,6 +45,15 @@
     const state = () => getState();
     const message = (text, error = false) => { $('repair-status').textContent = text; $('repair-status').classList.toggle('error', error); notify(text, error); };
     const repairItems = () => state().items.filter(item => ['零件', '用品', '電池'].includes(item.category));
+    function renderPlateChoices(autoFill = false) {
+      const plates = state().customers.find(value => value.id === $('repair-customer').value)?.plateNumbers ?? [];
+      const choice = $('repair-plate-choice');
+      choice.replaceChildren(new Option('請選擇車牌', ''));
+      for (const plate of plates) choice.append(new Option(plate, plate));
+      $('repair-plate-choice-wrap').hidden = plates.length <= 1;
+      if (autoFill) $('repair-plate').value = plates.length === 1 ? plates[0] : '';
+      choice.value = plates.includes($('repair-plate').value) ? $('repair-plate').value : '';
+    }
     function renderChoices() {
       const customer = $('repair-customer'), item = $('repair-item');
       const oldCustomer = customer.value, oldItem = item.value;
@@ -54,6 +63,7 @@
       item.replaceChildren(new Option('選擇品項', ''));
       for (const value of repairItems()) item.append(new Option(`${value.name}（庫存 ${value.stock}）`, value.id));
       item.value = repairItems().some(value => value.id === oldItem) ? oldItem : '';
+      renderPlateChoices();
     }
     function renderLines() {
       const body = $('repair-lines'); body.replaceChildren();
@@ -114,6 +124,7 @@
       for (const [field, value] of [['customer', order.customerId], ['customer-name', order.customerName], ['customer-phone', order.customerPhone],
         ['plate', order.plateNumber], ['original-serial', order.originalSerialNumber], ['vehicle', order.vehicleName],
         ['issue', order.issue], ['diagnosis', order.diagnosis], ['labor', order.laborAmount]]) $(`repair-${field}`).value = value ?? '';
+      renderPlateChoices();
       $('repair-form').hidden = !actionState(order).canEdit;
       $('repair-form-title').textContent = `編輯 ${order.number}`;
       $('repair-save').textContent = order.status === 'quoted' ? '更新報價' : '儲存接修';
@@ -161,7 +172,9 @@
     $('repair-customer').addEventListener('change', () => {
       const customer = state().customers.find(value => value.id === $('repair-customer').value);
       if (customer) { $('repair-customer-name').value = customer.name; $('repair-customer-phone').value = customer.phone; }
+      renderPlateChoices(true);
     });
+    $('repair-plate-choice').addEventListener('change', () => { $('repair-plate').value = $('repair-plate-choice').value; });
     $('repair-item').addEventListener('change', () => { const item = repairItems().find(value => value.id === $('repair-item').value); $('repair-price').value = item?.price ?? ''; });
     $('repair-add-line').addEventListener('click', () => {
       const item = repairItems().find(value => value.id === $('repair-item').value);

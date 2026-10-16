@@ -170,8 +170,8 @@
       </article>
     </section>
     <section class="app-page grid forms" data-page="customers" aria-label="客戶管理" hidden>
-      <article class="panel"><h2 id="customer-form-title">新增客戶</h2><form id="customer-form"><input id="customer-id" type="hidden"><div class="field"><label for="customer-member-number">會員編號</label><input id="customer-member-number" readonly placeholder="儲存後自動產生"></div><div class="field"><label for="customer-name">姓名</label><input id="customer-name" required></div><div class="field"><label for="customer-phone">電話</label><input id="customer-phone" required></div><div class="field"><label for="customer-address">地址（選填）</label><input id="customer-address" autocomplete="street-address"></div><div class="field"><label for="customer-note">備註</label><textarea id="customer-note" rows="2"></textarea></div><p id="customer-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存客戶</button><button id="customer-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
-      <article class="panel"><div class="section-heading"><h2>客戶資料</h2><input id="customer-search" class="search" type="search" placeholder="搜尋會員編號、姓名、電話或地址"></div><div class="table-wrap"><table><thead><tr><th>會員編號</th><th>姓名</th><th>電話</th><th>地址</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="customer-list"></tbody></table></div></article>
+      <article class="panel"><h2 id="customer-form-title">新增客戶</h2><form id="customer-form"><input id="customer-id" type="hidden"><div class="field"><label for="customer-member-number">會員編號</label><input id="customer-member-number" readonly placeholder="儲存後自動產生"></div><div class="field"><label for="customer-name">姓名</label><input id="customer-name" required></div><div class="field"><label for="customer-phone">電話</label><input id="customer-phone" required></div><div class="field"><label for="customer-plates">車牌（選填，每行一個）</label><textarea id="customer-plates" rows="2" placeholder="ABC-1234&#10;DEF-5678"></textarea></div><div class="field"><label for="customer-address">地址（選填）</label><input id="customer-address" autocomplete="street-address"></div><div class="field"><label for="customer-note">備註</label><textarea id="customer-note" rows="2"></textarea></div><p id="customer-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存客戶</button><button id="customer-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
+      <article class="panel"><div class="section-heading"><h2>客戶資料</h2><input id="customer-search" class="search" type="search" placeholder="搜尋會員編號、姓名、電話、車牌或地址"></div><div class="table-wrap"><table><thead><tr><th>會員編號</th><th>姓名</th><th>電話</th><th>車牌</th><th>地址</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="customer-list"></tbody></table></div></article>
     </section>
     <section class="app-page grid forms" data-page="salespeople" aria-label="業務管理" data-role="admin" hidden>
       <article id="staff-panel" class="panel" hidden>
@@ -232,6 +232,7 @@
           <form id="repair-form">
             <div class="field"><label for="repair-customer">既有會員（或改填臨時客）</label><select id="repair-customer"><option value="">臨時客</option></select><small>若用料包含電池，完工前須選擇既有會員，電池品項也須有保固月數。</small></div>
             <div class="split-fields"><div class="field"><label for="repair-customer-name">客戶姓名</label><input id="repair-customer-name" required></div><div class="field"><label for="repair-customer-phone">電話</label><input id="repair-customer-phone" type="tel" required></div></div>
+            <div id="repair-plate-choice-wrap" class="field" hidden><label for="repair-plate-choice">選擇會員車牌</label><select id="repair-plate-choice"><option value="">請選擇車牌</option></select></div>
             <div class="split-fields"><div class="field"><label for="repair-plate">車牌（與原廠序號至少填一項）</label><input id="repair-plate"></div><div class="field"><label for="repair-original-serial">車輛原廠序號</label><input id="repair-original-serial"></div></div>
             <div class="field"><label for="repair-vehicle">車型／車輛描述</label><input id="repair-vehicle" required></div>
             <div class="field"><label for="repair-issue">故障與需求</label><textarea id="repair-issue" required></textarea></div>
@@ -267,11 +268,11 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=4"></script>
   <script src="staff-ui.js?v=1"></script>
-  <script src="inventory.js?v=19"></script>
+  <script src="inventory.js?v=20"></script>
   <script src="storage.js?v=1"></script>
-  <script src="cloud-data.js?v=9"></script>
-  <script src="repair-ui.js?v=1"></script>
+  <script src="cloud-data.js?v=10"></script>
+  <script src="repair-ui.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=35"></script>
+  <script src="app.js?v=36"></script>
 </body>
 </html>

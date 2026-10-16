@@ -200,7 +200,7 @@ test('cloud inventory adjustment does not upsert the stale stock value after the
 test('new customers include the signed-in creator without changing existing customer ownership', async () => {
   const calls = [];
   const oldCustomer = { id: 'customer-1', memberNumber: 'M000001', name: '舊客戶', phone: '', address: '', note: '', active: true };
-  const newCustomer = { id: 'customer-2', memberNumber: 'M000002', name: '新客戶', phone: '', address: '', note: '', active: true };
+  const newCustomer = { id: 'customer-2', memberNumber: 'M000002', name: '新客戶', phone: '', address: '', plateNumbers: ['ABC-1234', 'DEF-5678'], note: '', active: true };
   const old = { items: [], transactions: [], customers: [oldCustomer], salespeople: [], sales: [] };
   const appData = await loadCloudData({
     client: {
@@ -223,10 +223,11 @@ test('new customers include the signed-in creator without changing existing cust
   const customerCalls = calls.filter(call => call.table === 'customers');
   assert.equal(customerCalls.length, 2);
   assert.equal(customerCalls.find(call => call.method === 'insert')?.value[0].created_by, 'admin');
+  assert.deepEqual(customerCalls.find(call => call.method === 'insert')?.value[0].plate_numbers, ['ABC-1234', 'DEF-5678']);
   const update = customerCalls.find(call => call.method === 'update');
   assert.equal(update?.field, 'id');
   assert.equal(update?.id, 'customer-1');
-  assert.deepEqual(JSON.parse(JSON.stringify(update?.value)), { member_number: 'M000001', name: '已更新', phone: '', address: '', note: '', active: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(update?.value)), { member_number: 'M000001', name: '已更新', phone: '', plate_numbers: [], address: '', note: '', active: true });
 });
 
 test('salespeople insert, edit, and deactivate persist without rewriting creator or unchanged rows', async () => {
@@ -272,7 +273,7 @@ test('cloud reload retains supplier and quotation details', async () => {
   const tables = {
     items: [{ id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 20, stock: 1, minimum_stock: 0, warranty_months: 0, notes: '', supplier_id: 'supplier-1' }],
     item_costs: [], inventory_transactions: [],
-    customers: [{ id: 'customer-1', member_number: 'C1', name: '客戶', phone: '123', address: '', note: '', active: true, created_at: now, updated_at: now }],
+    customers: [{ id: 'customer-1', member_number: 'C1', name: '客戶', phone: '123', address: '', plate_numbers: ['ABC-1234', 'DEF-5678'], note: '', active: true, created_at: now, updated_at: now }],
     salespeople: [{ id: 'salesperson-1', name: '業務', active: true, created_at: now, updated_at: now }],
     sales: [], sale_lines: [],
     suppliers: [{ id: 'supplier-1', name: '供應商', contact: '王先生', phone: '456', address: '台北', tax_id: '12345678', note: '備註', active: true, created_at: now, updated_at: now }],
@@ -286,6 +287,7 @@ test('cloud reload retains supplier and quotation details', async () => {
   });
   const { state } = await appData.loadSnapshot();
   assert.equal(state.suppliers[0].contact, '王先生');
+  assert.deepEqual(Array.from(state.customers[0].plateNumbers), ['ABC-1234', 'DEF-5678']);
   assert.equal(state.items[0].supplierId, 'supplier-1');
   assert.equal(state.quotations[0].customerName, '客戶');
   assert.equal(state.quotations[0].salespersonName, '業務');

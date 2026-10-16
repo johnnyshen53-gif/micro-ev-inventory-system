@@ -427,6 +427,14 @@ test('normalizes legacy customers without address or membership numbers', () => 
   const state = validateState({ items: [], transactions: [], customers: [{ id: 'legacy', name: '舊客戶', phone: '0900', note: '', active: true, createdAt: timestamp, updatedAt: timestamp }] });
   assert.equal(state.customers[0].memberNumber, 'M000001');
   assert.equal(state.customers[0].address, '');
+  assert.deepEqual(Array.from(state.customers[0].plateNumbers), []);
+});
+
+test('stores optional multiple customer plates through edits', () => {
+  const added = addCustomer(emptyState(), { name: '王小明', phone: '0912', plateNumbers: [' ABC-1234 ', 'DEF-5678'] });
+  assert.deepEqual(Array.from(added.customers[0].plateNumbers), ['ABC-1234', 'DEF-5678']);
+  const edited = updateCustomer(added, added.customers[0].id, { name: '王小明', phone: '0912', plateNumbers: ['DEF-5678'] });
+  assert.deepEqual(Array.from(edited.customers[0].plateNumbers), ['DEF-5678']);
 });
 
 test('stores a salesperson snapshot on quotations and rejects inactive salespeople', () => {

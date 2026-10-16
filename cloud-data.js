@@ -22,7 +22,7 @@
       ...empty(),
       items: items.map(row => ({ id: row.id, name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost: costByItem.get(row.id) ?? 0, price: Number(row.price), stock: Number(row.stock), minimumStock: Number(row.minimum_stock), warrantyMonths: Number(row.warranty_months ?? 0), notes: row.notes, supplierId: admin ? row.supplier_id ?? '' : '' })),
       transactions: transactions.map(row => ({ id: row.id, itemId: row.item_id, type: transactionType(row.type, row.warranty_id), quantity: Number(row.quantity), note: row.note, purchaseId: admin ? row.purchase_id ?? '' : '', repairOrderId: row.repair_order_id ?? '', warrantyId: row.warranty_id ?? '', customerId: row.customer_id ?? '', customerName: customerById.get(row.customer_id)?.name ?? '', itemName: row.item_name ?? '', expiresAt: row.expires_at ?? '', unitCostSnapshot: row.unit_cost_snapshot == null ? undefined : Number(row.unit_cost_snapshot), createdBy: row.created_by ?? '', createdByAccount: '', serialIds: row.serial_ids ?? [], serialNumbers: row.serial_numbers ?? [], createdAt: row.created_at })),
-      customers: customers.map(row => ({ id: row.id, memberNumber: row.member_number, name: row.name, phone: row.phone, address: row.address, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
+      customers: customers.map(row => ({ id: row.id, memberNumber: row.member_number, name: row.name, phone: row.phone, plateNumbers: row.plate_numbers ?? [], address: row.address, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
       salespeople: salespeople.map(row => ({ id: row.id, name: row.name, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
       suppliers: suppliers.map(row => ({ id: row.id, name: row.name, contact: row.contact, phone: row.phone, address: row.address, taxId: row.tax_id, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
       purchases: purchases.map(row => ({ id: row.id, number: row.purchase_number, supplierId: row.supplier_id, supplierSnapshot: row.supplier_snapshot, status: row.status, paymentStatus: row.payment_status, lines: (linesByPurchase.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, sku: line.item_sku, barcode: line.item_barcode, quantity: Number(line.quantity), unitCost: Number(line.unit_cost), subtotal: Number(line.subtotal) })), total: Number(row.total), note: row.note, createdAt: row.created_at, updatedAt: row.updated_at, receivedAt: row.received_at ?? '', paidAt: row.paid_at ?? '', createdBy: row.created_by, receivedBy: row.received_by ?? '', paidBy: row.paid_by ?? '', createdByAccount: '', receivedByAccount: '', paidByAccount: '' })),
@@ -49,7 +49,7 @@
       const [items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases] = await Promise.all([
         query(client, 'items', 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id'),
         admin ? query(client, 'item_costs', 'item_id,cost') : [], query(client, 'inventory_transactions', 'id,item_id,type,quantity,note,purchase_id,repair_order_id,warranty_id,customer_id,item_name,expires_at,unit_cost_snapshot,serial_ids,serial_numbers,created_by,created_at'),
-        query(client, 'customers', 'id,member_number,name,phone,address,note,active,created_at,updated_at'),
+        query(client, 'customers', 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at'),
         query(client, 'salespeople', 'id,name,active,created_at,updated_at'), query(client, 'sales', 'id,sale_number,customer_id,created_by,created_at'),
         query(client, 'sale_lines', 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,subtotal'),
         admin ? query(client, 'suppliers', 'id,name,contact,phone,address,tax_id,note,active,created_at,updated_at') : [],
@@ -110,7 +110,7 @@
   const rows = (state, key) => state[key] ?? [];
   const byId = values => new Map(values.map(value => [value.id, value]));
   const itemRow = item => ({ id: item.id, name: item.name, category: item.category, sku: item.sku, barcode: item.barcode, price: item.price, ...(item.stock === undefined ? {} : { stock: item.stock }), minimum_stock: item.minimumStock, warranty_months: item.warrantyMonths ?? 0, notes: item.notes, supplier_id: item.supplierId || null });
-  const customerRow = customer => ({ id: customer.id, member_number: customer.memberNumber, name: customer.name, phone: customer.phone, address: customer.address, note: customer.note, active: customer.active });
+  const customerRow = customer => ({ id: customer.id, member_number: customer.memberNumber, name: customer.name, phone: customer.phone, plate_numbers: customer.plateNumbers ?? [], address: customer.address, note: customer.note, active: customer.active });
   async function mutate(client, table, method, value) {
     const request = client.from(table)[method](value);
     const { error } = await request;

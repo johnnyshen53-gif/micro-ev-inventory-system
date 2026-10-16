@@ -28,6 +28,30 @@ test('repair search and battery selection only expose relevant data', () => {
   assert.equal(actionState({ status: 'cancelled', paymentStatus: 'unpaid' }).canComplete, false);
 });
 
+test('choosing a member with multiple plates offers a dropdown and copies the selected plate', () => {
+  assert.match(html, /id="repair-plate-choice"/);
+  const nodes = new Map();
+  function node() { return { value: '', hidden: false, textContent: '', dataset: {}, children: [], classList: { toggle() {} },
+    listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...items) { this.children.push(...items); },
+    replaceChildren(...items) { this.children = items; }, reset() {}, reportValidity: () => true }; }
+  const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  const browser = { addEventListener() {}, AppAuthUI: { isActive: () => true } };
+  const document = { getElementById: get, createElement: node, body: { classList: { add() {}, remove() {} } } };
+  vm.runInNewContext(source, { window: browser, document, Option: function Option(text, value) { return { text, value }; } });
+  browser.RepairUI.mount({ getState: () => ({ customers: [
+    { id: 'multi', name: '甲', phone: '0911', memberNumber: 'M000001', active: true, plateNumbers: ['ABC-1234', 'DEF-5678'] },
+    { id: 'single', name: '乙', phone: '0922', memberNumber: 'M000002', active: true, plateNumbers: ['XYZ-9999'] },
+  ], items: [], serials: [] }), setState() {}, notify() {} });
+  get('repair-customer').value = 'multi'; get('repair-customer').listeners.change();
+  assert.equal(get('repair-plate-choice-wrap').hidden, false);
+  assert.deepEqual(get('repair-plate-choice').children.map(option => option.value), ['', 'ABC-1234', 'DEF-5678']);
+  get('repair-plate-choice').value = 'DEF-5678'; get('repair-plate-choice').listeners.change();
+  assert.equal(get('repair-plate').value, 'DEF-5678');
+  get('repair-customer').value = 'single'; get('repair-customer').listeners.change();
+  assert.equal(get('repair-plate-choice-wrap').hidden, true);
+  assert.equal(get('repair-plate').value, 'XYZ-9999');
+});
+
 test('repair print shows customer, materials, serial, labor, and payment without parsing customer HTML', () => {
   const created = [];
   function node(tag) { return { tag, textContent: '', children: [], append(...values) { this.children.push(...values); }, replaceChildren(...values) { this.children = values; } }; }

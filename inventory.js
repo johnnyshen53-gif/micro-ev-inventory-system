@@ -278,13 +278,16 @@ function memberNumber(value) {
 function normalizedCustomer(value, fallbackId, fallbackMemberNumber) {
   const name = text(value?.name);
   const phone = text(value?.phone);
+  const plates = value?.plateNumbers ?? [];
   if (!name) throw new Error('客戶姓名不可空白');
   if (!phone) throw new Error('客戶電話不可空白');
+  if (!Array.isArray(plates) || plates.some(plate => typeof plate !== 'string')) throw new Error('客戶車牌資料無效');
   return {
     id: id(value?.id ?? fallbackId, '客戶 ID'),
     memberNumber: memberNumber(value?.memberNumber ?? fallbackMemberNumber),
     name,
     phone,
+    plateNumbers: [...new Set(plates.map(text).filter(Boolean))],
     address: text(value?.address),
     note: text(value?.note),
     active: value?.active !== false,
@@ -705,7 +708,7 @@ function updateCustomer(state, customerId, fields) {
   const current = validateState(state);
   const existing = current.customers.find((customer) => customer.id === customerId);
   if (!existing) throw new Error('找不到客戶');
-  const customer = normalizedCustomer({ ...fields, id: existing.id, memberNumber: existing.memberNumber, active: existing.active, createdAt: existing.createdAt, updatedAt: new Date().toISOString() });
+  const customer = normalizedCustomer({ ...fields, plateNumbers: fields.plateNumbers ?? existing.plateNumbers, id: existing.id, memberNumber: existing.memberNumber, active: existing.active, createdAt: existing.createdAt, updatedAt: new Date().toISOString() });
   return validateState({ ...current, customers: current.customers.map((candidate) => candidate.id === customerId ? customer : candidate) });
 }
 

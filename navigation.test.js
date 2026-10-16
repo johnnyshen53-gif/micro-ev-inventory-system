@@ -33,6 +33,22 @@ async function purchasingUi() {
   return { context, $, submit, click, inventory };
 }
 
+test('customer form stores multiple optional plates and shows them on edit', async () => {
+  const { context, $, inventory } = await purchasingUi();
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  vm.runInNewContext(app.slice(app.indexOf('function renderCustomers()'), app.indexOf('function renderSalespeople()')), context);
+  $('customer-name').value = '王小明'; $('customer-phone').value = '0912';
+  $('customer-plates').value = 'ABC-1234\nDEF-5678';
+  await $('customer-form').listeners.submit({ preventDefault() {} });
+  assert.deepEqual(Array.from(context.state.customers[0].plateNumbers), ['ABC-1234', 'DEF-5678']);
+  const id = context.state.customers[0].id;
+  $('customer-list').listeners.click({ target: { closest: () => ({ dataset: { customerAction: 'edit', id } }) } });
+  assert.equal($('customer-plates').value, 'ABC-1234\nDEF-5678');
+  context.renderCustomers();
+  assert.match($('customer-list').children[0].children.map(cell => cell.textContent).join(' '), /ABC-1234/);
+  assert.equal(inventory.validateState(context.state).customers[0].plateNumbers.length, 2);
+});
+
 test('supplier UI creates edits searches and deactivates suppliers with role guards', async () => {
   const { context, $, submit, click } = await purchasingUi();
   $('supplier-name').value = '電池供應商';
@@ -458,9 +474,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=9"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=10"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=35"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=36"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
