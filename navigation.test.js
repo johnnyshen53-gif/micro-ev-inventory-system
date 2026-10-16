@@ -410,7 +410,7 @@ test('opens cloud operations on desktop while retaining mobile and clerk access 
   }]));
   let mobile = false;
   const context = {
-    window: { matchMedia: () => ({ matches: mobile }) }, location: { hash: '' }, manageApproved: false,
+    window: { matchMedia: () => ({ matches: mobile }) }, location: { hash: '' }, manageApproved: false, renderMonthlySales() {},
     document: {
       body: { dataset: { role: 'admin' } },
       querySelector(selector) {
@@ -455,7 +455,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=4"><\/script>/, 'customer persistence fix must use a new asset URL to bypass cached v=3');
+  assert.match(html, /<script src="cloud-data\.js\?v=6"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
@@ -707,6 +707,7 @@ test('checkout sends the authenticated bootstrap user as the warranty creator', 
     return elements.get(id);
   };
   $('sale-customer').value = 'customer-1';
+  $('sale-salesperson').value = 'salesperson-1';
   let checkoutFields;
   const context = {
     $,
@@ -718,11 +719,12 @@ test('checkout sends the authenticated bootstrap user as the warranty creator', 
     setAppEnabled() {}, updateItemPrintButton() {}, renderTransactionItems() {}, resetWarrantyForm() {}, pendingSave: null, saleSerialItemId: '', saleSerialQuantity: 1,
     setStatus() {}, showFormError() {},
   };
-  vm.runInNewContext(`let state; let saleCart = [{ barcode: '4710000000012', quantity: 1 }]; let currentUser = null;\n${app.slice(app.indexOf("if ($('sale-form'))"), app.indexOf('function renderMonthlySales()'))}\n${app.slice(app.indexOf('async function bootstrap('), app.indexOf('window.AppAuthUI.start('))}`, context);
+  vm.runInNewContext(`let state; let saleCart = [{ barcode: '4710000000012', quantity: 1 }]; let currentUser = null;\n${app.slice(app.indexOf("if ($('sale-form'))"), app.indexOf('function renderMonthlySales('))}\n${app.slice(app.indexOf('async function bootstrap('), app.indexOf('window.AppAuthUI.start('))}`, context);
 
   await vm.runInNewContext("bootstrap({ id: 'authenticated-user-id' })", context);
   await $('sale-form').listeners.submit({ preventDefault() {} });
   assert.equal(checkoutFields.customerId, 'customer-1');
+  assert.equal(checkoutFields.salespersonId, 'salesperson-1');
   assert.equal(checkoutFields.createdBy, 'authenticated-user-id');
 });
 
@@ -737,7 +739,7 @@ test('shows salespeople in monthly sales only to administrators', async () => {
     salesForMonth: (state, month) => state.sales.filter((sale) => sale.createdAt.startsWith(month)), formatNumber: String,
     appendEmpty() {},
   };
-  vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales()'), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
+  vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
   $('monthly-sales-month').value = '2026-10';
 
   context.renderMonthlySales();
@@ -748,6 +750,49 @@ test('shows salespeople in monthly sales only to administrators', async () => {
   context.renderMonthlySales();
   assert.equal($('monthly-salesperson-heading').hidden, true);
   assert.equal($('monthly-sales-list').children[0].children.length, 6);
+});
+
+test('monthly performance table is manager-only and distinguishes cashier from salesperson', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="monthly-performance-list"/);
+  assert.match(html, /id="monthly-salesperson-heading"[^>]*>結帳人</);
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const nodes = new Map();
+  const node = () => ({ value: '', textContent: '', hidden: false, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  $('monthly-sales-month').value = '2026-10';
+  let calls = 0;
+  const context = { $, window: { AppData: { loadMonthlySalespersonPerformance: async () => { calls++; return [{ salespersonId: 'p1', name: '張業務', quantity: 3, total: 250 }]; } } },
+    document: { body: { dataset: { role: 'admin' } }, createElement: node },
+    state: { sales: [] }, salesForMonth: () => [], formatNumber: String, appendEmpty() {},
+  };
+  vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
+  await context.renderMonthlySales(true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls, 1);
+  assert.equal($('monthly-performance-list').children[0].children[0].textContent, '張業務');
+  context.document.body.dataset.role = 'clerk';
+  await context.renderMonthlySales(true);
+  assert.equal($('monthly-performance-panel').hidden, true);
+  assert.equal(calls, 1);
+  context.document.body.dataset.role = 'admin';
+  context.window.AppData.loadMonthlySalespersonPerformance = async () => { throw new Error('offline'); };
+  await context.renderMonthlySales(true);
+  assert.match($('monthly-performance-status').textContent, /無法載入.*offline/);
+  assert.equal($('monthly-performance-list').children.length, 0);
+  let resolveOld, resolveNew;
+  context.window.AppData.loadMonthlySalespersonPerformance = month => new Promise(resolve => {
+    if (month === '2026-10') resolveOld = resolve;
+    else resolveNew = resolve;
+  });
+  const oldRequest = context.renderMonthlySales(true);
+  $('monthly-sales-month').value = '2026-11';
+  const newRequest = context.renderMonthlySales(true);
+  resolveNew([{ name: '新月份', quantity: 1, total: 10 }]);
+  await newRequest;
+  resolveOld([{ name: '舊月份', quantity: 9, total: 90 }]);
+  await oldRequest;
+  assert.equal($('monthly-performance-list').children[0].children[0].textContent, '新月份');
 });
 
 test('keeps warranty deletion admin-only and requires confirmation', async () => {

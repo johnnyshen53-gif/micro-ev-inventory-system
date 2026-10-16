@@ -89,11 +89,11 @@ function saleFixture(warrantyMonths = 0) {
   let state = I.addItem(I.emptyState(), { ...motor, warrantyMonths, stock: 3, serialNumbers: ['000A', 'B', 'C'] });
   state = I.addItem(state, { ...motor, category: '用品', sku: 'OTHER', barcode: 'other', stock: 2, warrantyMonths: 0 });
   state = I.addCustomer(state, { name: '客戶', phone: '0912345678' });
-  return state;
+  return I.addSalesperson(state, { name: '測試業務' });
 }
 test('backup rejects contradictory sale identity dates and malformed warranty serial fields', () => {
   const state = saleFixture(12);
-  const sold = I.recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
+  const sold = I.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
   const mutations = [
     s => { s.sales[0].id = ''; s.serials[0].saleId = ''; s.warranties[0].saleId = ''; },
     s => s.sales.push({ ...s.sales[0], serialIds: [], serialNumbers: [] }),
@@ -116,7 +116,7 @@ test('mixed checkout sells specified units and rejects stale duplicate missing s
   const state = saleFixture(), itemId = state.items[0].id, customerId = state.customers[0].id;
   const ids = state.serials.map(s => s.id), before = JSON.stringify(state);
   const lines = [{ itemId, quantity: 2, serialIds: ids.slice(0, 2) }, { barcode: 'other', quantity: 1 }];
-  const next = I.recordSaleBatch(state, { lines, customerId, createdBy: 'm' });
+  const next = I.recordSaleBatch(state, { lines, customerId, salespersonId: state.salespeople[0].id, createdBy: 'm' });
   assert.equal(next.items[0].stock, 1); assert.equal(next.items[1].stock, 1);
   assert.deepEqual(Array.from(next.serials, s => s.status), ['sold', 'sold', 'in_stock']);
   assert.deepEqual(Array.from(next.sales[0].serialNumbers), ['000A', 'B']);
@@ -135,7 +135,7 @@ test('mixed checkout sells specified units and rejects stale duplicate missing s
 });
 test('two physical serials create two warranties and malformed snapshots are rejected', () => {
   const state = saleFixture(12), customerId = state.customers[0].id;
-  const next = I.recordSaleBatch(state, { customerId, createdBy: 'staff', lines: [{ itemId: state.items[0].id, quantity: 2, serialIds: state.serials.slice(0, 2).map(s => s.id) }] });
+  const next = I.recordSaleBatch(state, { customerId, salespersonId: state.salespeople[0].id, createdBy: 'staff', lines: [{ itemId: state.items[0].id, quantity: 2, serialIds: state.serials.slice(0, 2).map(s => s.id) }] });
   assert.equal(next.warranties.length, 2);
   assert.deepEqual(Array.from(next.warranties, w => w.serialNumber), ['000A', 'B']);
   assert.equal(I.warrantiesForFilter(next, { query: '000A' }).length, 1);
@@ -148,7 +148,7 @@ test('manual serial warranty derives sold identity and refuses unsold units', ()
   const state = saleFixture(), customerId = state.customers[0].id, itemId = state.items[0].id;
   const fields = { itemId, customerId, serialId: state.serials[0].id, purchasedAt: '2026-10-11', expiresAt: '2027-10-11' };
   assert.throws(() => I.createWarranty(state, fields));
-  const sold = I.recordSaleBatch(state, { customerId, lines: [{ itemId, quantity: 1, serialIds: [fields.serialId] }] });
+  const sold = I.recordSaleBatch(state, { customerId, salespersonId: state.salespeople[0].id, lines: [{ itemId, quantity: 1, serialIds: [fields.serialId] }] });
   const next = I.createWarranty(sold, fields);
   assert.equal(next.warranties[0].serialNumber, '000A');
   assert.equal(next.warranties[0].saleId, sold.sales[0].id);
@@ -158,7 +158,7 @@ test('manual serial warranty derives sold identity and refuses unsold units', ()
 
 function warrantyIssueFixture() {
   const state = saleFixture(12);
-  return I.recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
+  return I.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
 }
 test('warranty issue deducts specified units without sales or renewed warranties and preserves cost snapshot', () => {
   const state = warrantyIssueFixture(), warranty = state.warranties[0], serial = state.serials[1];

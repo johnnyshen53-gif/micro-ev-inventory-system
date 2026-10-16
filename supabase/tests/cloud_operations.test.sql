@@ -61,7 +61,7 @@ begin
     or to_regprocedure('public.save_warranty_case(jsonb)') is null
     or to_regprocedure('public.delete_warranty(uuid)') is null
     or to_regprocedure('public.delete_warranty_case(uuid)') is null
-    or to_regprocedure('public.create_sale_with_serials(jsonb,uuid)') is null
+    or to_regprocedure('public.create_sale_with_serials(jsonb,uuid,uuid)') is null
     or to_regprocedure('public.issue_warranty_replacement(uuid,integer,uuid,uuid[],text)') is null then
     raise exception 'warranty or serialized-sale RPC is missing';
   end if;
@@ -69,7 +69,7 @@ begin
     or has_function_privilege('anon', 'public.save_warranty_case(jsonb)', 'EXECUTE')
     or has_function_privilege('anon', 'public.delete_warranty(uuid)', 'EXECUTE')
     or has_function_privilege('anon', 'public.delete_warranty_case(uuid)', 'EXECUTE')
-    or has_function_privilege('anon', 'public.create_sale_with_serials(jsonb,uuid)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.create_sale_with_serials(jsonb,uuid,uuid)', 'EXECUTE')
     or has_function_privilege('anon', 'public.issue_warranty_replacement(uuid,integer,uuid,uuid[],text)', 'EXECUTE') then
     raise exception 'anonymous users can invoke warranty operations';
   end if;

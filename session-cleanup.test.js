@@ -7,7 +7,7 @@ test('logout waits for in-flight storage without re-enabling actions and clears 
   let resolveSave,stored;const values=new Map();
   const $=id=>{if(!values.has(id))values.set(id,{hidden:false,value:'sensitive',replaceChildren(){},reset(){this.value='';}});return values.get(id);};
   const c={window:{AppAuthUI:{isActive:()=>c.active},StaffUI:{stop(){}}},active:true,state:{items:['old']},currentUser:{id:'one'},saleCart:['draft'],quotationLines:['draft'],purchaseLines:['draft'],purchaseSupplierId:'supplier',selectedWarrantyId:'warranty',pendingSave:null,appSessionEpoch:0,
-    selectedPurchaseId:'draft',purchaseBusy:false,InventoryStorage:{saveState:next=>new Promise(resolve=>{resolveSave=()=>{stored=next;resolve(next);};})},setAppEnabled:value=>{c.enabled=value;},setStatus(){},emptyState:()=>({items:[]}),document:{querySelectorAll:()=>[]},$};
+    selectedPurchaseId:'draft',purchaseBusy:false,InventoryStorage:{saveState:next=>new Promise(resolve=>{resolveSave=()=>{stored=next;resolve(next);};})},setAppEnabled:value=>{c.enabled=value;},setStatus(){},emptyState:()=>({items:[]}),document:{querySelectorAll:()=>[]},renderMonthlySales(){},$};
   Object.assign(c, { saleSerialItemId: 'motor', saleSerialQuantity: 2, receiptPurchaseId: 'purchase', receiptSerialNumbersByItem: { motor: ['SECRET-SERIAL'] } });
   vm.runInNewContext(source.slice(source.indexOf('async function saveState('),source.indexOf('function itemName(')),c);
   const cleanup=source.indexOf('async function resetAppSession(');assert.ok(cleanup>=0,'session cleanup is implemented');

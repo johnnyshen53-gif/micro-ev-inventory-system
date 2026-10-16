@@ -181,6 +181,44 @@ test('new customers include the signed-in creator without changing existing cust
   assert.equal('created_by' in customerCalls.find(call => call.method === 'upsert')?.value[0], false);
 });
 
+test('salespeople insert, edit, and deactivate persist without rewriting creator or unchanged rows', async () => {
+  const now = '2026-10-15T00:00:00Z';
+  const old = { items: [], transactions: [], customers: [], salespeople: [{ id: 'unchanged', name: '保留', active: true, createdAt: now, updatedAt: now }, { id: 'edited', name: '舊名', active: true, createdAt: now, updatedAt: now }], sales: [] };
+  const next = { ...old, salespeople: [old.salespeople[0], { ...old.salespeople[1], name: '新名', active: false }, { id: 'new', name: '新業務', active: true, createdAt: now, updatedAt: now }] };
+  const tableRows = { salespeople: old.salespeople.map(value => ({ id: value.id, name: value.name, active: value.active, created_at: now, updated_at: now })) };
+  const calls = [];
+  const appData = await loadCloudData({
+    client: { from: table => ({
+      insert: async values => { calls.push({ table, method: 'insert', values }); tableRows[table] ??= []; tableRows[table].push(...values); return { error: null }; },
+      upsert: async values => { calls.push({ table, method: 'upsert', values }); tableRows[table] = tableRows[table].filter(row => !values.some(value => value.id === row.id)).concat(values); return { error: null }; },
+      select: async () => ({ data: tableRows[table] ?? [], error: null }),
+    }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  const saved = await appData.saveSnapshot(old, next);
+  const writes = calls.filter(call => call.table === 'salespeople');
+  assert.equal(writes.length, 2);
+  assert.deepEqual(writes.find(call => call.method === 'insert')?.values.map(value => [value.id, value.created_by]), [['new', 'admin']]);
+  assert.deepEqual(writes.find(call => call.method === 'upsert')?.values.map(value => [value.id, value.active, 'created_by' in value]), [['edited', false, false]]);
+  assert.deepEqual(saved.salespeople.map(value => value.id).sort(), ['edited', 'new', 'unchanged']);
+});
+
+test('salesperson RLS denial leaves local cache unchanged', async () => {
+  const old = { items: [], transactions: [], customers: [], salespeople: [], sales: [] };
+  let cacheWrites = 0;
+  const appData = await loadCloudData({
+    client: { from: table => ({
+      insert: async () => ({ error: table === 'salespeople' ? new Error('row-level security policy') : null }),
+      select: async () => ({ data: [], error: null }),
+    }) },
+    cache: { loadState: async () => ({ state: old }), saveState: async () => { cacheWrites += 1; } },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await assert.rejects(() => appData.saveSnapshot(old, { ...old, salespeople: [{ id: 'new', name: '業務', active: true }] }), /row-level security/);
+  assert.equal(cacheWrites, 0);
+});
+
 test('cloud reload retains supplier and quotation details', async () => {
   const now = '2026-10-15T00:00:00Z';
   const tables = {
@@ -336,7 +374,7 @@ test('serialized checkout sends selected serials and customer to atomic sale RPC
   const calls = [];
   const item = { id: 'item-1', stock: 1 };
   const old = { items: [item], customers: [], suppliers: [], quotations: [], transactions: [], sales: [], purchases: [], serials: [{ id: 'serial-1', itemId: 'item-1', status: 'in_stock' }], warranties: [], warrantyCases: [] };
-  const sale = { id: 'local-sale-line-1', itemId: 'item-1', quantity: 1, serialIds: ['serial-1'], serialNumbers: ['SN-1'] };
+  const sale = { id: 'local-sale-line-1', itemId: 'item-1', quantity: 1, salespersonId: 'salesperson-1', serialIds: ['serial-1'], serialNumbers: ['SN-1'] };
   const next = { ...old, items: [{ ...item, stock: 0 }], sales: [sale], serials: [{ ...old.serials[0], status: 'sold', customerId: 'customer-1', saleId: sale.id }], transactions: [{ id: 'tx-1', itemId: 'item-1', type: 'out' }] };
   const appData = await loadCloudData({
     client: { rpc: async (name, args) => { calls.push({ name, args }); return { error: null }; }, from: () => ({ select: async () => ({ data: [], error: null }) }) },
@@ -346,7 +384,37 @@ test('serialized checkout sends selected serials and customer to atomic sale RPC
   await appData.saveSnapshot(old, next);
   const call = calls.find(value => value.name === 'create_sale_with_serials');
   assert.equal(call?.args.p_customer_id, 'customer-1');
+  assert.equal(call?.args.p_salesperson_id, 'salesperson-1');
   assert.deepEqual(Array.from(call.args.p_lines[0].serial_ids), ['serial-1']);
+});
+
+test('cloud checkout rejects mixed salesperson IDs before writing any sale', async () => {
+  const old = { items: [], customers: [], transactions: [], sales: [] };
+  let rpcCalls = 0;
+  const appData = await loadCloudData({
+    client: { rpc: async () => { rpcCalls += 1; return { error: null }; }, from: () => ({ select: async () => ({ data: [], error: null }) }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await assert.rejects(() => appData.saveSnapshot(old, { ...old, sales: [{ id: '1', itemId: 'a', quantity: 1, salespersonId: 'a' }, { id: '2', itemId: 'b', quantity: 1, salespersonId: 'b' }] }), /業務/);
+  assert.equal(rpcCalls, 0);
+});
+
+test('monthly performance fetch requires admin and converts database numbers', async () => {
+  let role = 'admin';
+  const calls = [];
+  const context = { window: {
+    AppAuth: { requireActiveUser: async () => ({ role }), client: { rpc: async (name, args) => { calls.push([name, args]); return { data: [{ salesperson_id: 'person-1', salesperson_name: '張業務', quantity: '3', total: '250.00' }], error: null }; } } },
+    InventoryStorage: {}, Inventory: {},
+  } };
+  vm.runInNewContext(await readFile(new URL('./cloud-data.js', import.meta.url), 'utf8'), context);
+  const rows = await context.window.AppData.loadMonthlySalespersonPerformance('2026-10');
+  assert.deepEqual(Array.from(rows, row => [row.salespersonId, row.name, row.quantity, row.total]), [['person-1', '張業務', 3, 250]]);
+  assert.equal(calls[0][0], 'get_monthly_salesperson_performance');
+  assert.equal(calls[0][1].p_month, '2026-10');
+  role = 'clerk';
+  await assert.rejects(() => context.window.AppData.loadMonthlySalespersonPerformance('2026-10'), /店長/);
+  assert.equal(calls.length, 1);
 });
 
 test('warranty replacement uses its atomic RPC rather than ordinary inventory adjustment', async () => {

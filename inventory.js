@@ -864,8 +864,11 @@ function recordSale(state, fields) {
   if (requiresSerial(item)) return recordSaleBatch(state, { ...fields, lines: [{ itemId: item.id, quantity: fields.quantity, serialIds: fields.serialIds }] });
   const quantity = positiveInteger(fields?.quantity, '銷售數量');
   if (item.stock < quantity) throw new Error('庫存不足，無法售出');
+  const salesperson = current.salespeople.find(candidate => candidate.id === text(fields?.salespersonId));
+  if (!salesperson) throw new Error('請選擇業務員');
+  if (!salesperson.active) throw new Error('業務員已停用，請重新選擇');
   const createdAt = new Date().toISOString();
-  const sale = { id: crypto.randomUUID(), itemId: item.id, itemName: item.name, barcode: item.barcode, quantity, unitPrice: item.price, subtotal: item.price * quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), serialIds: [], serialNumbers: [] };
+  const sale = { id: crypto.randomUUID(), itemId: item.id, itemName: item.name, barcode: item.barcode, quantity, unitPrice: item.price, subtotal: item.price * quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: [], serialNumbers: [] };
   const transaction = { id: crypto.randomUUID(), itemId: item.id, type: 'out', quantity, createdAt, note: '銷售管理' };
   return { ...current, items: current.items.map((candidate) => candidate.id === item.id ? { ...candidate, stock: candidate.stock - quantity } : candidate), transactions: [...current.transactions, transaction], sales: [...current.sales, sale] };
 }
@@ -894,10 +897,13 @@ function recordSaleBatch(state, fields) {
   if (items.some(requiresSerial) && !customer) throw new Error('序號商品結帳必須選擇客戶');
   const serialIds = requested.flatMap(line => line.serials.map(s => s.id));
   if (new Set(serialIds).size !== serialIds.length) throw new Error('購物車序號重複');
+  const salesperson = current.salespeople.find(candidate => candidate.id === text(fields?.salespersonId));
+  if (!salesperson) throw new Error('請選擇業務員');
+  if (!salesperson.active) throw new Error('業務員已停用，請重新選擇');
   const createdAt = new Date().toISOString();
   const saleNumber = `S${createdAt.slice(0, 10).replaceAll('-', '')}-${String(current.sales.length + 1).padStart(4, '0')}`;
   const purchasedAt = taipeiDate(createdAt);
-  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
+  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
     return sale ? { ...serial, status: 'sold', saleId: sale.id, customerId: customer.id, soldAt: createdAt } : serial;
@@ -913,7 +919,14 @@ function recordSaleBatch(state, fields) {
 }
 
 function salesForMonth(state, month) {
-  return validateState(state).sales.filter((sale) => sale.createdAt.startsWith(`${month}-`));
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return [];
+  const [year, numericMonth] = month.split('-').map(Number);
+  const start = Date.UTC(year, numericMonth - 1, 1) - 8 * 60 * 60 * 1000;
+  const end = Date.UTC(year, numericMonth, 1) - 8 * 60 * 60 * 1000;
+  return validateState(state).sales.filter((sale) => {
+    const at = Date.parse(sale.createdAt);
+    return at >= start && at < end;
+  });
 }
 
 window.Inventory = { requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

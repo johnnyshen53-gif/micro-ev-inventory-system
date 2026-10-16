@@ -76,9 +76,10 @@ test('serial checkout and warranty persist together and write failures preserve 
   const { storage, indexedDB, inventory: I } = await createStorage();
   let state = I.addItem(I.emptyState(), { name: '機車', category: '機車', sku: 'M', barcode: 'motor', cost: 1, price: 2, stock: 3, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B', 'C'] });
   state = I.addCustomer(state, { name: '客戶', phone: '0912345678' });
+  state = I.addSalesperson(state, { name: '測試業務' });
   state = I.recordTransaction(state, { itemId: state.items[0].id, type: 'out', quantity: 1, serialIds: [state.serials[2].id], note: '報廢', createdBy: 'manager' });
   await storage.saveState(state);
-  const next = I.recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
+  const next = I.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
   indexedDB.failNextWrite(); await assert.rejects(() => storage.saveState(next), /write failed/);
   let stored = (await storage.loadState()).state;
   assert.equal(stored.items[0].stock, 2); assert.equal(stored.serials[0].status, 'in_stock'); assert.equal(stored.warranties.length, 0);
@@ -99,7 +100,8 @@ test('warranty replacement stock serial linkage and cost snapshot persist atomic
   const { storage, indexedDB, inventory: I } = await createStorage();
   let state = I.addItem(I.emptyState(), { name: '機車', category: '機車', sku: 'M', cost: 600, price: 1000, stock: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
   state = I.addCustomer(state, { name: '客戶', phone: '0912345678' });
-  state = I.recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
+  state = I.addSalesperson(state, { name: '測試業務' });
+  state = I.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
   await storage.saveState(state);
   const next = I.recordTransaction(state, { type: 'warranty_out', warrantyId: state.warranties[0].id, itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[1].id], createdBy: 'manager', note: '更換' });
   indexedDB.failNextWrite(); await assert.rejects(() => storage.saveState(next), /write failed/);

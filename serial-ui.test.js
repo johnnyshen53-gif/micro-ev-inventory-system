@@ -67,7 +67,8 @@ test('manual warranty selects sold unit and shows its fixed customer and serial'
   const c = await ui();
   let state = c.addItem(c.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 1, serialNumbers: ['000A'], cost: 1, price: 2, minimumStock: 0 });
   state = c.addCustomer(state, { name: '客戶', phone: '0912345678' });
-  c.state = c.recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
+  state = c.addSalesperson(state, { name: '測試業務' });
+  c.state = c.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
   c.selectedWarrantyId = '';
   vm.runInContext(app.slice(app.indexOf('function renderSaleCustomers('), app.indexOf('function renderSalePicker()')), c);
   c.renderWarrantySelectors();
@@ -132,12 +133,14 @@ test('real app serial cart checkout preserves failure then creates per-unit warr
   const setup = await ui();
   let state = setup.addItem(setup.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 2, cost: 1, price: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
   state = setup.addCustomer(state, { name: '客戶', phone: '0912345678' });
+  state = setup.addSalesperson(state, { name: '測試業務' });
   const c = await fullUi(state), item = c.api.getState().items[0];
   c.api.beginSaleSerialSelection(item, 2);
   for (const value of ['000A', 'B']) { c.$('sale-serial-scan').value = value; c.$('sale-serial-scan').listeners.keydown({ key: 'Enter', currentTarget: c.$('sale-serial-scan'), preventDefault() {} }); }
   await c.click('sale-serial-add');
   assert.equal(c.api.getCart()[0].quantity, 2);
   c.$('sale-customer').value = state.customers[0].id;
+  c.$('sale-salesperson').value = state.salespeople[0].id;
   c.api.beginSaleSerialSelection(item, 1);
   c.fail(true); await c.submit('sale-form');
   assert.equal(c.stored().items[0].stock, 2); assert.equal(c.api.getCart().length, 1);
@@ -164,7 +167,8 @@ test('real app warranty issue selects original customer retains failed input and
   const setup = await ui();
   let state = setup.addItem(setup.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 2, cost: 1, price: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
   state = setup.addCustomer(state, { name: '保固客戶', phone: '0912345678' });
-  state = setup.recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
+  state = setup.addSalesperson(state, { name: '測試業務' });
+  state = setup.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
   const c = await fullUi(state), $ = c.$;
   $('transaction-type').value = 'warranty_out'; $('transaction-item').value = state.items[0].id;
   $('transaction-type').listeners.change();

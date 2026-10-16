@@ -24,11 +24,25 @@ function withSalesperson(state) {
   return addSalesperson(state, { name: '陳業務' });
 }
 
+test('checkout requires an active salesperson and keeps the chosen ID on every line', () => {
+  const noSalesperson = addItem(emptyState(), item);
+  const lines = [{ itemId: noSalesperson.items[0].id, quantity: 1 }];
+  assert.throws(() => recordSaleBatch(noSalesperson, { lines }), /業務/);
+  assert.throws(() => recordSale(noSalesperson, { barcode: item.barcode, quantity: 1 }), /業務/);
+  const ready = withSalesperson(noSalesperson);
+  const salespersonId = ready.salespeople[0].id;
+  assert.throws(() => recordSaleBatch(ready, { lines, salespersonId: 'missing' }), /業務/);
+  const inactive = deactivateSalesperson(ready, salespersonId);
+  assert.throws(() => recordSaleBatch(inactive, { lines, salespersonId }), /停用/);
+  const sold = recordSaleBatch(ready, { lines: [lines[0], lines[0]], salespersonId });
+  assert.deepEqual(Array.from(sold.sales, sale => sale.salespersonId), [salespersonId, salespersonId]);
+});
+
 test('cart can select distinct products without barcodes and mix scanning', () => {
   let state = addItem(emptyState(), { ...item, barcode: '' });
   state = addItem(state, { ...item, sku: 'SECOND', name: '用品', barcode: '', price: 90 });
-  state = addItem(state, { ...item, sku: 'SCAN' });
-  const next = recordSaleBatch(state, { lines: [{ itemId: state.items[0].id, quantity: 1 }, { itemId: state.items[1].id, quantity: 2 }, { barcode: item.barcode, quantity: 1 }] });
+  state = withSalesperson(addItem(state, { ...item, sku: 'SCAN' }));
+  const next = recordSaleBatch(state, { salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1 }, { itemId: state.items[1].id, quantity: 2 }, { barcode: item.barcode, quantity: 1 }] });
   assert.deepEqual(Array.from(next.items, product => product.stock), [1, 0, 1]);
   assert.deepEqual(Array.from(next.sales, sale => sale.unitPrice), [350, 90, 350]);
   assert.throws(() => recordSaleBatch(state, { lines: [{ itemId: 'deleted', barcode: item.barcode, quantity: 1 }] }), /找不到/);
@@ -40,7 +54,8 @@ test('cart can select distinct products without barcodes and mix scanning', () =
 test('customer association survives a sale without an automatic warranty', () => {
   let state = addItem(emptyState(), { ...item, warrantyMonths: 0 });
   state = addCustomer(state, { name: '王小明', phone: '0912' });
-  const sold = recordSaleBatch(state, { customerId: state.customers[0].id, lines: [{ itemId: state.items[0].id, quantity: 1 }] });
+  state = withSalesperson(state);
+  const sold = recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1 }] });
   assert.equal(sold.sales[0].customerId, state.customers[0].id);
   assert.equal(sold.warranties.length, 0);
 });
@@ -162,7 +177,8 @@ test('purchase money refuses safe cents that lose precision in stored numeric am
 test('receives all purchase lines once and marks payment without changing historical sales', () => {
   const I = context.window.Inventory;
   const { state, fields } = purchaseFixture();
-  const sold = recordSale(state, { barcode: state.items[0].barcode, quantity: 1 });
+  const saleReady = withSalesperson(state);
+  const sold = recordSale(saleReady, { barcode: state.items[0].barcode, quantity: 1, salespersonId: saleReady.salespeople[0].id });
   const draft = I.createPurchase(sold, fields);
   const pid = draft.purchases[0].id;
   assert.throws(() => I.markPurchasePaid(draft, pid, { paidBy: 'admin' }), /收貨/);
@@ -479,8 +495,8 @@ test('uses the largest existing daily quotation sequence', () => {
 });
 
 test('records a barcode sale with a price snapshot and deducts stock', () => {
-  const stocked = addItem(emptyState(), item);
-  const sold = recordSale(stocked, { barcode: '4710000000012', quantity: 2 });
+  const stocked = withSalesperson(addItem(emptyState(), item));
+  const sold = recordSale(stocked, { barcode: '4710000000012', quantity: 2, salespersonId: stocked.salespeople[0].id });
 
   assert.equal(sold.items[0].stock, 0);
   assert.equal(sold.transactions.at(-1).type, 'out');
@@ -490,18 +506,26 @@ test('records a barcode sale with a price snapshot and deducts stock', () => {
 });
 
 test('groups sales records by their saved month', () => {
-  const stocked = addItem(emptyState(), item);
-  const sold = recordSale(stocked, { barcode: '4710000000012', quantity: 1 });
+  const stocked = withSalesperson(addItem(emptyState(), item));
+  const sold = recordSale(stocked, { barcode: '4710000000012', quantity: 1, salespersonId: stocked.salespeople[0].id });
   const month = sold.sales[0].createdAt.slice(0, 7);
 
   assert.equal(salesForMonth(sold, month).length, 1);
   assert.equal(salesForMonth(sold, '2000-01').length, 0);
 });
 
+test('monthly sales use Taipei boundaries rather than UTC date prefixes', () => {
+  let state = withSalesperson(addItem(emptyState(), { ...item, stock: 10 }));
+  for (let index = 0; index < 4; index++) state = recordSale(state, { barcode: item.barcode, quantity: 1, salespersonId: state.salespeople[0].id });
+  const times = ['2026-09-30T15:59:59Z', '2026-09-30T16:00:00Z', '2026-10-31T15:59:59Z', '2026-10-31T16:00:00Z'];
+  state = { ...state, sales: state.sales.map((sale, index) => ({ ...sale, createdAt: times[index], quantity: index + 1 })) };
+  assert.deepEqual(Array.from(salesForMonth(state, '2026-10'), sale => sale.quantity), [2, 3]);
+});
+
 test('checks out multiple products under one sale number', () => {
   const first = addItem(emptyState(), item);
-  const stocked = addItem(first, { ...item, name: '機油', barcode: '4710000000029', stock: 3, price: 120 });
-  const sold = recordSaleBatch(stocked, { lines: [{ barcode: '4710000000012', quantity: 1 }, { barcode: '4710000000029', quantity: 2 }] });
+  const stocked = withSalesperson(addItem(first, { ...item, name: '機油', barcode: '4710000000029', stock: 3, price: 120 }));
+  const sold = recordSaleBatch(stocked, { salespersonId: stocked.salespeople[0].id, lines: [{ barcode: '4710000000012', quantity: 1 }, { barcode: '4710000000029', quantity: 2 }] });
 
   assert.equal(sold.items[0].stock, 1);
   assert.equal(sold.items[1].stock, 1);
@@ -511,8 +535,9 @@ test('checks out multiple products under one sale number', () => {
 });
 
 test('stores the checkout operator name on every sale line', () => {
-  const stocked = addItem(emptyState(), item);
+  const stocked = withSalesperson(addItem(emptyState(), item));
   const sold = recordSaleBatch(stocked, {
+    salespersonId: stocked.salespeople[0].id,
     createdBy: 'clerk-1',
     createdByAccount: '王業務',
     lines: [{ barcode: item.barcode, quantity: 1 }],
@@ -605,8 +630,8 @@ test('creates one warranty per eligible checkout line using calendar months', ()
   const first = addItem(emptyState(), { ...item, stock: 4, warrantyMonths: 1 });
   const second = addItem(first, { ...item, name: '燈泡', barcode: '4710000000029', warrantyMonths: 12 });
   const third = addItem(second, { ...item, name: '機油', barcode: '4710000000036', warrantyMonths: 0 });
-  const ready = addCustomer(third, { name: '王小明', phone: '0912' });
-  const sold = recordSaleBatch(ready, { customerId: ready.customers[0].id, lines: [{ barcode: item.barcode, quantity: 1 }, { barcode: '4710000000029', quantity: 1 }, { barcode: '4710000000036', quantity: 1 }] });
+  const ready = withSalesperson(addCustomer(third, { name: '王小明', phone: '0912' }));
+  const sold = recordSaleBatch(ready, { customerId: ready.customers[0].id, salespersonId: ready.salespeople[0].id, lines: [{ barcode: item.barcode, quantity: 1 }, { barcode: '4710000000029', quantity: 1 }, { barcode: '4710000000036', quantity: 1 }] });
   assert.equal(sold.warranties.length, 2);
   assert.equal(sold.warranties[0].saleId, sold.sales[0].id);
   assert.equal(sold.warranties[0].saleNumber, sold.sales[0].saleNumber);
@@ -617,8 +642,9 @@ test('creates one warranty per eligible checkout line using calendar months', ()
 
 test('preserves the supplied creator on automatic warranties', () => {
   const stocked = addItem(emptyState(), { ...item, warrantyMonths: 6 });
-  const ready = addCustomer(stocked, { name: '王小明', phone: '0912' });
+  const ready = withSalesperson(addCustomer(stocked, { name: '王小明', phone: '0912' }));
   const sold = recordSaleBatch(ready, {
+    salespersonId: ready.salespeople[0].id,
     customerId: ready.customers[0].id,
     createdBy: 'authenticated-user-id',
     lines: [{ barcode: item.barcode, quantity: 1 }],
@@ -634,8 +660,8 @@ test('clamps January 31 warranty expiry to February month end', () => {
   };
   try {
     const stocked = addItem(emptyState(), { ...item, warrantyMonths: 1 });
-    const ready = addCustomer(stocked, { name: '王小明', phone: '0912' });
-    const sold = recordSaleBatch(ready, { customerId: ready.customers[0].id, lines: [{ barcode: item.barcode, quantity: 1 }] });
+    const ready = withSalesperson(addCustomer(stocked, { name: '王小明', phone: '0912' }));
+    const sold = recordSaleBatch(ready, { customerId: ready.customers[0].id, salespersonId: ready.salespeople[0].id, lines: [{ barcode: item.barcode, quantity: 1 }] });
     assert.equal(sold.warranties[0].purchasedAt, '2024-01-31');
     assert.equal(sold.warranties[0].expiresAt, '2024-02-29');
   } finally {
@@ -651,8 +677,8 @@ test('uses Taipei calendar date for checkout and default expiry filter just afte
   };
   try {
     const stocked = addItem(emptyState(), { ...item, warrantyMonths: 1 });
-    const ready = addCustomer(stocked, { name: '王小明', phone: '0912' });
-    const sold = recordSaleBatch(ready, { customerId: ready.customers[0].id, lines: [{ barcode: item.barcode, quantity: 1 }] });
+    const ready = withSalesperson(addCustomer(stocked, { name: '王小明', phone: '0912' }));
+    const sold = recordSaleBatch(ready, { customerId: ready.customers[0].id, salespersonId: ready.salespeople[0].id, lines: [{ barcode: item.barcode, quantity: 1 }] });
     assert.equal(sold.sales[0].createdAt, '2026-10-09T16:30:00.000Z');
     assert.equal(sold.warranties[0].purchasedAt, '2026-10-10');
     assert.equal(sold.warranties[0].expiresAt, '2026-11-10');
@@ -665,8 +691,8 @@ test('uses Taipei calendar date for checkout and default expiry filter just afte
 });
 
 test('checkout without customer remains valid and failed checkout leaves no warranties', () => {
-  const ready = addItem(emptyState(), { ...item, warrantyMonths: 6 });
-  const sold = recordSaleBatch(ready, { lines: [{ barcode: item.barcode, quantity: 1 }] });
+  const ready = withSalesperson(addItem(emptyState(), { ...item, warrantyMonths: 6 }));
+  const sold = recordSaleBatch(ready, { salespersonId: ready.salespeople[0].id, lines: [{ barcode: item.barcode, quantity: 1 }] });
   assert.equal(sold.warranties.length, 0);
   assert.throws(() => recordSaleBatch(ready, { customerId: 'missing', lines: [{ barcode: item.barcode, quantity: 3 }] }), /庫存不足/);
   assert.equal(ready.warranties.length, 0);

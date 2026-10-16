@@ -22,9 +22,11 @@ declare
   v_warranty uuid;
   v_case uuid := gen_random_uuid();
   v_manual uuid := gen_random_uuid();
+  v_salesperson uuid := gen_random_uuid();
   v_denied boolean;
 begin
   if not app_private.is_admin() then raise exception 'test requires an active admin session'; end if;
+  insert into public.salespeople(id, name, created_by) values (v_salesperson, '保固測試業務', v_actor);
   insert into public.customers (id, member_number, name, phone, created_by)
     values (v_customer, 'M999999', '保固測試客戶', '0900000000', v_actor);
   insert into public.items (id, name, category, stock, warranty_months, price, created_by)
@@ -39,7 +41,7 @@ begin
   begin
     perform public.create_sale_with_serials(
       jsonb_build_array(jsonb_build_object('item_id', v_item, 'quantity', 1,
-        'serial_ids', jsonb_build_array(v_other_serial))), v_customer);
+        'serial_ids', jsonb_build_array(v_other_serial))), v_customer, v_salesperson);
   exception when others then v_denied := true;
   end;
   if not v_denied or (select stock from public.items where id = v_item) <> 1 then
@@ -48,7 +50,7 @@ begin
 
   v_sale := public.create_sale_with_serials(
     jsonb_build_array(jsonb_build_object('item_id', v_item, 'quantity', 1,
-      'serial_ids', jsonb_build_array(v_serial))), v_customer);
+      'serial_ids', jsonb_build_array(v_serial))), v_customer, v_salesperson);
   select id into v_warranty from public.warranties where sale_id = v_sale and serial_id = v_serial;
   if v_warranty is null or (select stock from public.items where id = v_item) <> 0
     or not exists (select 1 from public.inventory_serials where id = v_serial and status = 'sold'

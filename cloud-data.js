@@ -96,9 +96,11 @@
     const addedTransactions = rows(next, 'transactions').filter(value => !previousTransactions.has(value.id));
     const saleItemIds = new Set(addedSales.map(value => value.itemId));
     if (addedSales.length) {
+      const salespersonId = addedSales[0].salespersonId;
+      if (!salespersonId || addedSales.some(value => value.salespersonId !== salespersonId)) throw new Error('一張銷售單必須指定同一位業務員。');
       const soldSerials = rows(next, 'serials').filter(serial => addedSales.some(sale => sale.serialIds?.includes(serial.id)));
       const customerId = addedSales[0].customerId || soldSerials[0]?.customerId || rows(next, 'warranties').find(warranty => addedSales.some(sale => sale.id === warranty.saleId))?.customerId || null;
-      const { error } = await client.rpc('create_sale_with_serials', { p_lines: addedSales.map(value => ({ item_id: value.itemId, quantity: value.quantity, serial_ids: value.serialIds ?? [] })), p_customer_id: customerId });
+      const { error } = await client.rpc('create_sale_with_serials', { p_lines: addedSales.map(value => ({ item_id: value.itemId, quantity: value.quantity, serial_ids: value.serialIds ?? [] })), p_customer_id: customerId, p_salesperson_id: salespersonId });
       if (error) throw error;
     }
     for (const entry of addedTransactions.filter(value => !saleItemIds.has(value.itemId) && !value.purchaseId)) {
@@ -143,6 +145,13 @@
     const updatedCustomers = changedCustomers.filter(value => oldCustomers.has(value.id));
     if (addedCustomers.length) await mutate(client, 'customers', 'insert', addedCustomers.map(value => ({ ...customerRow(value), created_by: actorId })));
     if (updatedCustomers.length) await mutate(client, 'customers', 'upsert', updatedCustomers.map(customerRow));
+    const oldSalespeople = byId(rows(previous, 'salespeople'));
+    const changedSalespeople = rows(next, 'salespeople').filter(value => !same(oldSalespeople.get(value.id), value));
+    const salespersonRow = value => ({ id: value.id, name: value.name, active: value.active });
+    const addedSalespeople = changedSalespeople.filter(value => !oldSalespeople.has(value.id));
+    const updatedSalespeople = changedSalespeople.filter(value => oldSalespeople.has(value.id));
+    if (addedSalespeople.length) await mutate(client, 'salespeople', 'insert', addedSalespeople.map(value => ({ ...salespersonRow(value), created_by: actorId })));
+    if (updatedSalespeople.length) await mutate(client, 'salespeople', 'upsert', updatedSalespeople.map(salespersonRow));
     const oldQuotations = byId(rows(previous, 'quotations'));
     for (const quotation of rows(next, 'quotations')) {
       if (same(oldQuotations.get(quotation.id), quotation)) continue;
@@ -210,6 +219,14 @@
     return result.state;
   }
 
+  async function loadMonthlySalespersonPerformance(month) {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可以查看業務員績效。');
+    const { data, error } = await window.AppAuth.client.rpc('get_monthly_salesperson_performance', { p_month: month });
+    if (error) throw error;
+    return (data ?? []).map(row => ({ salespersonId: row.salesperson_id, name: row.salesperson_name, quantity: Number(row.quantity), total: Number(row.total) }));
+  }
+
   async function migrateLocalStateToCloud(source, createBackup) {
     const user = await window.AppAuth.requireActiveUser();
     if (user.role !== 'admin') throw new Error('只有店長可以執行首次資料移轉。');
@@ -242,5 +259,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, loadMonthlySalespersonPerformance, migrateLocalStateToCloud };
 })();
