@@ -142,6 +142,13 @@ begin
       and created_at < '2026-10-31 16:00:00+00') <> 3 then
     raise exception 'legacy unattributed sale missing from monthly overview';
   end if;
+  if (select count(*) from public.get_monthly_sale_assignments('2026-10')) <> 3
+    or (select count(*) from public.get_monthly_sale_assignments('2026-10')
+      where sale_number = 'OLD-UNATTRIBUTED' and salesperson_id is null) <> 1
+    or (select count(*) from public.get_monthly_sale_assignments('2026-10')
+      where sale_number = 'OCT-START' and salesperson_name = '張業務') <> 1 then
+    raise exception 'manager cannot identify an unattributed sale';
+  end if;
   begin perform public.get_monthly_salesperson_performance('2026-13');
   exception when others then v_denied := true;
   end;
@@ -157,6 +164,38 @@ begin
   exception when others then v_denied := true;
   end;
   if not v_denied then raise exception 'clerk read personal performance'; end if;
+  v_denied := false;
+  begin perform public.get_monthly_sale_assignments('2026-10');
+  exception when others then v_denied := true;
+  end;
+  if not v_denied then raise exception 'clerk read sale assignments'; end if;
+  v_denied := false;
+  begin perform public.assign_sale_salesperson('OLD-UNATTRIBUTED', '50000000-0000-4000-8000-000000000021');
+  exception when others then v_denied := true;
+  end;
+  if not v_denied then raise exception 'clerk assigned a salesperson'; end if;
+  perform set_config('request.jwt.claim.sub', '50000000-0000-4000-8000-000000000001', true);
+  perform set_config('request.jwt.claims', '{"sub":"50000000-0000-4000-8000-000000000001","session_id":"50000000-0000-4000-8000-000000000011"}', true);
+  v_denied := false;
+  begin perform public.assign_sale_salesperson('OLD-UNATTRIBUTED', '50000000-0000-4000-8000-000000000021');
+  exception when others then v_denied := true;
+  end;
+  if not v_denied then raise exception 'inactive salesperson assigned to old sale'; end if;
+  update public.salespeople set active = true where id = '50000000-0000-4000-8000-000000000021';
+  perform public.assign_sale_salesperson('OLD-UNATTRIBUTED', '50000000-0000-4000-8000-000000000021');
+  if (select count(*) from public.get_monthly_sale_assignments('2026-10')
+      where sale_number = 'OLD-UNATTRIBUTED' and salesperson_id = '50000000-0000-4000-8000-000000000021') <> 1
+    or (select total from public.get_monthly_salesperson_performance('2026-10')
+      where salesperson_id = '50000000-0000-4000-8000-000000000021') <> 370
+    or (select count(*) from public.audit_logs where target_id = '50000000-0000-4000-8000-000000000035'
+      and action = 'sale_salesperson_attributed') <> 1 then
+    raise exception 'manager assignment did not update whole-sale performance and audit';
+  end if;
+  v_denied := false;
+  begin perform public.assign_sale_salesperson('OLD-UNATTRIBUTED', '50000000-0000-4000-8000-000000000021');
+  exception when others then v_denied := true;
+  end;
+  if not v_denied then raise exception 'duplicate assignment was allowed'; end if;
 end;
 $$;
 rollback;

@@ -1449,16 +1449,63 @@ function renderMonthlySales(refreshPerformance = false) {
   const monthInput = $('monthly-sales-month');
   const month = monthInput.value || new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
   if (!monthInput.value) monthInput.value = month;
+  if (refreshPerformance) {
+    renderMonthlySales.assignmentMonth = '';
+    renderMonthlySales.assignments = null;
+    renderMonthlySales.assignmentError = '';
+  }
   const sales = salesForMonth(state, month);
   const isAdmin = document.body.dataset.role === 'admin';
   $('monthly-salesperson-heading').hidden = !isAdmin;
+  $('monthly-assignment-heading').hidden = !isAdmin;
   const list = $('monthly-sales-list');
   list.replaceChildren();
+  const seenSales = new Set();
   sales.forEach((sale) => {
     const row = document.createElement('tr');
     [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, formatNumber(sale.unitPrice), formatNumber(sale.quantity), formatNumber(sale.subtotal), ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value) => {
       const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
     });
+    if (isAdmin) {
+      const cell = document.createElement('td');
+      if (seenSales.has(sale.saleNumber)) cell.textContent = '—';
+      else if (renderMonthlySales.assignmentMonth !== month) cell.textContent = '載入中…';
+      else if (renderMonthlySales.assignmentError) cell.textContent = '無法載入歸屬';
+      else {
+        const assignment = renderMonthlySales.assignments?.get(sale.saleNumber);
+        if (!assignment) cell.textContent = '無法確認銷售單';
+        else if (assignment.salespersonId) cell.textContent = assignment.name;
+        else {
+          const people = state.salespeople.filter(person => person.active);
+          if (!people.length) cell.textContent = '請先啟用業務員';
+          else {
+            const select = document.createElement('select');
+            select.setAttribute('aria-label', `銷售單 ${sale.saleNumber} 的業務員`);
+            select.append(new Option('請選擇業務員', ''));
+            people.forEach(person => select.append(new Option(person.name, person.id)));
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = '補登'; button.dataset.assignSale = sale.saleNumber;
+            button.addEventListener('click', async () => {
+              if (document.body.dataset.role !== 'admin' || !select.value || button.disabled) return;
+              button.disabled = true;
+              try {
+                await window.AppData.assignSaleSalesperson(sale.saleNumber, select.value);
+                if (document.body.dataset.role === 'admin') {
+                  setStatus('業務員已補登。');
+                  await renderMonthlySales(true);
+                }
+              } catch (error) {
+                setStatus(`補登失敗：${error.message}`, true);
+                await renderMonthlySales(true);
+              }
+            });
+            cell.append(select, button);
+          }
+        }
+      }
+      row.append(cell);
+      seenSales.add(sale.saleNumber);
+    }
     list.append(row);
   });
   if (!list.children.length) appendEmpty(list, '本月尚未有銷售紀錄。');
@@ -1469,29 +1516,36 @@ function renderMonthlySales(refreshPerformance = false) {
   if (!isAdmin) {
     renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
     renderMonthlySales.loadedMonth = '';
+    renderMonthlySales.assignmentMonth = '';
+    renderMonthlySales.assignments = null;
     $('monthly-performance-list').replaceChildren();
     $('monthly-performance-status').textContent = '';
     return;
   }
   if (!refreshPerformance && (typeof currentPage !== 'function' || currentPage() !== 'monthly-sales' || renderMonthlySales.loadedMonth === month)) return;
-  if (!window.AppData?.loadMonthlySalespersonPerformance) return;
+  if (!window.AppData?.loadMonthlySalespersonPerformance || !window.AppData?.loadMonthlySaleAssignments) return;
   renderMonthlySales.loadedMonth = month;
   const requestId = renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   const rows = $('monthly-performance-list');
   rows.replaceChildren();
   $('monthly-performance-status').textContent = '載入業務員績效中…';
-  return window.AppData.loadMonthlySalespersonPerformance(month).then((performance) => {
+  return Promise.all([window.AppData.loadMonthlySalespersonPerformance(month), window.AppData.loadMonthlySaleAssignments(month)]).then(([performance, assignments]) => {
     if (requestId !== renderMonthlySales.requestId || document.body.dataset.role !== 'admin' || monthInput.value !== month) return;
+    renderMonthlySales.assignmentMonth = month;
+    renderMonthlySales.assignments = new Map(assignments.map(value => [value.saleNumber, value]));
     performance.forEach(person => {
       const row = document.createElement('tr');
       [person.name, formatNumber(person.quantity), formatNumber(person.total)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
       rows.append(row);
     });
     $('monthly-performance-status').textContent = performance.length ? '' : '本月尚無已歸屬的業務員銷售。';
+    renderMonthlySales();
   }).catch((error) => {
     if (requestId !== renderMonthlySales.requestId || document.body.dataset.role !== 'admin') return;
-    renderMonthlySales.loadedMonth = '';
+    renderMonthlySales.assignmentMonth = month;
+    renderMonthlySales.assignmentError = error.message;
     $('monthly-performance-status').textContent = `無法載入業務員績效：${error.message}`;
+    renderMonthlySales();
   });
 }
 $('monthly-sales-month')?.addEventListener('change', () => renderMonthlySales(true));
@@ -1500,6 +1554,9 @@ async function resetAppSession() {
   appSessionEpoch++;
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
+  renderMonthlySales.assignmentMonth = '';
+  renderMonthlySales.assignments = null;
+  renderMonthlySales.assignmentError = '';
   currentUser = null;
   setAppEnabled(false);
   window.StaffUI?.stop();

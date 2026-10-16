@@ -144,7 +144,11 @@
     const addedCustomers = changedCustomers.filter(value => !oldCustomers.has(value.id));
     const updatedCustomers = changedCustomers.filter(value => oldCustomers.has(value.id));
     if (addedCustomers.length) await mutate(client, 'customers', 'insert', addedCustomers.map(value => ({ ...customerRow(value), created_by: actorId })));
-    if (updatedCustomers.length) await mutate(client, 'customers', 'upsert', updatedCustomers.map(customerRow));
+    for (const customer of updatedCustomers) {
+      const { id, ...changes } = customerRow(customer);
+      const { error } = await client.from('customers').update(changes).eq('id', id).select('id').single();
+      if (error) throw error;
+    }
     const oldSalespeople = byId(rows(previous, 'salespeople'));
     const changedSalespeople = rows(next, 'salespeople').filter(value => !same(oldSalespeople.get(value.id), value));
     const salespersonRow = value => ({ id: value.id, name: value.name, active: value.active });
@@ -227,6 +231,21 @@
     return (data ?? []).map(row => ({ salespersonId: row.salesperson_id, name: row.salesperson_name, quantity: Number(row.quantity), total: Number(row.total) }));
   }
 
+  async function loadMonthlySaleAssignments(month) {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可以查看銷售歸屬。');
+    const { data, error } = await window.AppAuth.client.rpc('get_monthly_sale_assignments', { p_month: month });
+    if (error) throw error;
+    return (data ?? []).map(row => ({ saleNumber: row.sale_number, salespersonId: row.salesperson_id, name: row.salesperson_name }));
+  }
+
+  async function assignSaleSalesperson(saleNumber, salespersonId) {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可以補登業務員。');
+    const { error } = await window.AppAuth.client.rpc('assign_sale_salesperson', { p_sale_number: saleNumber, p_salesperson_id: salespersonId });
+    if (error) throw error;
+  }
+
   async function migrateLocalStateToCloud(source, createBackup) {
     const user = await window.AppAuth.requireActiveUser();
     if (user.role !== 'admin') throw new Error('只有店長可以執行首次資料移轉。');
@@ -259,5 +278,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, loadMonthlySalespersonPerformance, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();

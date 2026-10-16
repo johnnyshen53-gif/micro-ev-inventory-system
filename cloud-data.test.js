@@ -165,7 +165,11 @@ test('new customers include the signed-in creator without changing existing cust
     client: {
       from: table => ({
         insert: async value => { calls.push({ table, method: 'insert', value }); return { error: null }; },
-        upsert: async value => { calls.push({ table, method: 'upsert', value }); return { error: null }; },
+        upsert: async () => ({ error: new Error('new row violates row-level security policy for table "customers"') }),
+        update: value => ({ eq: (field, id) => ({ select: () => ({ single: async () => {
+          calls.push({ table, method: 'update', value, field, id });
+          return { data: { id }, error: null };
+        } }) }) }),
         select: async () => ({ data: [], error: null }),
       }),
     },
@@ -178,7 +182,10 @@ test('new customers include the signed-in creator without changing existing cust
   const customerCalls = calls.filter(call => call.table === 'customers');
   assert.equal(customerCalls.length, 2);
   assert.equal(customerCalls.find(call => call.method === 'insert')?.value[0].created_by, 'admin');
-  assert.equal('created_by' in customerCalls.find(call => call.method === 'upsert')?.value[0], false);
+  const update = customerCalls.find(call => call.method === 'update');
+  assert.equal(update?.field, 'id');
+  assert.equal(update?.id, 'customer-1');
+  assert.deepEqual(JSON.parse(JSON.stringify(update?.value)), { member_number: 'M000001', name: '已更新', phone: '', address: '', note: '', active: true });
 });
 
 test('salespeople insert, edit, and deactivate persist without rewriting creator or unchanged rows', async () => {
@@ -415,6 +422,28 @@ test('monthly performance fetch requires admin and converts database numbers', a
   role = 'clerk';
   await assert.rejects(() => context.window.AppData.loadMonthlySalespersonPerformance('2026-10'), /店長/);
   assert.equal(calls.length, 1);
+});
+
+test('only managers load and save whole-sale salesperson assignments', async () => {
+  let role = 'admin';
+  const calls = [];
+  const context = { window: {
+    AppAuth: { requireActiveUser: async () => ({ role }), client: { rpc: async (name, args) => {
+      calls.push([name, args]);
+      return { data: name === 'get_monthly_sale_assignments' ? [{ sale_number: 'S1', salesperson_id: null, salesperson_name: null }] : null, error: null };
+    } } }, InventoryStorage: {}, Inventory: {},
+  } };
+  vm.runInNewContext(await readFile(new URL('./cloud-data.js', import.meta.url), 'utf8'), context);
+  const assignments = await context.window.AppData.loadMonthlySaleAssignments('2026-10');
+  assert.deepEqual(Array.from(assignments, row => [row.saleNumber, row.salespersonId]), [['S1', null]]);
+  await context.window.AppData.assignSaleSalesperson('S1', 'person-1');
+  assert.deepEqual(calls.map(([name]) => name), ['get_monthly_sale_assignments', 'assign_sale_salesperson']);
+  assert.equal(calls[1][1].p_sale_number, 'S1');
+  assert.equal(calls[1][1].p_salesperson_id, 'person-1');
+  role = 'clerk';
+  await assert.rejects(() => context.window.AppData.loadMonthlySaleAssignments('2026-10'), /店長/);
+  await assert.rejects(() => context.window.AppData.assignSaleSalesperson('S1', 'person-1'), /店長/);
+  assert.equal(calls.length, 2);
 });
 
 test('warranty replacement uses its atomic RPC rather than ordinary inventory adjustment', async () => {

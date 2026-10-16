@@ -455,8 +455,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=6"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=8"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=34"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -744,7 +745,7 @@ test('shows salespeople in monthly sales only to administrators', async () => {
 
   context.renderMonthlySales();
   assert.equal($('monthly-salesperson-heading').hidden, false);
-  assert.equal($('monthly-sales-list').children[0].children.at(-1).textContent, '王業務');
+  assert.equal($('monthly-sales-list').children[0].children.at(-2).textContent, '王業務');
 
   context.document.body.dataset.role = 'clerk';
   context.renderMonthlySales();
@@ -762,7 +763,7 @@ test('monthly performance table is manager-only and distinguishes cashier from s
   const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
   $('monthly-sales-month').value = '2026-10';
   let calls = 0;
-  const context = { $, window: { AppData: { loadMonthlySalespersonPerformance: async () => { calls++; return [{ salespersonId: 'p1', name: '張業務', quantity: 3, total: 250 }]; } } },
+  const context = { $, window: { AppData: { loadMonthlySalespersonPerformance: async () => { calls++; return [{ salespersonId: 'p1', name: '張業務', quantity: 3, total: 250 }]; }, loadMonthlySaleAssignments: async () => [] } },
     document: { body: { dataset: { role: 'admin' } }, createElement: node },
     state: { sales: [] }, salesForMonth: () => [], formatNumber: String, appendEmpty() {},
   };
@@ -793,6 +794,57 @@ test('monthly performance table is manager-only and distinguishes cashier from s
   resolveOld([{ name: '舊月份', quantity: 9, total: 90 }]);
   await oldRequest;
   assert.equal($('monthly-performance-list').children[0].children[0].textContent, '新月份');
+});
+
+test('manager backfills an unattributed whole sale from monthly list and staff cannot see the action', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="monthly-assignment-heading"/);
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const nodes = new Map();
+  const node = () => ({ value: '', textContent: '', hidden: false, disabled: false, dataset: {}, children: [], listeners: {},
+    append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; },
+    addEventListener(type, handler) { this.listeners[type] = handler; }, setAttribute(name, value) { this[name] = value; },
+  });
+  const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  $('monthly-sales-month').value = '2026-10';
+  let assigned = false;
+  const writes = [];
+  const context = { $, window: { AppData: {
+    loadMonthlySalespersonPerformance: async () => [],
+    loadMonthlySaleAssignments: async () => [{ saleNumber: 'S1', salespersonId: assigned ? 'p1' : null, name: assigned ? '張業務' : null }],
+    assignSaleSalesperson: async (saleNumber, salespersonId) => { writes.push([saleNumber, salespersonId]); assigned = true; },
+  } }, Option: function(textContent, value) { return { textContent, value }; },
+    document: { body: { dataset: { role: 'admin' } }, createElement: node },
+    state: { salespeople: [{ id: 'p1', name: '張業務', active: true }], sales: [
+      { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'A', barcode: '', unitPrice: 10, quantity: 1, subtotal: 10 },
+      { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'B', barcode: '', unitPrice: 20, quantity: 1, subtotal: 20 },
+    ] }, salesForMonth: state => state.sales, formatNumber: String, appendEmpty() {}, currentPage: () => 'monthly-sales', setStatus() {},
+  };
+  vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf('async function resetAppSession(')), context);
+  await context.renderMonthlySales(true);
+  const reloading = context.renderMonthlySales(true);
+  assert.equal($('monthly-sales-list').children[0].children.at(-1).textContent, '載入中…');
+  await reloading;
+  const firstCell = $('monthly-sales-list').children[0].children.at(-1);
+  const select = firstCell.children.find(child => child.children?.some(option => option.value === 'p1'));
+  const button = firstCell.children.find(child => child.dataset.assignSale === 'S1');
+  assert.ok(select && button);
+  assert.equal($('monthly-sales-list').children[1].children.at(-1).textContent, '—');
+  select.value = 'p1';
+  await button.listeners.click();
+  assert.deepEqual(writes, [['S1', 'p1']]);
+  assert.equal($('monthly-sales-list').children[0].children.at(-1).textContent, '張業務');
+  assigned = false;
+  await context.renderMonthlySales(true);
+  const raceCell = $('monthly-sales-list').children[0].children.at(-1);
+  raceCell.children.find(child => child.children?.some(option => option.value === 'p1')).value = 'p1';
+  context.window.AppData.assignSaleSalesperson = async () => { assigned = true; throw new Error('這張銷售單已歸屬業務員'); };
+  await raceCell.children.find(child => child.dataset.assignSale === 'S1').listeners.click();
+  assert.equal($('monthly-sales-list').children[0].children.at(-1).textContent, '張業務', 'a concurrent assignment must replace the stale form');
+  context.document.body.dataset.role = 'clerk';
+  context.renderMonthlySales();
+  assert.equal($('monthly-assignment-heading').hidden, true);
+  assert.equal($('monthly-sales-list').children[0].children.length, 6);
 });
 
 test('keeps warranty deletion admin-only and requires confirmation', async () => {
