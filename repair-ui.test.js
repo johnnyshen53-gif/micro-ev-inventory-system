@@ -185,3 +185,22 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   assert.deepEqual(calls.filter(call => call[0] === 'save').map(call => call[4]), [null, null, 'tech-1']);
   assert.equal(orders[0].paymentStatus, 'paid');
 });
+
+test('technician choices come from staff with the technician role only', () => {
+  const nodes = new Map();
+  function node(tag = 'div') { return { tag, value: '', textContent: '', hidden: false, disabled: false, dataset: {}, children: [], classList: { add() {}, remove() {}, toggle() {} },
+    listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...values) { this.children.push(...values); },
+    replaceChildren(...values) { this.children = values; }, reset() {}, reportValidity: () => true }; }
+  const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  const state = { customers: [], items: [], serials: [], salespeople: [
+    { id: 'both', name: '全能', active: true, isSales: true, isTechnician: true },
+    { id: 'sales', name: '純業務', active: true, isSales: true, isTechnician: false },
+    { id: 'tech', name: '純維修', active: true, isSales: false, isTechnician: true },
+    { id: 'gone', name: '離職維修', active: false, isSales: false, isTechnician: true },
+  ] };
+  const document = { getElementById: get, createElement: node, body: { dataset: {}, classList: { add() {}, remove() {} } } };
+  const browser = { addEventListener() {}, AppAuthUI: { isActive: () => true }, AppData: {} };
+  vm.runInNewContext(source, { window: browser, document, Option: function Option(text, value) { return { text, value }; } });
+  browser.RepairUI.mount({ getState: () => state, setState() {}, notify() {} });
+  assert.deepEqual(get('repair-technician').children.map(option => option.text), ['尚未指定', '全能', '純維修']);
+});

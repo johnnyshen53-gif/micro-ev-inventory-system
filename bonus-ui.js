@@ -1,4 +1,5 @@
-// 分紅管理（店長專用）：設定每台機車獎金、維修分紅百分比、受領名單、適用品項、用料成本確認、維修人員，並查看月份報表。
+// 分紅管理（店長專用）：設定每台機車獎金、維修分紅百分比、受領名單、適用品項、用料成本確認，並查看月份報表。
+// 店員的業務員／維修員身分在「店員管理」頁設定。
 // 金額一律由資料庫在結帳／完工當下計算與記帳；這個畫面只送出設定、顯示已記帳的快照。
 (function () {
   const $ = id => document.getElementById(id);
@@ -60,22 +61,15 @@
       $('bonus-motorcycle-state').textContent = settingLabel(admin.motorcycleBonusAmount, 'amount');
       $('bonus-repair-state').textContent = settingLabel(admin.repairBonusPercent, 'percent');
       const state = getState();
-      const people = (state.salespeople ?? []).filter(person => person.active || admin.recipientIds.includes(person.id))
-        .map(person => ({ id: person.id, label: person.active ? person.name : `${person.name}（已停用，不會受領）` }));
+      // 受領名單只列「業務員」身分的店員；已勾選但後來停用或取消業務員身分的人仍列出並註明（不會受領）。
+      const people = (state.salespeople ?? []).filter(person => (person.active && person.isSales !== false) || admin.recipientIds.includes(person.id))
+        .map(person => ({ id: person.id, label: person.active && person.isSales !== false ? person.name
+          : `${person.name}（${person.active ? '未勾選業務員身分' : '已停用'}，不會受領）` }));
       checkList($('bonus-recipients'), people, admin.recipientIds, 'bonus-recipient');
       // 適用品項預設列出「機車」分類，另外保留已勾選的其他品項。
       const items = (state.items ?? []).filter(item => item.category === '機車' || admin.motorcycleItemIds.includes(item.id))
         .map(item => ({ id: item.id, label: `${item.name}（${item.category}）` }));
       checkList($('bonus-items'), items, admin.motorcycleItemIds, 'bonus-item');
-    }
-    function renderTechnicians() {
-      const body = $('bonus-technicians'); body.replaceChildren();
-      for (const person of admin.technicians) {
-        const row = element('tr'), cell = element('td'), toggle = element('button', person.active ? '停用' : '恢復在職', person.active ? 'danger' : 'secondary');
-        toggle.type = 'button'; toggle.dataset.technicianId = person.id; toggle.dataset.technicianActive = String(!person.active);
-        cell.append(toggle); row.append(element('td', person.name), element('td', person.active ? '在職' : '已停用'), cell); body.append(row);
-      }
-      if (!admin.technicians.length) { const row = element('tr'), cell = element('td', '尚未建立維修人員'); cell.colSpan = 3; row.append(cell); body.append(row); }
     }
     function renderCosts() {
       const body = $('bonus-costs'); body.replaceChildren();
@@ -115,7 +109,7 @@
     }
     async function refresh() {
       admin = await window.AppData.loadBonusAdminState();
-      renderSettings(); renderTechnicians(); renderCosts();
+      renderSettings(); renderCosts();
       await renderReport();
     }
     async function run(action, success) {
@@ -136,19 +130,6 @@
       } catch (error) { message(error.message, true); return; }
       run(() => window.AppData.saveBonusSettings(settings), '分紅設定已儲存；只影響之後的結帳與完工。');
     });
-    $('bonus-technician-form').addEventListener('submit', event => {
-      event.preventDefault();
-      const name = $('bonus-technician-name').value.trim();
-      if (!name) { message('請填維修人員姓名。', true); return; }
-      run(async () => { await window.AppData.saveRepairTechnician({ name, active: true }); $('bonus-technician-name').value = ''; }, '已新增維修人員。');
-    });
-    $('bonus-technicians').addEventListener('click', event => {
-      const button = event.target.closest('button[data-technician-id]');
-      const person = admin?.technicians.find(value => value.id === button?.dataset.technicianId);
-      if (!person) return;
-      const active = button.dataset.technicianActive === 'true';
-      run(() => window.AppData.saveRepairTechnician({ id: person.id, name: person.name, active }), active ? '維修人員已恢復在職。' : '維修人員已停用。');
-    });
     $('bonus-costs').addEventListener('click', event => {
       const button = event.target.closest('button[data-cost-item-id]');
       if (!button) return;
@@ -168,7 +149,7 @@
       },
       clear() {
         generation++; busy = false; admin = null;
-        for (const id of ['bonus-recipients', 'bonus-items', 'bonus-technicians', 'bonus-costs', 'bonus-summary', 'bonus-detail']) $(id).replaceChildren();
+        for (const id of ['bonus-recipients', 'bonus-items', 'bonus-costs', 'bonus-summary', 'bonus-detail']) $(id).replaceChildren();
         for (const id of ['bonus-status', 'bonus-motorcycle-state', 'bonus-repair-state', 'bonus-costs-summary']) $(id).textContent = '';
         $('bonus-motorcycle-amount').value = ''; $('bonus-repair-percent').value = '';
       },

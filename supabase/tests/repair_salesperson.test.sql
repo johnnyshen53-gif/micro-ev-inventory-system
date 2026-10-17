@@ -10,8 +10,8 @@ insert into auth.sessions(id, user_id) values
   ('71000000-0000-4000-8000-000000000012', '71000000-0000-4000-8000-000000000002');
 insert into public.salespeople(id, name, active, created_by) values
   ('71000000-0000-4000-8000-000000000051', '甲業務', false, '71000000-0000-4000-8000-000000000001');
--- 維修人員（完工必須指定）。
-insert into public.repair_technicians(id, name, active) values ('71000000-0000-4000-8000-000000000061', '維修甲', true);
+-- 維修人員＝勾選「維修員」身分的店員（完工必須指定）。
+insert into public.salespeople(id, name, active, is_sales, is_technician) values ('71000000-0000-4000-8000-000000000061', '維修甲', true, false, true);
 insert into public.items(id, name, category, sku, price, stock, created_by) values
   ('71000000-0000-4000-8000-000000000031', '煞車片', '零件', 'RS-PART', 100, 10, '71000000-0000-4000-8000-000000000001');
 

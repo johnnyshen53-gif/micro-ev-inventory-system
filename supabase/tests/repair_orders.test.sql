@@ -28,8 +28,8 @@ insert into public.inventory_serials(id,item_id,serial_number,status,created_by)
 -- 維修單必須指定業務員（20261018010000_repair_salesperson）。
 insert into public.salespeople(id, name, active, created_by) values
   ('70000000-0000-4000-8000-000000000051', '維修業務', true, '70000000-0000-4000-8000-000000000001');
--- 維修人員（分紅功能上線後，完工必須指定）。
-insert into public.repair_technicians(id, name, active) values ('70000000-0000-4000-8000-000000000061', '維修甲', true);
+-- 維修人員＝勾選「維修員」身分的店員（完工必須指定）。
+insert into public.salespeople(id, name, active, is_sales, is_technician) values ('70000000-0000-4000-8000-000000000061', '維修甲', true, false, true);
 select set_config('request.jwt.claim.sub', '70000000-0000-4000-8000-000000000002', true);
 select set_config('request.jwt.claims', '{"sub":"70000000-0000-4000-8000-000000000002","session_id":"70000000-0000-4000-8000-000000000012"}', true);
 set local role authenticated;

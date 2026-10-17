@@ -104,8 +104,9 @@ declare
   v_failed text;
   v_rec app_private.repair_bonus_records%rowtype;
 begin
-  v_tech := public.save_repair_technician(null, '維修甲', true);
-  v_off := public.save_repair_technician(null, '維修乙', true);
+  -- 維修人員＝勾選「維修員」身分的店員（店長可直接管理店員名單）。
+  insert into public.salespeople(name, active, is_sales, is_technician) values ('維修甲', true, false, true) returning id into v_tech;
+  insert into public.salespeople(name, active, is_sales, is_technician) values ('維修乙', true, false, true) returning id into v_off;
 
   -- 百分比未設定：可完工、不記帳、不檢查成本。
   v_order := pg_temp.quoted_repair(v_tech, '72000000-0000-4000-8000-000000000034', 1, 80, 100);
@@ -157,14 +158,14 @@ begin
 
   -- 維修人員在完工前停用：拒絕完工。
   v_order := pg_temp.quoted_repair(v_off, null, 0, 0, 100);
-  perform public.save_repair_technician(v_off, '維修乙', false);
+  update public.salespeople set active = false where id = v_off;
   v_failed := null;
   begin perform public.complete_repair_order(v_order, '{}'::jsonb); exception when others then v_failed := sqlerrm; end;
   if v_failed is null or v_failed not like '%已停用%' then raise exception 'inactive technician completed: %', v_failed; end if;
   -- 新維修單不可選已停用的人。
   v_failed := null;
   begin perform pg_temp.quoted_repair(v_off, null, 0, 0, 100); exception when others then v_failed := sqlerrm; end;
-  if v_failed is null or v_failed not like '%維修人員不存在或已停用%' then raise exception 'saved inactive technician: %', v_failed; end if;
+  if v_failed is null or v_failed not like '%維修人員不存在%已停用%' then raise exception 'saved inactive technician: %', v_failed; end if;
 
   -- 月報表：機車 2 筆＋維修 3 筆。
   if (select count(*) from public.get_monthly_bonus_report(to_char(now() at time zone 'Asia/Taipei', 'YYYY-MM'))) <> 5 then
@@ -182,7 +183,7 @@ begin
   begin perform public.get_bonus_admin_state(); exception when insufficient_privilege then v_denied := v_denied + 1; end;
   begin perform public.save_bonus_settings(1, 1, '{}'::uuid[], '{}'::uuid[]); exception when insufficient_privilege then v_denied := v_denied + 1; end;
   begin perform public.set_item_costs_confirmed('{}'::uuid[], true); exception when insufficient_privilege then v_denied := v_denied + 1; end;
-  begin perform public.save_repair_technician(null, '冒名', true); exception when insufficient_privilege then v_denied := v_denied + 1; end;
+  begin insert into public.salespeople(name, is_sales, is_technician) values ('冒名', false, true); exception when insufficient_privilege then v_denied := v_denied + 1; end;
   begin perform * from public.get_monthly_bonus_report('2026-10'); exception when insufficient_privilege then v_denied := v_denied + 1; end;
   begin perform * from app_private.sale_bonus_records; exception when insufficient_privilege then v_denied := v_denied + 1; end;
   begin perform * from app_private.repair_bonus_records; exception when insufficient_privilege then v_denied := v_denied + 1; end;

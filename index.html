@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -45,7 +45,7 @@
       <button class="page-tab" type="button" data-page-target="suppliers" data-role="admin">供應商管理</button>
       <button class="page-tab" type="button" data-page-target="purchases" data-role="admin">進貨管理</button>
       <button class="page-tab" type="button" data-page-target="customers">客戶管理</button>
-      <button class="page-tab" type="button" data-page-target="salespeople" data-role="admin">業務管理</button>
+      <button class="page-tab" type="button" data-page-target="salespeople" data-role="admin">店員管理</button>
       <button class="page-tab" type="button" data-page-target="quotations">報價單</button>
       <button class="page-tab" type="button" data-page-target="warranties">保固管理</button>
       <button class="page-tab" type="button" data-page-target="repairs">維修單</button>
@@ -175,7 +175,7 @@
       <article class="panel"><h2 id="customer-form-title">新增客戶</h2><form id="customer-form"><input id="customer-id" type="hidden"><div class="field"><label for="customer-member-number">會員編號</label><input id="customer-member-number" readonly placeholder="儲存後自動產生"></div><div class="field"><label for="customer-name">姓名</label><input id="customer-name" required></div><div class="field"><label for="customer-phone">電話</label><input id="customer-phone" required></div><div class="field"><label for="customer-plates">車牌（選填，每行一個）</label><textarea id="customer-plates" rows="2" placeholder="ABC-1234&#10;DEF-5678"></textarea></div><div class="field"><label for="customer-address">地址（選填）</label><input id="customer-address" autocomplete="street-address"></div><div class="field"><label for="customer-note">備註</label><textarea id="customer-note" rows="2"></textarea></div><p id="customer-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存客戶</button><button id="customer-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
       <article class="panel"><div class="section-heading"><h2>客戶資料</h2><input id="customer-search" class="search" type="search" placeholder="搜尋會員編號、姓名、電話、車牌或地址"></div><div class="table-wrap"><table><thead><tr><th>會員編號</th><th>姓名</th><th>電話</th><th>車牌</th><th>地址</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="customer-list"></tbody></table></div></article>
     </section>
-    <section class="app-page grid forms" data-page="salespeople" aria-label="業務管理" data-role="admin" hidden>
+    <section class="app-page grid forms" data-page="salespeople" aria-label="店員管理" data-role="admin" hidden>
       <article id="staff-panel" class="panel" hidden>
         <div class="section-heading"><h2>登入帳號管理（店長專用）</h2><button id="staff-refresh" class="secondary" type="button">重新整理帳號</button></div>
         <p>雲端登入帳號與本機業務資料分開管理。停用登入不會刪除歷史紀錄。</p>
@@ -193,8 +193,8 @@
         <form id="staff-link-form"><h3>連結既有登入帳號與本機業務</h3><div class="field"><label for="staff-existing-user">雲端帳號</label><select id="staff-existing-user" required></select></div><div class="field"><label for="staff-existing-person">本機業務</label><select id="staff-existing-person" required></select></div><button type="submit" class="secondary">儲存連結／重試連結</button></form>
         <section id="staff-reset-panel" hidden><h3>重設密碼</h3><form id="staff-reset-form"><input id="staff-reset-user" type="hidden"><div class="field"><label for="staff-new-password">新密碼（至少 12 字元）</label><input id="staff-new-password" type="password" minlength="12" autocomplete="new-password" required></div><div class="field"><label for="staff-confirm-password">再次輸入新密碼</label><input id="staff-confirm-password" type="password" minlength="12" autocomplete="new-password" required></div><button type="submit">確認重設密碼</button></form></section>
       </article>
-      <article class="panel"><h2 id="salesperson-form-title">新增業務</h2><form id="salesperson-form"><input id="salesperson-id" type="hidden"><div class="field"><label for="salesperson-name">姓名</label><input id="salesperson-name" required></div><p id="salesperson-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存業務</button><button id="salesperson-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
-      <article class="panel"><div class="section-heading"><h2>業務人員</h2><label class="search"><span class="sr-only">搜尋業務</span><input id="salesperson-search" type="search" placeholder="搜尋姓名"></label></div><div class="table-wrap"><table><thead><tr><th>姓名</th><th>狀態</th><th>操作</th></tr></thead><tbody id="salesperson-list"></tbody></table></div></article>
+      <article class="panel"><h2 id="salesperson-form-title">新增店員</h2><form id="salesperson-form"><input id="salesperson-id" type="hidden"><div class="field"><label for="salesperson-name">姓名</label><input id="salesperson-name" required></div><fieldset class="staff-roles"><legend>身分（至少勾選一個，可同時勾選）</legend><label class="check-item"><input id="salesperson-is-sales" type="checkbox" checked> 業務員<small>可在結帳、報價選擇；可列入機車獎金名單</small></label><label class="check-item"><input id="salesperson-is-technician" type="checkbox"> 維修員<small>可在維修單指定為維修人員，領維修分紅</small></label></fieldset><p id="salesperson-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存店員</button><button id="salesperson-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
+      <article class="panel"><div class="section-heading"><h2>店員名單</h2><label class="search"><span class="sr-only">搜尋店員</span><input id="salesperson-search" type="search" placeholder="搜尋姓名"></label></div><div class="table-wrap"><table><thead><tr><th>姓名</th><th>身分</th><th>狀態</th><th>操作</th></tr></thead><tbody id="salesperson-list"></tbody></table></div></article>
     </section>
     <section class="app-page" data-page="quotations" aria-label="報價單" hidden>
       <article class="panel" data-role="admin" hidden><h2>全店工時費率</h2><form id="shop-rate-form"><div class="field"><label for="shop-hourly-rate">每小時工資（元）</label><input id="shop-hourly-rate" type="number" min="0" step="0.01" required><small>只有店長可修改；新報價使用此費率，舊報價不變。</small></div><p id="shop-rate-form-error" class="form-error" role="alert" hidden></p><button type="submit">儲存費率</button></form></article>
@@ -272,9 +272,6 @@
           </form>
         </article>
         <article class="panel">
-          <h3>維修人員</h3>
-          <form id="bonus-technician-form" class="bonus-inline-form"><div class="field"><label for="bonus-technician-name">新增維修人員</label><input id="bonus-technician-name" maxlength="100" autocomplete="off" placeholder="姓名"></div><button type="submit" class="secondary">新增</button></form>
-          <div class="table-wrap"><table><thead><tr><th>姓名</th><th>狀態</th><th>操作</th></tr></thead><tbody id="bonus-technicians"></tbody></table></div>
           <h3>用料成本確認</h3>
           <p class="hint">啟用維修分紅後，用料成本未確認的維修單不能完工。成本請在「庫存管理」修改，確認後才會用於計算。</p>
           <p id="bonus-costs-summary" class="hint"></p>
@@ -314,12 +311,12 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=23"></script>
+  <script src="inventory.js?v=24"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=20"></script>
-  <script src="repair-ui.js?v=7"></script>
-  <script src="bonus-ui.js?v=1"></script>
+  <script src="cloud-data.js?v=21"></script>
+  <script src="repair-ui.js?v=8"></script>
+  <script src="bonus-ui.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=48"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>

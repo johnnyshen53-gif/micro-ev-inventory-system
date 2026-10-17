@@ -23,7 +23,7 @@
       items: items.map(row => ({ id: row.id, name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost: costByItem.get(row.id) ?? 0, price: Number(row.price), stock: Number(row.stock), minimumStock: Number(row.minimum_stock), warrantyMonths: Number(row.warranty_months ?? 0), notes: row.notes, supplierId: admin ? row.supplier_id ?? '' : '' })),
       transactions: transactions.map(row => ({ id: row.id, itemId: row.item_id, type: transactionType(row.type, row.warranty_id), quantity: Number(row.quantity), note: row.note, purchaseId: admin ? row.purchase_id ?? '' : '', repairOrderId: row.repair_order_id ?? '', warrantyId: row.warranty_id ?? '', customerId: row.customer_id ?? '', customerName: customerById.get(row.customer_id)?.name ?? '', itemName: row.item_name ?? '', expiresAt: row.expires_at ?? '', unitCostSnapshot: row.unit_cost_snapshot == null ? undefined : Number(row.unit_cost_snapshot), createdBy: row.created_by ?? '', createdByAccount: '', serialIds: row.serial_ids ?? [], serialNumbers: row.serial_numbers ?? [], createdAt: row.created_at })),
       customers: customers.map(row => ({ id: row.id, memberNumber: row.member_number, name: row.name, phone: row.phone, plateNumbers: row.plate_numbers ?? [], address: row.address, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
-      salespeople: salespeople.map(row => ({ id: row.id, name: row.name, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
+      salespeople: salespeople.map(row => ({ id: row.id, name: row.name, active: row.active, isSales: row.is_sales !== false, isTechnician: row.is_technician === true, createdAt: row.created_at, updatedAt: row.updated_at })),
       suppliers: suppliers.map(row => ({ id: row.id, name: row.name, contact: row.contact, phone: row.phone, address: row.address, taxId: row.tax_id, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
       purchases: purchases.map(row => ({ id: row.id, number: row.purchase_number, supplierId: row.supplier_id, supplierSnapshot: row.supplier_snapshot, status: row.status, paymentStatus: row.payment_status, lines: (linesByPurchase.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, sku: line.item_sku, barcode: line.item_barcode, quantity: Number(line.quantity), unitCost: Number(line.unit_cost), subtotal: Number(line.subtotal) })), total: Number(row.total), note: row.note, createdAt: row.created_at, updatedAt: row.updated_at, receivedAt: row.received_at ?? '', paidAt: row.paid_at ?? '', createdBy: row.created_by, receivedBy: row.received_by ?? '', paidBy: row.paid_by ?? '', createdByAccount: '', receivedByAccount: '', paidByAccount: '' })),
       serials: serials.map(row => ({ id: row.id, itemId: row.item_id, serialNumber: row.serial_number, status: row.status, purchaseId: admin ? row.purchase_id ?? '' : '', saleId: row.sale_line_id ?? '', customerId: row.customer_id ?? '', warrantyId: row.warranty_id ?? '', repairOrderId: row.repair_order_id ?? '', repairLineId: row.repair_line_id ?? '', repairUsedAt: row.repair_used_at ?? '', createdBy: row.created_by, createdAt: row.created_at, soldAt: row.sold_at ?? '', removedAt: row.removed_at ?? '', removedBy: row.removed_by ?? '', removalReason: row.removal_reason ?? '' })),
@@ -71,7 +71,7 @@
     { key: 'costs', table: 'item_costs', fields: 'item_id,cost', adminOnly: true },
     { key: 'transactions', table: 'inventory_transactions', fields: 'id,item_id,type,quantity,note,purchase_id,repair_order_id,warranty_id,customer_id,item_name,expires_at,unit_cost_snapshot,serial_ids,serial_numbers,created_by,created_at', adminOnly: false },
     { key: 'customers', table: 'customers', fields: 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at', adminOnly: false },
-    { key: 'salespeople', table: 'salespeople', fields: 'id,name,active,created_at,updated_at', adminOnly: false },
+    { key: 'salespeople', table: 'salespeople', fields: 'id,name,active,is_sales,is_technician,created_at,updated_at', adminOnly: false },
     { key: 'sales', table: 'sales', fields: 'id,sale_number,customer_id,created_by,created_at', adminOnly: false },
     { key: 'saleLines', table: 'sale_lines', fields: 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,subtotal', adminOnly: false },
     { key: 'suppliers', table: 'suppliers', fields: 'id,name,contact,phone,address,tax_id,note,active,created_at,updated_at', adminOnly: true },
@@ -142,13 +142,6 @@
       lines: lines.filter(line => line.repair_order_id === row.id).map(line => ({ id: line.id, itemId: line.item_id,
         itemName: line.item_name, sku: line.item_sku, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal) })),
     }));
-  }
-
-  // 維修人員名單（在職員工可讀姓名，用於維修單選擇；新增／停用只能由店長在分紅管理頁操作）。
-  async function loadRepairTechnicians() {
-    await window.AppAuth.requireActiveUser();
-    const rows = await query(window.AppAuth.client, 'repair_technicians', 'id,name,active');
-    return rows.map(row => ({ id: row.id, name: row.name, active: row.active === true }));
   }
 
   async function repairMutation(name, args) {
@@ -294,7 +287,7 @@
     }
     const oldSalespeople = byId(rows(previous, 'salespeople'));
     const changedSalespeople = rows(next, 'salespeople').filter(value => !same(oldSalespeople.get(value.id), value));
-    const salespersonRow = value => ({ id: value.id, name: value.name, active: value.active });
+    const salespersonRow = value => ({ id: value.id, name: value.name, active: value.active, is_sales: value.isSales !== false, is_technician: value.isTechnician === true });
     const addedSalespeople = changedSalespeople.filter(value => !oldSalespeople.has(value.id));
     const updatedSalespeople = changedSalespeople.filter(value => oldSalespeople.has(value.id));
     if (addedSalespeople.length) await mutate(client, 'salespeople', 'insert', addedSalespeople.map(value => ({ ...salespersonRow(value), created_by: actorId })));
@@ -418,14 +411,12 @@
       recipientIds: data.recipientIds ?? [],
       motorcycleItemIds: data.motorcycleItemIds ?? [],
       partCosts: (data.partCosts ?? []).map(row => ({ itemId: row.itemId, name: row.name, category: row.category, cost: nullableNumber(row.cost), confirmed: row.confirmed === true })),
-      technicians: (data.technicians ?? []).map(row => ({ id: row.id, name: row.name, active: row.active === true })),
     };
   }
   const saveBonusSettings = ({ motorcycleBonusAmount, repairBonusPercent, recipientIds, motorcycleItemIds }) =>
     bonusRpc('save_bonus_settings', { p_motorcycle_amount: motorcycleBonusAmount, p_repair_percent: repairBonusPercent,
       p_recipient_ids: recipientIds, p_motorcycle_item_ids: motorcycleItemIds });
   const setItemCostsConfirmed = (itemIds, confirmed) => bonusRpc('set_item_costs_confirmed', { p_item_ids: itemIds, p_confirmed: confirmed });
-  const saveRepairTechnician = ({ id = null, name, active = true }) => bonusRpc('save_repair_technician', { p_id: id, p_name: name, p_active: active });
   async function loadMonthlyBonusReport(month) {
     const data = await bonusRpc('get_monthly_bonus_report', { p_month: month });
     return (data ?? []).map(row => ({ kind: row.kind, personId: row.person_id, personName: row.person_name, sourceNumber: row.source_number,
@@ -490,5 +481,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadRepairTechnicians, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, saveRepairTechnician, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();
