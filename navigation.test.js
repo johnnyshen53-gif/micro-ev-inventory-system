@@ -510,7 +510,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=16"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=41"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=42"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -657,7 +657,7 @@ test('adds scanned sale items directly to the cart', async () => {
 
 test('labels the sales scanner for QR Code while keeping the existing input field', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  const saleForm = html.match(/<form id="sale-form">[\s\S]*?<\/form>/)?.[0] ?? '';
+  const saleForm = html.match(/<form id="sale-form"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? '';
 
   assert.match(saleForm, /<label for="sale-barcode">掃描／輸入 QR Code<\/label>/);
   assert.match(saleForm, /id="sale-barcode"[^>]*placeholder="掃描 QR Code 後按 Enter"/);
@@ -679,7 +679,7 @@ test('keeps QR input workflows without camera scanning controls or dependency', 
 
 test('allows checkout after a scanned barcode field has been cleared', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  const saleForm = html.match(/<form id="sale-form">[\s\S]*?<\/form>/)?.[0] ?? '';
+  const saleForm = html.match(/<form id="sale-form"[^>]*>[\s\S]*?<\/form>/)?.[0] ?? '';
 
   assert.doesNotMatch(saleForm, /id="sale-barcode"[^>]*\srequired/);
 });

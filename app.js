@@ -1400,7 +1400,11 @@ function renderSaleCart() {
   if (!saleCart.length) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 5; cell.className = 'empty'; cell.textContent = '購物車目前沒有品項。請掃描條碼或輸入條碼後加入。'; row.append(cell); list.append(row); }
   saleCart.forEach((line, index) => {
     const row = document.createElement('tr');
-    [line.itemName + (line.serialNumbers?.length ? `｜序號：${line.serialNumbers.join('、')}` : ''), formatNumber(line.unitPrice), formatNumber(line.quantity), formatNumber(line.subtotal)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    // 品名一行；有序號時在下一行用小字列出，避免和品名擠在一起。
+    const nameCell = document.createElement('td'); nameCell.textContent = line.itemName;
+    if (line.serialNumbers?.length) { const serials = document.createElement('small'); serials.className = 'sale-serials'; serials.textContent = `序號：${line.serialNumbers.join('、')}`; nameCell.append(serials); }
+    row.append(nameCell);
+    [formatNumber(line.unitPrice), formatNumber(line.quantity), formatNumber(line.subtotal)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
     const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.saleRemove = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); list.append(row);
   });
   $('sale-cart-total').textContent = formatNumber(saleCart.reduce((sum, line) => sum + line.subtotal, 0));
