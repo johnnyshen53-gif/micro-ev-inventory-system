@@ -53,6 +53,18 @@ test('checkout requires an active salesperson and keeps the chosen ID on every l
   assert.deepEqual(Array.from(sold.sales, sale => sale.salespersonId), [salespersonId, salespersonId]);
 });
 
+test('checkout keeps one checkout id on every line so the cloud can de-duplicate retries', () => {
+  const ready = withSalesperson(addItem(emptyState(), item));
+  const lines = [{ itemId: ready.items[0].id, quantity: 1 }, { itemId: ready.items[0].id, quantity: 1 }];
+  const salespersonId = ready.salespeople[0].id;
+  const checkoutId = '11111111-1111-4111-8111-111111111111';
+  const sold = recordSaleBatch(ready, { lines, salespersonId, checkoutId });
+  assert.deepEqual(Array.from(sold.sales, sale => sale.checkoutId), [checkoutId, checkoutId]);
+  const generated = recordSaleBatch(ready, { lines, salespersonId });
+  assert.match(generated.sales[0].checkoutId, /^[0-9a-f-]{36}$/);
+  assert.equal(generated.sales[1].checkoutId, generated.sales[0].checkoutId);
+});
+
 test('cart can select distinct products without barcodes and mix scanning', () => {
   let state = addItem(emptyState(), { ...item, barcode: '' });
   state = addItem(state, { ...item, sku: 'SECOND', name: '用品', barcode: '', price: 90 });

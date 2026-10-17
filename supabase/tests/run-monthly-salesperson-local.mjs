@@ -20,6 +20,7 @@ try {
     await db.exec(sql);
   }
   await db.exec(await readFile(new URL('./monthly_salesperson.test.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('./idempotent_checkout.test.sql', import.meta.url), 'utf8'));
   await db.exec(`
     insert into auth.users(id, email) values ('40000000-0000-4000-8000-000000000011', 'warranty-admin@example.invalid');
     update public.profiles set role = 'admin', active = true where id = '40000000-0000-4000-8000-000000000011';

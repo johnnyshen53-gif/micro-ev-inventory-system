@@ -771,15 +771,16 @@ test('checkout sends the authenticated bootstrap user as the warranty creator', 
     saveState: async () => false,
     render() {}, renderSaleCart() {}, currentPage: () => 'sales', showPage() {},
     setAppEnabled() {}, updateItemPrintButton() {}, renderTransactionItems() {}, resetWarrantyForm() {}, pendingSave: null, saleSerialItemId: '', saleSerialQuantity: 1,
-    setStatus() {}, showFormError() {},
+    setStatus() {}, showFormError() {}, crypto,
   };
-  vm.runInNewContext(`let state; let saleCart = [{ barcode: '4710000000012', quantity: 1 }]; let currentUser = null;\n${app.slice(app.indexOf("if ($('sale-form'))"), app.indexOf('function renderMonthlySales('))}\n${app.slice(app.indexOf('async function bootstrap('), app.indexOf('window.AppAuthUI.start('))}`, context);
+  vm.runInNewContext(`let state; let saleCart = [{ barcode: '4710000000012', quantity: 1 }]; let saleCheckoutId = ''; let currentUser = null;\n${app.slice(app.indexOf("if ($('sale-form'))"), app.indexOf('function renderMonthlySales('))}\n${app.slice(app.indexOf('async function bootstrap('), app.indexOf('window.AppAuthUI.start('))}`, context);
 
   await vm.runInNewContext("bootstrap({ id: 'authenticated-user-id' })", context);
   await $('sale-form').listeners.submit({ preventDefault() {} });
   assert.equal(checkoutFields.customerId, 'customer-1');
   assert.equal(checkoutFields.salespersonId, 'salesperson-1');
   assert.equal(checkoutFields.createdBy, 'authenticated-user-id');
+  assert.match(checkoutFields.checkoutId, /^[0-9a-f-]{36}$/);
 });
 
 test('bootstrap passes its validated user into the initial cloud snapshot', async () => {
