@@ -812,22 +812,6 @@ test('after a save only the tables that operation touched are fetched again', as
   assert.equal(fetched.length, 16);
 });
 
-test('monthly repair performance requires admin and converts database numbers', async () => {
-  let role = 'admin';
-  const calls = [];
-  const context = { window: {
-    AppAuth: { requireActiveUser: async () => ({ role }), client: { rpc: async (name, args) => { calls.push([name, args]); return { data: [{ salesperson_id: null, salesperson_name: '未歸屬', repair_count: '2', repair_total: '1500.00' }], error: null }; } } },
-    InventoryStorage: {}, Inventory: {},
-  } };
-  vm.runInNewContext(await readFile(new URL('./cloud-data.js', import.meta.url), 'utf8'), context);
-  const rows = await context.window.AppData.loadMonthlySalespersonRepairs('2026-10');
-  assert.deepEqual(Array.from(rows, row => [row.salespersonId, row.name, row.repairCount, row.repairTotal]), [[null, '未歸屬', 2, 1500]]);
-  assert.deepEqual([calls[0][0], calls[0][1].p_month], ['get_monthly_salesperson_repairs', '2026-10']);
-  role = 'clerk';
-  await assert.rejects(() => context.window.AppData.loadMonthlySalespersonRepairs('2026-10'), /店長/);
-  assert.equal(calls.length, 1);
-});
-
 test('one-time import explains in Chinese when backup data is already in the cloud, before any backup or RPC', async () => {
   const source = { items: [], suppliers: [{ id: 'supplier-1', name: '甲供應商' }], purchases: [{ id: 'purchase-9' }],
     transactions: [{ id: 'tx-1', purchaseId: 'purchase-9' }, { id: 'tx-sale' }] };

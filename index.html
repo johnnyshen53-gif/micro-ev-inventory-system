@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -239,7 +239,6 @@
           <h3 id="repair-form-title">新增接修</h3>
           <form id="repair-form">
             <div class="field"><label for="repair-customer">既有會員（或改填臨時客）</label><select id="repair-customer"><option value="">臨時客</option></select><small>若用料包含電池，完工前須選擇既有會員，電池品項也須有保固月數。</small></div>
-            <div class="field"><label for="repair-salesperson">業務員（必選）</label><select id="repair-salesperson" required><option value="">請選擇業務員</option></select></div>
             <div class="field"><label for="repair-technician">維修人員（完工前必選）</label><select id="repair-technician"><option value="">尚未指定</option></select></div>
             <div class="split-fields"><div class="field"><label for="repair-customer-name">客戶姓名</label><input id="repair-customer-name" required></div><div class="field"><label for="repair-customer-phone">電話</label><input id="repair-customer-phone" type="tel" required></div></div>
             <div id="repair-plate-choice-wrap" class="field" hidden><label for="repair-plate-choice">選擇會員車牌</label><select id="repair-plate-choice"><option value="">請選擇車牌</option></select></div>
@@ -294,7 +293,7 @@
       <div class="cards monthly-summary"><article class="card monthly-total-card"><span>本月銷售總額</span><strong id="monthly-sales-total">0</strong></article><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售筆數</span><strong id="monthly-sales-count">0</strong></article></div>
       <h3 class="monthly-detail-title">銷售明細</h3>
       <div class="table-wrap monthly-table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th><th id="monthly-salesperson-heading" hidden>結帳人</th><th id="monthly-assignment-heading" hidden>業務員歸屬</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div>
-      <article id="monthly-performance-panel" class="panel" data-role="admin" hidden><h3>業務員月績效</h3><p id="monthly-performance-status" role="status" aria-live="polite"></p><div class="table-wrap monthly-performance-wrap"><table><thead><tr><th>業務員</th><th>售出件數</th><th>銷售金額</th><th>維修件數</th><th>維修金額</th><th>合計</th></tr></thead><tbody id="monthly-performance-list"></tbody></table></div></article>
+      <article id="monthly-performance-panel" class="panel" data-role="admin" hidden><h3>業務員月績效</h3><p id="monthly-performance-status" role="status" aria-live="polite"></p><div class="table-wrap monthly-performance-wrap"><table><thead><tr><th>業務員</th><th>售出件數</th><th>銷售金額</th></tr></thead><tbody id="monthly-performance-list"></tbody></table></div></article>
     </section>
     <section id="repair-print" class="print-document repair-print" hidden></section>
     <section id="qr-label" class="print-document barcode-label" hidden><div id="qr-label-content"></div></section>
@@ -317,10 +316,10 @@
   <script src="staff-ui.js?v=2"></script>
   <script src="inventory.js?v=23"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=19"></script>
-  <script src="repair-ui.js?v=6"></script>
+  <script src="cloud-data.js?v=20"></script>
+  <script src="repair-ui.js?v=7"></script>
   <script src="bonus-ui.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=47"></script>
+  <script src="app.js?v=48"></script>
 </body>
 </html>
