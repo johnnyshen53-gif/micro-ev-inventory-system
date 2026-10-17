@@ -64,8 +64,19 @@
       item.replaceChildren(new Option('選擇品項', ''));
       for (const value of repairItems()) item.append(new Option(`${value.name}（庫存 ${value.stock}）`, value.id));
       item.value = repairItems().some(value => value.id === oldItem) ? oldItem : '';
+      renderSalespersonChoices();
       renderPlateChoices();
     }
+    // 業務員選單：在職業務員；編輯中的維修單若原本的業務員已停用，仍列出讓它可以沿用。
+    function renderSalespersonChoices(select = $('repair-salesperson'), keepId = selectedOrder()?.salespersonId ?? '') {
+      if (!select) return;
+      const old = select.value;
+      const people = (state().salespeople ?? []).filter(person => person.active || person.id === keepId);
+      select.replaceChildren(new Option('請選擇業務員', ''));
+      for (const person of people) select.append(new Option(person.active ? person.name : `${person.name}（已停用）`, person.id));
+      select.value = people.some(person => person.id === old) ? old : '';
+    }
+    const salespersonName = id => (state().salespeople ?? []).find(person => person.id === id)?.name ?? '';
     function renderLines() {
       const body = $('repair-lines'); body.replaceChildren();
       draftLines.forEach((line, index) => {
@@ -94,7 +105,7 @@
       if (!order) return;
       const actions = actionState(order, document.body.dataset?.role === 'admin');
       detail.append(element('h3', order.number), element('p', `${statusLabel(order)}｜${order.paymentStatus === 'paid' ? '已收款' : '未收款'}｜${money(order.total)}`));
-      for (const [label, value] of [['客戶', `${order.customerName}｜${order.customerPhone}`], ['車牌', order.plateNumber],
+      for (const [label, value] of [['業務員', salespersonName(order.salespersonId) || '未歸屬'], ['客戶', `${order.customerName}｜${order.customerPhone}`], ['車牌', order.plateNumber],
         ['原廠序號', order.originalSerialNumber], ['車型', order.vehicleName], ['故障', order.issue], ['檢查／處理', order.diagnosis]])
         detail.append(element('p', `${label}：${value || '—'}`));
       for (const line of order.lines) detail.append(element('p', `${line.itemName} × ${line.quantity}｜${money(line.subtotal)}${state().serials.filter(serial => serial.repairLineId === line.id).map(serial => `｜${serial.serialNumber}`).join('')}`));
@@ -106,6 +117,15 @@
           for (const serial of availableSerials(state().serials, line.itemId)) select.append(new Option(serial.serialNumber, serial.id));
           detail.append(label, select);
         }
+      }
+      // 店長可補登或更正任何狀態維修單的業務員（例如舊維修單、已完工維修單）。
+      if (document.body.dataset?.role === 'admin') {
+        const label = element('label', '補登／更正業務員'), select = element('select');
+        select.id = 'repair-assign-salesperson'; label.htmlFor = select.id;
+        renderSalespersonChoices(select, order.salespersonId ?? '');
+        select.value = order.salespersonId ?? '';
+        const assign = element('button', '更新業務員', 'secondary'); assign.type = 'button'; assign.dataset.repairAction = 'assign-salesperson';
+        detail.append(label, select, assign);
       }
       for (const [key, label, enabled] of [['complete', '確認完工並扣料', actions.canComplete], ['pay', '標記已收全款', actions.canPay],
         ['cancel', '取消維修單', actions.canCancel], ['delete', '刪除維修單', actions.canDelete], ['print', '列印維修單', true]]) {
@@ -125,6 +145,7 @@
       for (const [field, value] of [['customer', order.customerId], ['customer-name', order.customerName], ['customer-phone', order.customerPhone],
         ['plate', order.plateNumber], ['original-serial', order.originalSerialNumber], ['vehicle', order.vehicleName],
         ['issue', order.issue], ['diagnosis', order.diagnosis], ['labor', order.laborAmount]]) $(`repair-${field}`).value = value ?? '';
+      if ($('repair-salesperson')) $('repair-salesperson').value = order.salespersonId ?? '';
       renderPlateChoices();
       $('repair-form').hidden = !actionState(order).canEdit;
       $('repair-form-title').textContent = `編輯 ${order.number}`;
@@ -156,8 +177,9 @@
         customerPhone: $('repair-customer-phone').value.trim(), plateNumber: $('repair-plate').value.trim(),
         originalSerialNumber: $('repair-original-serial').value.trim(), vehicleName: $('repair-vehicle').value.trim(),
         issue: $('repair-issue').value.trim(), diagnosis: $('repair-diagnosis').value.trim(),
-        laborAmount: Number($('repair-labor').value), status };
+        laborAmount: Number($('repair-labor').value), status, salespersonId: $('repair-salesperson')?.value || null };
       if (selectedId) order.id = selectedId;
+      if (!order.salespersonId) throw new Error('請選擇業務員。');
       if (!order.plateNumber && !order.originalSerialNumber) throw new Error('車牌與原廠序號至少填一項。');
       if (!Number.isFinite(order.laborAmount) || order.laborAmount < 0) throw new Error('工資不可為負數。');
       return order;
@@ -195,6 +217,12 @@
         if (!actionState(order, document.body.dataset?.role === 'admin').canDelete
           || !window.confirm(`確定永久刪除維修單 ${order.number} 與用料明細？此操作無法復原。`)) return;
         mutation(() => window.AppData.deleteRepairOrder(order.id), '維修單已刪除。');
+        return;
+      }
+      if (action === 'assign-salesperson') {
+        const salespersonId = $('repair-assign-salesperson')?.value;
+        if (!salespersonId) { message('請先選擇業務員。', true); return; }
+        mutation(() => window.AppData.assignRepairSalesperson(order.id, salespersonId), '維修單業務員已更新。');
         return;
       }
       if (action === 'cancel' && !window.confirm(`確定取消維修單 ${order.number}？`)) return;

@@ -139,13 +139,13 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
     listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...values) { this.children.push(...values); },
     replaceChildren(...values) { this.children = values; }, reset() {}, reportValidity: () => true }; }
   const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
-  let state = { customers: [], items: [{ id: 'part-1', name: '煞車片', category: '零件', price: 120, stock: 5 }], serials: [] };
+  let state = { customers: [], salespeople: [{ id: 'sp-1', name: '甲業務', active: true }], items: [{ id: 'part-1', name: '煞車片', category: '零件', price: 120, stock: 5 }], serials: [] };
   let orders = [];
   let failCompletion = true;
   const browser = { print() {}, confirm: () => true, addEventListener() {}, AppAuthUI: { isActive: () => true }, AppData: {
     loadRepairOrders: async () => orders,
     async saveRepairOrder(order, lines, expected) {
-      calls.push(['save', order.status, expected]);
+      calls.push(['save', order.status, expected, order.salespersonId]);
       const current = orders[0];
       orders = [{ ...current, ...order, id: 'repair-1', number: 'R-1', updatedAt: String(calls.length),
         paymentStatus: 'unpaid', lines: lines.map((line, index) => ({ ...line, id: `line-${index}`, itemName: '煞車片', subtotal: line.quantity * line.unitPrice })) }];
@@ -157,6 +157,13 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   const document = { getElementById: get, createElement: node, body: { classList: { add() {}, remove() {} } } };
   vm.runInNewContext(source, { window: browser, document, Option: function Option(text, value) { return { text, value }; } });
   browser.RepairUI.mount({ getState: () => state, setState: next => { state = next; }, notify() {} });
+  // 沒選業務員時不可送出。
+  for (const [id, value] of [['repair-customer-name', '臨時客'], ['repair-customer-phone', '0911'], ['repair-plate', 'ABC'], ['repair-vehicle', '車型'], ['repair-issue', '異音'], ['repair-labor', '50']]) get(id).value = value;
+  get('repair-form').listeners.submit({ preventDefault() {} });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 0);
+  assert.match(get('repair-status').textContent, /請選擇業務員/);
+  get('repair-salesperson').value = 'sp-1';
   for (const [id, value] of [['repair-customer-name', '臨時客'], ['repair-customer-phone', '0911'], ['repair-plate', 'ABC'], ['repair-vehicle', '車型'], ['repair-issue', '異音'], ['repair-labor', '50'], ['repair-item', 'part-1'], ['repair-quantity', '1'], ['repair-price', '120']]) get(id).value = value;
   get('repair-add-line').listeners.click();
   get('repair-form').listeners.submit({ preventDefault() {} });
@@ -172,5 +179,6 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   get('repair-detail').listeners.click({ target: { closest: () => ({ dataset: { repairAction: 'pay' } }) } });
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(calls.map(call => call[0]), ['save', 'save', 'complete', 'complete', 'pay']);
+  assert.deepEqual(calls.filter(call => call[0] === 'save').map(call => call[3]), ['sp-1', 'sp-1']);
   assert.equal(orders[0].paymentStatus, 'paid');
 });

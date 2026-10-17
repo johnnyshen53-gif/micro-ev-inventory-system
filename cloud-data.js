@@ -129,11 +129,11 @@
   async function loadRepairOrders() {
     await window.AppAuth.requireActiveUser();
     const [orders, lines] = await Promise.all([
-      query(window.AppAuth.client, 'repair_orders', 'id,repair_number,customer_id,customer_name,customer_phone,plate_number,original_serial_number,vehicle_name,issue,diagnosis,labor_amount,total,status,payment_status,created_at,updated_at,quoted_at,completed_at,cancelled_at,paid_at'),
+      query(window.AppAuth.client, 'repair_orders', 'id,repair_number,salesperson_id,customer_id,customer_name,customer_phone,plate_number,original_serial_number,vehicle_name,issue,diagnosis,labor_amount,total,status,payment_status,created_at,updated_at,quoted_at,completed_at,cancelled_at,paid_at'),
       query(window.AppAuth.client, 'repair_lines', 'id,repair_order_id,item_id,item_name,item_sku,quantity,unit_price,subtotal'),
     ]);
     return orders.map(row => ({
-      id: row.id, number: row.repair_number, customerId: row.customer_id ?? '', customerName: row.customer_name,
+      id: row.id, number: row.repair_number, salespersonId: row.salesperson_id ?? '', customerId: row.customer_id ?? '', customerName: row.customer_name,
       customerPhone: row.customer_phone, plateNumber: row.plate_number, originalSerialNumber: row.original_serial_number,
       vehicleName: row.vehicle_name, issue: row.issue, diagnosis: row.diagnosis, laborAmount: Number(row.labor_amount),
       total: Number(row.total), status: row.status, paymentStatus: row.payment_status, createdAt: row.created_at,
@@ -162,6 +162,8 @@
   const deleteRepairOrder = id => repairMutation('delete_repair_order', { p_order_id: id });
   const completeRepairOrder = (id, serialIdsByLine) => repairMutation('complete_repair_order', { p_order_id: id, p_serial_ids_by_line: serialIdsByLine });
   const markRepairPaid = id => repairMutation('mark_repair_paid', { p_order_id: id });
+  // 店長補登／更正維修單業務員（任何狀態皆可）。
+  const assignRepairSalesperson = (id, salespersonId) => repairMutation('assign_repair_salesperson', { p_order_id: id, p_salesperson_id: salespersonId });
 
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const rows = (state, key) => state[key] ?? [];
@@ -379,6 +381,15 @@
     return (data ?? []).map(row => ({ salespersonId: row.salesperson_id, name: row.salesperson_name, quantity: Number(row.quantity), total: Number(row.total) }));
   }
 
+  // 業務員當月維修：完工日在當月的維修單件數與總額。
+  async function loadMonthlySalespersonRepairs(month) {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可以查看業務員績效。');
+    const { data, error } = await window.AppAuth.client.rpc('get_monthly_salesperson_repairs', { p_month: month });
+    if (error) throw error;
+    return (data ?? []).map(row => ({ salespersonId: row.salesperson_id, name: row.salesperson_name, repairCount: Number(row.repair_count), repairTotal: Number(row.repair_total) }));
+  }
+
   async function loadMonthlySaleAssignments(month) {
     const user = await window.AppAuth.requireActiveUser();
     if (user.role !== 'admin') throw new Error('只有店長可以查看銷售歸屬。');
@@ -426,5 +437,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, assignRepairSalesperson, loadMonthlySalespersonRepairs, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();
