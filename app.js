@@ -81,6 +81,7 @@ function showPage(page) {
   });
   if (page === 'monthly-sales') renderMonthlySales(true);
   if (page === 'repairs') window.RepairUI?.instance?.load();
+  if (page === 'bonus') window.BonusUI?.instance?.load();
 }
 
 function currentPage() {
@@ -116,6 +117,8 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
   setState: next => { state = next; render(); },
   notify: setStatus,
 });
+// 分紅管理（店長專用）：業務員與品項名單取自目前狀態，金額設定與紀錄另由店長專用 RPC 讀取。
+if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
 
 async function saveState(nextState) {
   if (window.AppAuthUI.isActive?.() === false) return false;
@@ -1641,6 +1644,7 @@ $('monthly-sales-month')?.addEventListener('change', () => renderMonthlySales(tr
 async function resetAppSession() {
   appSessionEpoch++;
   window.RepairUI?.instance?.clear();
+  window.BonusUI?.instance?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
   renderMonthlySales.assignmentMonth = '';

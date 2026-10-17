@@ -11,6 +11,8 @@ insert into public.salespeople(id, name, active, created_by) values
   ('71000000-0000-4000-8000-000000000051', '甲業務', true, '71000000-0000-4000-8000-000000000001'),
   ('71000000-0000-4000-8000-000000000052', '乙業務', true, '71000000-0000-4000-8000-000000000001'),
   ('71000000-0000-4000-8000-000000000053', '離職業務', false, '71000000-0000-4000-8000-000000000001');
+-- 維修人員（分紅功能上線後，完工必須指定）。
+insert into public.repair_technicians(id, name, active) values ('71000000-0000-4000-8000-000000000061', '維修甲', true);
 insert into public.items(id, name, category, sku, price, stock, created_by) values
   ('71000000-0000-4000-8000-000000000031', '煞車片', '零件', 'RS-PART', 100, 10, '71000000-0000-4000-8000-000000000001');
 
@@ -33,7 +35,7 @@ begin
   begin perform public.save_repair_order(v_base || '{"salespersonId":"71000000-0000-4000-8000-000000000053"}', v_lines); exception when others then v_denied := sqlerrm like '%已停用%'; end;
   if not v_denied then raise exception 'repair saved with inactive salesperson'; end if;
 
-  v_order := public.save_repair_order(v_base || '{"salespersonId":"71000000-0000-4000-8000-000000000051","laborAmount":300}', v_lines);
+  v_order := public.save_repair_order(v_base || '{"salespersonId":"71000000-0000-4000-8000-000000000051","technicianId":"71000000-0000-4000-8000-000000000061","laborAmount":300}', v_lines);
   if (select salesperson_id from public.repair_orders where id = v_order) <> '71000000-0000-4000-8000-000000000051' then
     raise exception 'salesperson not stored on new repair'; end if;
   -- 店員不可呼叫補登，也不可看月績效。
@@ -46,7 +48,7 @@ begin
 
   -- 報價、完工：完工後才算進當月。
   select updated_at into v_version from public.repair_orders where id = v_order;
-  perform public.save_repair_order(v_base || jsonb_build_object('id', v_order, 'salespersonId', '71000000-0000-4000-8000-000000000051', 'laborAmount', 300, 'status', 'quoted'), v_lines, v_version);
+  perform public.save_repair_order(v_base || jsonb_build_object('id', v_order, 'salespersonId', '71000000-0000-4000-8000-000000000051', 'technicianId', '71000000-0000-4000-8000-000000000061', 'laborAmount', 300, 'status', 'quoted'), v_lines, v_version);
   perform set_config('test.repair_order', v_order::text, true);
 end $$;
 

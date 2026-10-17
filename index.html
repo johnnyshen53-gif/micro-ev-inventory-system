@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -50,6 +50,7 @@
       <button class="page-tab" type="button" data-page-target="warranties">保固管理</button>
       <button class="page-tab" type="button" data-page-target="repairs">維修單</button>
       <button class="page-tab" type="button" data-page-target="monthly-sales" data-mobile-page>月銷售</button>
+      <button class="page-tab" type="button" data-page-target="bonus" data-role="admin">分紅管理</button>
     </nav>
 
     <div class="app-page" data-page="list">
@@ -239,6 +240,7 @@
           <form id="repair-form">
             <div class="field"><label for="repair-customer">既有會員（或改填臨時客）</label><select id="repair-customer"><option value="">臨時客</option></select><small>若用料包含電池，完工前須選擇既有會員，電池品項也須有保固月數。</small></div>
             <div class="field"><label for="repair-salesperson">業務員（必選）</label><select id="repair-salesperson" required><option value="">請選擇業務員</option></select></div>
+            <div class="field"><label for="repair-technician">維修人員（完工前必選）</label><select id="repair-technician"><option value="">尚未指定</option></select></div>
             <div class="split-fields"><div class="field"><label for="repair-customer-name">客戶姓名</label><input id="repair-customer-name" required></div><div class="field"><label for="repair-customer-phone">電話</label><input id="repair-customer-phone" type="tel" required></div></div>
             <div id="repair-plate-choice-wrap" class="field" hidden><label for="repair-plate-choice">選擇會員車牌</label><select id="repair-plate-choice"><option value="">請選擇車牌</option></select></div>
             <div class="split-fields"><div class="field"><label for="repair-plate">車牌（與原廠序號至少填一項）</label><input id="repair-plate"></div><div class="field"><label for="repair-original-serial">車輛原廠序號</label><input id="repair-original-serial"></div></div>
@@ -255,6 +257,37 @@
         </article>
         <article class="panel"><h3>維修單清單</h3><div class="field"><label for="repair-search">搜尋單號、電話、車牌或原廠序號</label><input id="repair-search" type="search"></div><div class="table-wrap"><table><thead><tr><th>單號</th><th>客戶</th><th>車牌／序號</th><th>狀態</th><th>總額</th><th>操作</th></tr></thead><tbody id="repair-list"></tbody></table></div><section id="repair-detail" class="repair-detail" aria-label="維修單明細" hidden></section></article>
       </div>
+    </section>
+    <section class="app-page bonus-page" data-page="bonus" aria-label="分紅管理" data-role="admin" hidden>
+      <div class="section-heading"><div><h2>分紅管理</h2><p class="hint">分紅在結帳／維修完工當下由系統記帳；之後修改設定不會改變已成立的紀錄。此頁只有店長看得到。</p></div></div>
+      <p id="bonus-status" class="status" role="status" aria-live="polite"></p>
+      <div class="grid forms">
+        <article class="panel">
+          <h3>分紅設定</h3>
+          <form id="bonus-settings-form">
+            <div class="field"><label for="bonus-motorcycle-amount">每台機車獎金（元，空白＝未設定）</label><input id="bonus-motorcycle-amount" type="number" min="0" step="0.01" placeholder="未設定"><small id="bonus-motorcycle-state"></small></div>
+            <div class="field"><label for="bonus-repair-percent">維修分紅百分比（%，空白＝未設定）</label><input id="bonus-repair-percent" type="number" min="0" max="100" step="0.01" placeholder="未設定"><small id="bonus-repair-state"></small></div>
+            <fieldset class="bonus-fieldset"><legend>機車獎金受領業務員（每人同額）</legend><div id="bonus-recipients" class="check-list"></div></fieldset>
+            <fieldset class="bonus-fieldset"><legend>適用機車獎金的品項</legend><div id="bonus-items" class="check-list"></div></fieldset>
+            <button type="submit">儲存設定</button>
+          </form>
+        </article>
+        <article class="panel">
+          <h3>維修人員</h3>
+          <form id="bonus-technician-form" class="bonus-inline-form"><div class="field"><label for="bonus-technician-name">新增維修人員</label><input id="bonus-technician-name" maxlength="100" autocomplete="off" placeholder="姓名"></div><button type="submit" class="secondary">新增</button></form>
+          <div class="table-wrap"><table><thead><tr><th>姓名</th><th>狀態</th><th>操作</th></tr></thead><tbody id="bonus-technicians"></tbody></table></div>
+          <h3>用料成本確認</h3>
+          <p class="hint">啟用維修分紅後，用料成本未確認的維修單不能完工。成本請在「庫存管理」修改，確認後才會用於計算。</p>
+          <p id="bonus-costs-summary" class="hint"></p>
+          <div class="table-wrap bonus-costs-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>成本</th><th>狀態</th><th>操作</th></tr></thead><tbody id="bonus-costs"></tbody></table></div>
+        </article>
+      </div>
+      <article class="panel bonus-report">
+        <div class="section-heading"><h3>月份分紅報表</h3><label class="field"><span>月份</span><input id="bonus-month" type="month"></label></div>
+        <div class="table-wrap"><table><thead><tr><th>對象</th><th>類別</th><th>筆數</th><th>分紅合計</th></tr></thead><tbody id="bonus-summary"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>日期</th><th>類別</th><th>對象</th><th>單號</th><th>計算基準</th><th>分紅</th></tr></thead><tbody id="bonus-detail"></tbody></table></div>
+        <p class="hint">計算基準：機車＝台數 × 每台獎金；維修＝維修單金額扣除用料成本後的淨額。</p>
+      </article>
     </section>
     <section class="app-page monthly-sales-page" data-page="monthly-sales" aria-label="月銷售" hidden>
       <div class="section-heading"><h2>月銷售清單</h2><label class="monthly-month-field">查詢月份<input id="monthly-sales-month" type="month"></label></div>
@@ -284,9 +317,10 @@
   <script src="staff-ui.js?v=2"></script>
   <script src="inventory.js?v=23"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=18"></script>
-  <script src="repair-ui.js?v=5"></script>
+  <script src="cloud-data.js?v=19"></script>
+  <script src="repair-ui.js?v=6"></script>
+  <script src="bonus-ui.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

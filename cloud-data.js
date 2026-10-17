@@ -129,11 +129,11 @@
   async function loadRepairOrders() {
     await window.AppAuth.requireActiveUser();
     const [orders, lines] = await Promise.all([
-      query(window.AppAuth.client, 'repair_orders', 'id,repair_number,salesperson_id,customer_id,customer_name,customer_phone,plate_number,original_serial_number,vehicle_name,issue,diagnosis,labor_amount,total,status,payment_status,created_at,updated_at,quoted_at,completed_at,cancelled_at,paid_at'),
+      query(window.AppAuth.client, 'repair_orders', 'id,repair_number,salesperson_id,technician_id,customer_id,customer_name,customer_phone,plate_number,original_serial_number,vehicle_name,issue,diagnosis,labor_amount,total,status,payment_status,created_at,updated_at,quoted_at,completed_at,cancelled_at,paid_at'),
       query(window.AppAuth.client, 'repair_lines', 'id,repair_order_id,item_id,item_name,item_sku,quantity,unit_price,subtotal'),
     ]);
     return orders.map(row => ({
-      id: row.id, number: row.repair_number, salespersonId: row.salesperson_id ?? '', customerId: row.customer_id ?? '', customerName: row.customer_name,
+      id: row.id, number: row.repair_number, salespersonId: row.salesperson_id ?? '', technicianId: row.technician_id ?? '', customerId: row.customer_id ?? '', customerName: row.customer_name,
       customerPhone: row.customer_phone, plateNumber: row.plate_number, originalSerialNumber: row.original_serial_number,
       vehicleName: row.vehicle_name, issue: row.issue, diagnosis: row.diagnosis, laborAmount: Number(row.labor_amount),
       total: Number(row.total), status: row.status, paymentStatus: row.payment_status, createdAt: row.created_at,
@@ -142,6 +142,13 @@
       lines: lines.filter(line => line.repair_order_id === row.id).map(line => ({ id: line.id, itemId: line.item_id,
         itemName: line.item_name, sku: line.item_sku, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal) })),
     }));
+  }
+
+  // 維修人員名單（在職員工可讀姓名，用於維修單選擇；新增／停用只能由店長在分紅管理頁操作）。
+  async function loadRepairTechnicians() {
+    await window.AppAuth.requireActiveUser();
+    const rows = await query(window.AppAuth.client, 'repair_technicians', 'id,name,active');
+    return rows.map(row => ({ id: row.id, name: row.name, active: row.active === true }));
   }
 
   async function repairMutation(name, args) {
@@ -405,6 +412,38 @@
     if (error) throw error;
   }
 
+  // ── 分紅管理（店長專用）。金額一律由資料庫在結帳／完工當下計算並記帳，這裡只負責讀取與送出設定。
+  async function bonusRpc(name, args) {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可以使用分紅管理。');
+    const { data, error } = await window.AppAuth.client.rpc(name, args);
+    if (error) throw error;
+    return data;
+  }
+  // 金額欄位：null＝未設定（不記帳），要和 0（明確不發）分開，所以不能用 Number(null) 變成 0。
+  const nullableNumber = value => value === null || value === undefined || value === '' ? null : Number(value);
+  async function loadBonusAdminState() {
+    const data = await bonusRpc('get_bonus_admin_state', {}) ?? {};
+    return {
+      motorcycleBonusAmount: nullableNumber(data.motorcycleBonusAmount),
+      repairBonusPercent: nullableNumber(data.repairBonusPercent),
+      recipientIds: data.recipientIds ?? [],
+      motorcycleItemIds: data.motorcycleItemIds ?? [],
+      partCosts: (data.partCosts ?? []).map(row => ({ itemId: row.itemId, name: row.name, category: row.category, cost: nullableNumber(row.cost), confirmed: row.confirmed === true })),
+      technicians: (data.technicians ?? []).map(row => ({ id: row.id, name: row.name, active: row.active === true })),
+    };
+  }
+  const saveBonusSettings = ({ motorcycleBonusAmount, repairBonusPercent, recipientIds, motorcycleItemIds }) =>
+    bonusRpc('save_bonus_settings', { p_motorcycle_amount: motorcycleBonusAmount, p_repair_percent: repairBonusPercent,
+      p_recipient_ids: recipientIds, p_motorcycle_item_ids: motorcycleItemIds });
+  const setItemCostsConfirmed = (itemIds, confirmed) => bonusRpc('set_item_costs_confirmed', { p_item_ids: itemIds, p_confirmed: confirmed });
+  const saveRepairTechnician = ({ id = null, name, active = true }) => bonusRpc('save_repair_technician', { p_id: id, p_name: name, p_active: active });
+  async function loadMonthlyBonusReport(month) {
+    const data = await bonusRpc('get_monthly_bonus_report', { p_month: month });
+    return (data ?? []).map(row => ({ kind: row.kind, personId: row.person_id, personName: row.person_name, sourceNumber: row.source_number,
+      occurredAt: row.occurred_at, baseAmount: Number(row.base_amount), bonusAmount: Number(row.bonus_amount) }));
+  }
+
   // 首次移轉只會「新增」雲端還沒有的營運資料。若備份裡的資料已在雲端（例如從雲端匯出的備份），
   // 資料庫會因編號重複整筆拒絕；這裡先用編號比對，改用中文說明，也不會多下載一份備份。
   const IMPORT_MODULES = [
@@ -463,5 +502,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, assignRepairSalesperson, loadMonthlySalespersonRepairs, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadRepairTechnicians, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, saveRepairTechnician, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, assignRepairSalesperson, loadMonthlySalespersonRepairs, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();
