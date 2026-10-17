@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -71,6 +71,7 @@
 
       <section aria-labelledby="inventory-title">
         <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號或分類"></label></div>
+        <div id="item-category-tabs" class="category-tabs" aria-label="依分類檢視"></div>
         <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>料號</th><th>條碼</th><th>售價</th><th>庫存</th><th>最低</th><th>供應商</th><th>操作</th></tr></thead><tbody id="item-list"></tbody></table></div>
       </section>
     </div>
@@ -287,6 +288,6 @@
   <script src="cloud-data.js?v=16"></script>
   <script src="repair-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=43"></script>
+  <script src="app.js?v=44"></script>
 </body>
 </html>

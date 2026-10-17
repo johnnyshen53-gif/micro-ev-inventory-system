@@ -197,3 +197,9 @@ dialog.serial-dialog { width: min(900px, calc(100% - 2rem)); max-height: min(85v
 /* 序號表底部：筆數與「顯示更多」 */
 .serial-list-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .75rem; color: #64748b; font-size: .9rem; }
 .serial-list-footer button { min-height: 2.4rem; }
+/* 品項庫存：分類按鈕 */
+.category-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .9rem; }
+.category-tab { min-height: 2.5rem; padding: .4rem 1rem; gap: .5rem; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; box-shadow: none; color: #334155; font-weight: 600; }
+.category-tab:hover { background: #f1f5f9; box-shadow: none; }
+.category-tab[aria-pressed="true"] { border-color: #0f172a; background: #0f172a; color: #fff; }
+.category-tab-low { padding: .05rem .45rem; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .75rem; font-weight: 700; }
