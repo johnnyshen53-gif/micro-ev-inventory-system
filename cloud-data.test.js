@@ -827,3 +827,37 @@ test('monthly repair performance requires admin and converts database numbers', 
   await assert.rejects(() => context.window.AppData.loadMonthlySalespersonRepairs('2026-10'), /店長/);
   assert.equal(calls.length, 1);
 });
+
+test('one-time import explains in Chinese when backup data is already in the cloud, before any backup or RPC', async () => {
+  const source = { items: [], suppliers: [{ id: 'supplier-1', name: '甲供應商' }], purchases: [{ id: 'purchase-9' }],
+    transactions: [{ id: 'tx-1', purchaseId: 'purchase-9' }, { id: 'tx-sale' }] };
+  const calls = [];
+  const cloudRows = { suppliers: [{ id: 'supplier-1' }, { id: 'supplier-2' }], purchases: [], inventory_transactions: [{ id: 'tx-sale' }] };
+  const appData = await loadCloudData({
+    client: {
+      from: table => ({ select: () => table === 'app_migrations'
+        ? { eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }
+        : Promise.resolve({ data: cloudRows[table] ?? [], error: null }) }),
+      rpc: async name => { calls.push(['rpc', name]); return { data: true, error: null }; },
+    },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => source, validateState: value => value },
+  });
+  await assert.rejects(() => appData.migrateLocalStateToCloud(source, async () => calls.push(['backup'])),
+    error => error.message.includes('已經在雲端') && error.message.includes('供應商 1 筆') && !error.message.includes('進貨') && error.message.includes('沒有任何變更'));
+  assert.deepEqual(calls, []);
+});
+
+test('a duplicate-key rejection from the import RPC is shown in Chinese', async () => {
+  const source = { items: [] };
+  const appData = await loadCloudData({
+    client: {
+      from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }),
+      rpc: async () => ({ error: { code: '23505', message: 'duplicate key value violates unique constraint "suppliers_pkey"' } }),
+    },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => source, validateState: value => value },
+  });
+  await assert.rejects(() => appData.migrateLocalStateToCloud(source, async () => {}),
+    error => error.message.includes('編號已存在雲端') && !error.message.includes('duplicate key'));
+});

@@ -405,6 +405,28 @@
     if (error) throw error;
   }
 
+  // 首次移轉只會「新增」雲端還沒有的營運資料。若備份裡的資料已在雲端（例如從雲端匯出的備份），
+  // 資料庫會因編號重複整筆拒絕；這裡先用編號比對，改用中文說明，也不會多下載一份備份。
+  const IMPORT_MODULES = [
+    { key: 'suppliers', table: 'suppliers', label: '供應商' },
+    { key: 'purchases', table: 'purchases', label: '進貨單' },
+    { key: 'quotations', table: 'quotations', label: '報價單' },
+    { key: 'serials', table: 'inventory_serials', label: '序號' },
+    { key: 'warranties', table: 'warranties', label: '保固' },
+    { key: 'warrantyCases', table: 'warranty_cases', label: '保固案件' },
+    { key: 'transactions', table: 'inventory_transactions', label: '進貨／保固庫存異動', include: row => row.purchaseId || row.warrantyId },
+  ];
+  async function findAlreadyInCloud(client, state) {
+    const found = [];
+    for (const module of IMPORT_MODULES) {
+      const ids = new Set((state[module.key] ?? []).filter(row => row?.id && (!module.include || module.include(row))).map(row => row.id));
+      if (!ids.size) continue;
+      const count = (await query(client, module.table, 'id')).filter(row => ids.has(row.id)).length;
+      if (count) found.push(`${module.label} ${count} 筆`);
+    }
+    return found;
+  }
+
   async function migrateLocalStateToCloud(source, createBackup) {
     const user = await window.AppAuth.requireActiveUser();
     if (user.role !== 'admin') throw new Error('只有店長可以執行首次資料移轉。');
@@ -423,8 +445,12 @@
       }
     }
     if (typeof createBackup !== 'function') throw new Error('必須先建立本機備份。');
+    const existing = await findAlreadyInCloud(window.AppAuth.client, state);
+    if (existing.length) throw new Error(`這份備份的資料已經在雲端（${existing.join('、')}），不需要移轉；雲端資料沒有任何變更`);
     await createBackup(state);
     const { data: imported, error } = await window.AppAuth.client.rpc('import_cloud_operations', { p_state: state });
+    // 23505＝編號重複：資料庫整筆取消，不會只匯入一半。
+    if (error?.code === '23505') throw new Error('備份中有資料的編號已存在雲端，整筆移轉已取消，雲端資料沒有任何變更');
     if (error) throw error;
     try {
       const result = await loadSnapshot();
