@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -115,7 +115,7 @@
       </article>
       <article class="panel serial-panel"><h2>實物序號管理</h2><p>機車與電池每件一個原廠序號；舊庫存補登不增加數量。出貨前須補齊。</p><form id="serial-form">
         <div class="field"><label for="serial-category">分類</label><select id="serial-category"><option value="">全部分類</option><option value="機車">機車</option><option value="電池">電池</option></select></div>
-        <div class="field"><label for="serial-item">機車／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><div class="field"><label for="serial-search">搜尋原廠序號</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table><thead><tr><th>品項</th><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th><th>操作</th></tr></thead><tbody id="serial-list"></tbody></table></div></article>
+        <div class="field"><label for="serial-item">機車／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><div class="field"><label for="serial-search">搜尋原廠序號</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table><thead><tr><th>品項</th><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th><th>操作</th></tr></thead><tbody id="serial-list"></tbody></table></div><div class="serial-list-footer"><span id="serial-list-count" aria-live="polite"></span><button id="serial-show-more" type="button" class="secondary" hidden>顯示更多</button></div></article>
     </section>
     <section class="app-page grid forms" data-page="suppliers" aria-label="供應商管理" data-role="admin" hidden>
       <article class="panel">
@@ -287,6 +287,6 @@
   <script src="cloud-data.js?v=16"></script>
   <script src="repair-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=43"></script>
 </body>
 </html>

@@ -629,6 +629,10 @@ function keepSerialEnterInField(event) {
   input.selectionStart = input.selectionEnd = start + 1;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+// 序號表一次只顯示 20 筆（最新登錄的在前）；按「顯示更多」再多 20 筆，篩選條件一改就回到前 20 筆。
+const SERIAL_PAGE_SIZE = 20;
+let serialVisibleLimit = SERIAL_PAGE_SIZE;
+let serialFilterKey = '';
 function renderSerialInventory() {
   const select = $('serial-item'), selected = select.value;
   const category = $('serial-category').value;
@@ -641,7 +645,16 @@ function renderSerialInventory() {
   $('serial-summary').textContent = !item ? '先選品項，再補登現有實物；補登不增加庫存。' : !Number.isSafeInteger(item.stock) ? '庫存不是安全整數，請先盤點更正。' : `庫存 ${item.stock}｜已登錄在庫 ${count}｜待補登 ${item.stock - count}`;
   const query = $('serial-search').value.trim().toLocaleLowerCase();
   const list = $('serial-list'); list.replaceChildren();
-  state.serials.filter(s => items.some(product => product.id === s.itemId) && (!item || s.itemId === item.id) && (!query || s.serialNumber.toLocaleLowerCase().includes(query))).forEach(serial => {
+  const filterKey = [category, item?.id ?? '', query].join('|');
+  if (filterKey !== serialFilterKey) { serialFilterKey = filterKey; serialVisibleLimit = SERIAL_PAGE_SIZE; }
+  const matches = state.serials
+    .filter(s => items.some(product => product.id === s.itemId) && (!item || s.itemId === item.id) && (!query || s.serialNumber.toLocaleLowerCase().includes(query)))
+    .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
+  const shown = matches.slice(0, serialVisibleLimit);
+  const countLabel = $('serial-list-count'), moreButton = $('serial-show-more');
+  if (countLabel) countLabel.textContent = matches.length ? `顯示 ${shown.length}／共 ${matches.length} 筆` : '';
+  if (moreButton) { moreButton.hidden = shown.length >= matches.length; moreButton.textContent = `顯示更多（再 ${Math.min(SERIAL_PAGE_SIZE, matches.length - shown.length)} 筆）`; }
+  shown.forEach(serial => {
     const row = document.createElement('tr');
     const product = state.items.find(item => item.id === serial.itemId), customer = state.customers.find(c => c.id === serial.customerId);
     [product.name, serial.serialNumber, { in_stock: '在庫', sold: '已售', removed: '已移出', warranty_out: '已出保固' }[serial.status], customer?.name || '—', serial.soldAt ? new Date(serial.soldAt).toLocaleDateString('zh-TW') : serial.status === 'warranty_out' ? new Date(serial.removedAt).toLocaleDateString('zh-TW') : '—'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
@@ -691,6 +704,7 @@ $('serial-form')?.addEventListener('submit', async event => {
 $('serial-item')?.addEventListener('change', () => { $('serial-numbers').value = ''; renderSerialInventory(); });
 $('serial-category')?.addEventListener('change', () => { $('serial-item').value = ''; $('serial-numbers').value = ''; clearFormError('serial-form'); renderSerialInventory(); });
 $('serial-search')?.addEventListener('input', renderSerialInventory);
+$('serial-show-more')?.addEventListener('click', () => { serialVisibleLimit += SERIAL_PAGE_SIZE; renderSerialInventory(); });
 $('serial-list')?.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-action="print-serial-qr"]');
   if (!button) return;

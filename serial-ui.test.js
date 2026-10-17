@@ -205,3 +205,25 @@ test('real app warranty issue selects original customer retains failed input and
   await c.api.resetAppSession();
   assert.equal($('transaction-warranty').value, ''); assert.equal($('transaction-warranty').children.length, 0);
 });
+test('serial table shows 20 newest rows, loads more on demand and resets when filters change', async () => {
+  const c = await ui(), $ = c.$;
+  const itemId = c.state.items[0].id;
+  // 45 筆序號，createdAt 越後面越新。
+  c.state.serials = Array.from({ length: 45 }, (_, i) => ({ id: `s${i}`, itemId, serialNumber: `SN${String(i).padStart(3, '0')}`, status: 'in_stock', createdAt: `2026-10-${String(1 + Math.floor(i / 2)).padStart(2, '0')}T00:00:${String(i % 60).padStart(2, '0')}Z` }));
+  c.renderSerialInventory();
+  assert.equal($('serial-list').children.length, 20);
+  assert.equal($('serial-list').children[0].children[1].textContent, 'SN044');
+  assert.equal($('serial-list-count').textContent, '顯示 20／共 45 筆');
+  assert.equal($('serial-show-more').hidden, false);
+  $('serial-show-more').listeners.click();
+  assert.equal($('serial-list').children.length, 40);
+  $('serial-show-more').listeners.click();
+  assert.equal($('serial-list').children.length, 45);
+  assert.equal($('serial-show-more').hidden, true);
+  // 搜尋時只列出符合的，並回到從前 20 筆開始。
+  $('serial-search').value = 'SN00'; c.renderSerialInventory();
+  assert.equal($('serial-list').children.length, 10);
+  assert.equal($('serial-show-more').hidden, true);
+  $('serial-search').value = ''; c.renderSerialInventory();
+  assert.equal($('serial-list').children.length, 20);
+});

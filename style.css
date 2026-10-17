@@ -185,3 +185,6 @@ body { background: #f1f5f9; color: #0f172a; }
 .sale-page .sale-cart-wrap th { text-transform: none; letter-spacing: .02em; }
 .sale-page .sale-checkout { border-top-style: solid; }
 .sale-total strong { font-size: 1.75rem; }
+/* 序號表底部：筆數與「顯示更多」 */
+.serial-list-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .75rem; color: #64748b; font-size: .9rem; }
+.serial-list-footer button { min-height: 2.4rem; }
