@@ -28,6 +28,8 @@ insert into public.inventory_serials(id,item_id,serial_number,status,created_by)
 -- 維修單必須指定業務員（20261018010000_repair_salesperson）。
 insert into public.salespeople(id, name, active, created_by) values
   ('70000000-0000-4000-8000-000000000051', '維修業務', true, '70000000-0000-4000-8000-000000000001');
+-- 維修人員（分紅功能上線後，完工必須指定）。
+insert into public.repair_technicians(id, name, active) values ('70000000-0000-4000-8000-000000000061', '維修甲', true);
 select set_config('request.jwt.claim.sub', '70000000-0000-4000-8000-000000000002', true);
 select set_config('request.jwt.claims', '{"sub":"70000000-0000-4000-8000-000000000002","session_id":"70000000-0000-4000-8000-000000000012"}', true);
 set local role authenticated;
@@ -40,7 +42,7 @@ declare
   v_denied boolean;
 begin
   v_guest := public.save_repair_order(
-    '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"ABC-123","vehicleName":"車型 A","issue":"煞車異音","laborAmount":80,"status":"intake","total":1}'::jsonb,
+    '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"ABC-123","vehicleName":"車型 A","issue":"煞車異音","laborAmount":80,"status":"intake","total":1}'::jsonb,
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',2,'unitPrice',120)));
   if (select status <> 'intake' or total <> 320 or customer_id is not null or repair_number !~ '^R-[0-9]{8}-[0-9]{4,}$' from public.repair_orders where id = v_guest) then
     raise exception 'guest order or server total wrong';
@@ -49,33 +51,33 @@ begin
   if (select stock from public.items where id = '70000000-0000-4000-8000-000000000031') <> 5 then raise exception 'draft changed stock'; end if;
 
   v_member := public.save_repair_order(
-    '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerId":"70000000-0000-4000-8000-000000000021","originalSerialNumber":"SERIAL-1","vehicleName":"車型 B","issue":"無法啟動","laborAmount":0,"status":"intake"}'::jsonb,
+    '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerId":"70000000-0000-4000-8000-000000000021","originalSerialNumber":"SERIAL-1","vehicleName":"車型 B","issue":"無法啟動","laborAmount":0,"status":"intake"}'::jsonb,
     '[]'::jsonb);
   if (select customer_name <> '會員甲' or customer_phone <> '0900000001' from public.repair_orders where id = v_member) then raise exception 'member snapshot wrong'; end if;
   if (select repair_number from public.repair_orders where id = v_member) = (select repair_number from public.repair_orders where id = v_guest) then raise exception 'duplicate repair number'; end if;
 
   v_denied := false;
   begin
-    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"無車","customerPhone":"0911000000","vehicleName":"車型","issue":"故障","status":"intake"}'::jsonb, '[]'::jsonb);
+    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"無車","customerPhone":"0911000000","vehicleName":"車型","issue":"故障","status":"intake"}'::jsonb, '[]'::jsonb);
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'missing plate and serial accepted'; end if;
 
   v_denied := false;
   begin
-    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"負工資","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障","laborAmount":-1,"status":"intake"}'::jsonb, '[]'::jsonb);
+    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"負工資","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障","laborAmount":-1,"status":"intake"}'::jsonb, '[]'::jsonb);
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'negative labor accepted'; end if;
 
   v_denied := false;
   begin
-    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"錯價","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障","status":"intake"}'::jsonb,
+    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"錯價","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障","status":"intake"}'::jsonb,
       jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',0,'unitPrice',120)));
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'zero quantity accepted'; end if;
 
   v_denied := false;
   begin
-    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"錯價","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障"}'::jsonb,
+    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"錯價","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障"}'::jsonb,
       jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',1,'unitPrice',-1)));
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'negative line price accepted'; end if;
@@ -88,19 +90,19 @@ begin
 
   select updated_at into v_version from public.repair_orders where id = v_guest;
   perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC-123','vehicleName','車型 A','issue','煞車異音','diagnosis','更換煞車片','laborAmount',80,'status','quoted'),
+    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC-123','vehicleName','車型 A','issue','煞車異音','diagnosis','更換煞車片','laborAmount',80,'status','quoted'),
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',2,'unitPrice',120)), v_version);
   if (select status <> 'quoted' or quoted_by <> auth.uid() or quoted_at is null from public.repair_orders where id = v_guest) then raise exception 'quotation transition wrong'; end if;
   v_denied := false;
   begin
-    perform public.save_repair_order(jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC-123','vehicleName','車型 A','issue','舊資料','status','quoted'), '[]'::jsonb, v_version);
+    perform public.save_repair_order(jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC-123','vehicleName','車型 A','issue','舊資料','status','quoted'), '[]'::jsonb, v_version);
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'stale edit accepted'; end if;
 
   perform public.cancel_repair_order(v_guest);
   if (select status <> 'cancelled' or cancelled_by <> auth.uid() or cancelled_at is null from public.repair_orders where id = v_guest) then raise exception 'cancel transition wrong'; end if;
   v_denied := false;
-  begin perform public.save_repair_order(jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC-123','vehicleName','車型 A','issue','故障','status','quoted'), '[]'::jsonb, (select updated_at from public.repair_orders where id = v_guest));
+  begin perform public.save_repair_order(jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC-123','vehicleName','車型 A','issue','故障','status','quoted'), '[]'::jsonb, (select updated_at from public.repair_orders where id = v_guest));
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'cancelled order reopened'; end if;
   if has_table_privilege('authenticated', 'public.repair_orders', 'UPDATE') or has_table_privilege('anon', 'public.repair_orders', 'SELECT') then
@@ -117,12 +119,12 @@ declare
   v_before integer;
 begin
   v_order := public.save_repair_order(
-    '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerId":"70000000-0000-4000-8000-000000000021","plateNumber":"ABC-123","vehicleName":"車型","issue":"維修","status":"intake"}'::jsonb,
+    '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerId":"70000000-0000-4000-8000-000000000021","plateNumber":"ABC-123","vehicleName":"車型","issue":"維修","status":"intake"}'::jsonb,
     jsonb_build_array(
       jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',2,'unitPrice',120),
       jsonb_build_object('itemId','70000000-0000-4000-8000-000000000032','quantity',1,'unitPrice',2000)));
   perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_order,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','ABC-123','vehicleName','車型','issue','維修','status','quoted'),
+    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_order,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','ABC-123','vehicleName','車型','issue','維修','status','quoted'),
     jsonb_build_array(
       jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',2,'unitPrice',120),
       jsonb_build_object('itemId','70000000-0000-4000-8000-000000000032','quantity',1,'unitPrice',2000)),
@@ -159,10 +161,10 @@ begin
   if (select count(*) from public.sales) <> 0 then raise exception 'repair created a sale'; end if;
 
   v_guest := public.save_repair_order(
-    '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"維修"}'::jsonb,
+    '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"維修"}'::jsonb,
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000032','quantity',1,'unitPrice',2000)));
   perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC','vehicleName','車型','issue','維修','status','quoted'),
+    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_guest,'customerName','臨時客','customerPhone','0911000000','plateNumber','ABC','vehicleName','車型','issue','維修','status','quoted'),
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000032','quantity',1,'unitPrice',2000)),
     (select updated_at from public.repair_orders where id=v_guest));
   select id into v_line from public.repair_lines where repair_order_id=v_guest;
@@ -176,7 +178,7 @@ begin
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'already-used serial accepted'; end if;
   perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_guest,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','ABC','vehicleName','車型','issue','維修','status','quoted'),
+    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_guest,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','ABC','vehicleName','車型','issue','維修','status','quoted'),
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000032','quantity',1,'unitPrice',2000)),
     (select updated_at from public.repair_orders where id=v_guest));
   perform public.complete_repair_order(v_guest, jsonb_build_object(
@@ -185,10 +187,10 @@ begin
     raise exception 'guest-to-member completion did not link member warranty'; end if;
 
   v_order := public.save_repair_order(
-    '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerId":"70000000-0000-4000-8000-000000000021","plateNumber":"DEF","vehicleName":"車型","issue":"維修"}'::jsonb,
+    '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerId":"70000000-0000-4000-8000-000000000021","plateNumber":"DEF","vehicleName":"車型","issue":"維修"}'::jsonb,
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000033','quantity',1,'unitPrice',1800)));
   perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_order,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','DEF','vehicleName','車型','issue','維修','status','quoted'),
+    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_order,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','DEF','vehicleName','車型','issue','維修','status','quoted'),
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000033','quantity',1,'unitPrice',1800)),
     (select updated_at from public.repair_orders where id=v_order));
   v_denied := false;
@@ -198,10 +200,10 @@ begin
   if not v_denied or (select stock from public.items where id='70000000-0000-4000-8000-000000000033') <> 1 then
     raise exception 'zero-warranty battery partly completed'; end if;
   v_order := public.save_repair_order(
-    '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"XYZ","vehicleName":"車型","issue":"維修"}'::jsonb,
+    '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"XYZ","vehicleName":"車型","issue":"維修"}'::jsonb,
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',4,'unitPrice',120)));
   perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_order,'customerName','臨時客','customerPhone','0911000000','plateNumber','XYZ','vehicleName','車型','issue','維修','status','quoted'),
+    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_order,'customerName','臨時客','customerPhone','0911000000','plateNumber','XYZ','vehicleName','車型','issue','維修','status','quoted'),
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',4,'unitPrice',120)),
     (select updated_at from public.repair_orders where id=v_order));
   v_denied := false;
@@ -235,11 +237,11 @@ declare
 begin
   for v_status in select unnest(array['intake', 'quoted', 'cancelled']) loop
     v_order := public.save_repair_order(
-      '{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"待刪客","customerPhone":"0911000000","plateNumber":"DEL","vehicleName":"車型","issue":"測試"}'::jsonb,
+      '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"待刪客","customerPhone":"0911000000","plateNumber":"DEL","vehicleName":"車型","issue":"測試"}'::jsonb,
       jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',1,'unitPrice',120)));
     if v_status = 'quoted' then
       perform public.save_repair_order(
-        jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','id',v_order,'customerName','待刪客','customerPhone','0911000000','plateNumber','DEL','vehicleName','車型','issue','測試','status','quoted'),
+        jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_order,'customerName','待刪客','customerPhone','0911000000','plateNumber','DEL','vehicleName','車型','issue','測試','status','quoted'),
         jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',1,'unitPrice',120)),
         (select updated_at from public.repair_orders where id=v_order));
     elsif v_status = 'cancelled' then
@@ -267,7 +269,7 @@ declare v_denied boolean := false;
 begin
   if exists (select 1 from public.repair_orders) then raise exception 'inactive staff can read repairs'; end if;
   begin
-    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障"}'::jsonb, '[]'::jsonb);
+    perform public.save_repair_order('{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"ABC","vehicleName":"車型","issue":"故障"}'::jsonb, '[]'::jsonb);
   exception when insufficient_privilege then v_denied := true; end;
   if not v_denied then raise exception 'inactive staff can create repairs'; end if;
   if has_function_privilege('anon','public.save_repair_order(jsonb,jsonb,timestamptz)','EXECUTE')

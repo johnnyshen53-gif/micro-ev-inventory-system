@@ -206,3 +206,15 @@ dialog.serial-dialog { width: min(900px, calc(100% - 2rem)); max-height: min(85v
 .category-tab:hover { background: #f1f5f9; box-shadow: none; }
 .category-tab[aria-pressed="true"] { border-color: #0f172a; background: #0f172a; color: #fff; }
 .category-tab-low { padding: .05rem .45rem; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .75rem; font-weight: 700; }
+
+/* 分紅管理 */
+.bonus-fieldset { margin: .75rem 0; padding: .75rem; border: 1px solid var(--line); border-radius: 8px; }
+.check-list { display: grid; gap: .35rem; max-height: 14rem; overflow-y: auto; }
+.check-item { display: flex; align-items: center; gap: .5rem; margin: 0; font-weight: 400; cursor: pointer; }
+.check-item input[type="checkbox"] { flex: none; width: 1.1rem; height: 1.1rem; min-height: 0; margin: 0; padding: 0; }
+.bonus-inline-form { display: flex; gap: .5rem; align-items: flex-end; }
+.bonus-inline-form .field { flex: 1; margin-bottom: 0; }
+.bonus-costs-wrap { max-height: 22rem; overflow-y: auto; }
+.bonus-page .warning { color: #b45309; font-weight: 700; }
+.bonus-report { margin-top: 1.25rem; }
+.bonus-report .table-wrap + .table-wrap { margin-top: 1rem; }

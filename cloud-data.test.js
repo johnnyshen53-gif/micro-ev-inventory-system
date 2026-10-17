@@ -861,3 +861,43 @@ test('a duplicate-key rejection from the import RPC is shown in Chinese', async 
   await assert.rejects(() => appData.migrateLocalStateToCloud(source, async () => {}),
     error => error.message.includes('編號已存在雲端') && !error.message.includes('duplicate key'));
 });
+
+test('bonus admin calls map to the manager-only RPCs and keep "not set" separate from zero', async () => {
+  const calls = [];
+  const responses = {
+    get_bonus_admin_state: { motorcycleBonusAmount: null, repairBonusPercent: 0, recipientIds: ['sp-1'], motorcycleItemIds: ['moto-1'],
+      partCosts: [{ itemId: 'part-1', name: '煞車片', category: '零件', cost: 30, confirmed: false }], technicians: [{ id: 'tech-1', name: '維修甲', active: true }] },
+    get_monthly_bonus_report: [{ kind: 'repair', person_id: 'tech-1', person_name: '維修甲', source_number: 'R-1', occurred_at: '2026-10-17T01:00:00Z', base_amount: '340.00', bonus_amount: '34.00' }],
+    save_repair_technician: 'tech-2',
+  };
+  const appData = await loadCloudData({
+    client: { rpc: async (name, args) => { calls.push([name, args]); return { data: responses[name] ?? null, error: null }; } },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => value },
+  });
+  const state = await appData.loadBonusAdminState();
+  assert.equal(state.motorcycleBonusAmount, null);
+  assert.equal(state.repairBonusPercent, 0);
+  assert.equal(state.partCosts[0].confirmed, false);
+  await appData.saveBonusSettings({ motorcycleBonusAmount: 500, repairBonusPercent: null, recipientIds: ['sp-1'], motorcycleItemIds: ['moto-1'] });
+  await appData.setItemCostsConfirmed(['part-1'], true);
+  assert.equal(await appData.saveRepairTechnician({ name: '維修乙' }), 'tech-2');
+  const report = await appData.loadMonthlyBonusReport('2026-10');
+  assert.equal(report[0].bonusAmount, 34);
+  assert.deepEqual(calls.map(call => call[0]), ['get_bonus_admin_state', 'save_bonus_settings', 'set_item_costs_confirmed', 'save_repair_technician', 'get_monthly_bonus_report']);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[1][1])), { p_motorcycle_amount: 500, p_repair_percent: null, p_recipient_ids: ['sp-1'], p_motorcycle_item_ids: ['moto-1'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[3][1])), { p_id: null, p_name: '維修乙', p_active: true });
+});
+
+test('staff accounts cannot call bonus RPCs from the browser', async () => {
+  let called = false;
+  const appData = await loadCloudData({
+    client: { rpc: async () => { called = true; return { data: null, error: null }; } },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => value },
+    requireActiveUser: async () => ({ id: 'clerk', role: 'clerk' }),
+  });
+  await assert.rejects(() => appData.loadBonusAdminState(), /店長/);
+  await assert.rejects(() => appData.loadMonthlyBonusReport('2026-10'), /店長/);
+  assert.equal(called, false);
+});

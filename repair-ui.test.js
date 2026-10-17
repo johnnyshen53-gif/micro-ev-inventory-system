@@ -145,7 +145,7 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   const browser = { print() {}, confirm: () => true, addEventListener() {}, AppAuthUI: { isActive: () => true }, AppData: {
     loadRepairOrders: async () => orders,
     async saveRepairOrder(order, lines, expected) {
-      calls.push(['save', order.status, expected, order.salespersonId]);
+      calls.push(['save', order.status, expected, order.salespersonId, order.technicianId]);
       const current = orders[0];
       orders = [{ ...current, ...order, id: 'repair-1', number: 'R-1', updatedAt: String(calls.length),
         paymentStatus: 'unpaid', lines: lines.map((line, index) => ({ ...line, id: `line-${index}`, itemName: '煞車片', subtotal: line.quantity * line.unitPrice })) }];
@@ -170,6 +170,14 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   await new Promise(resolve => setImmediate(resolve));
   get('repair-quote').listeners.click();
   await new Promise(resolve => setImmediate(resolve));
+  // 還沒指定維修人員：按完工不會送出。
+  get('repair-detail').listeners.click({ target: { closest: () => ({ dataset: { repairAction: 'complete' } }) } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.filter(call => call[0] === 'complete').length, 0);
+  assert.match(get('repair-status').textContent, /請先在維修單指定維修人員/);
+  get('repair-technician').value = 'tech-1';
+  get('repair-quote').listeners.click();
+  await new Promise(resolve => setImmediate(resolve));
   get('repair-detail').listeners.click({ target: { closest: () => ({ dataset: { repairAction: 'complete' } }) } });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(orders[0].status, 'quoted');
@@ -178,8 +186,9 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   await new Promise(resolve => setImmediate(resolve));
   get('repair-detail').listeners.click({ target: { closest: () => ({ dataset: { repairAction: 'pay' } }) } });
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(calls.map(call => call[0]), ['save', 'save', 'complete', 'complete', 'pay']);
-  assert.deepEqual(calls.filter(call => call[0] === 'save').map(call => call[3]), ['sp-1', 'sp-1']);
+  assert.deepEqual(calls.map(call => call[0]), ['save', 'save', 'save', 'complete', 'complete', 'pay']);
+  assert.deepEqual(calls.filter(call => call[0] === 'save').map(call => call[3]), ['sp-1', 'sp-1', 'sp-1']);
+  assert.deepEqual(calls.filter(call => call[0] === 'save').map(call => call[4]), [null, null, 'tech-1']);
   assert.equal(orders[0].paymentStatus, 'paid');
 });
 

@@ -44,6 +44,8 @@
     let orders = [], selectedId = '', draftLines = [], busy = false, generation = 0;
     // 補登業務員的結果訊息：記住是哪一張單，重畫明細後仍顯示在按鈕旁。
     let inlineNote = null;
+    // 維修人員名單（獨立於業務員）。完工前必須指定一位。
+    let technicians = [];
     const selectedOrder = () => orders.find(order => order.id === selectedId);
     const state = () => getState();
     const message = (text, error = false) => { $('repair-status').textContent = text; $('repair-status').classList.toggle('error', error); notify(text, error); };
@@ -67,6 +69,7 @@
       for (const value of repairItems()) item.append(new Option(`${value.name}（庫存 ${value.stock}）`, value.id));
       item.value = repairItems().some(value => value.id === oldItem) ? oldItem : '';
       renderSalespersonChoices();
+      renderTechnicianChoices();
       renderPlateChoices();
     }
     // 業務員選單：在職業務員；編輯中的維修單若原本的業務員已停用，仍列出讓它可以沿用。
@@ -78,6 +81,16 @@
       for (const person of people) select.append(new Option(person.active ? person.name : `${person.name}（已停用）`, person.id));
       select.value = people.some(person => person.id === old) ? old : '';
     }
+    // 維修人員選單：在職人員；編輯中的維修單若原本的人已停用，仍列出（但完工時資料庫會要求改選在職人員）。
+    function renderTechnicianChoices(select = $('repair-technician'), keepId = selectedOrder()?.technicianId ?? '') {
+      if (!select) return;
+      const old = select.value;
+      const people = technicians.filter(person => person.active || person.id === keepId);
+      select.replaceChildren(new Option('尚未指定', ''));
+      for (const person of people) select.append(new Option(person.active ? person.name : `${person.name}（已停用）`, person.id));
+      select.value = people.some(person => person.id === old) ? old : '';
+    }
+    const technicianName = id => technicians.find(person => person.id === id)?.name ?? '';
     const salespersonName = id => (state().salespeople ?? []).find(person => person.id === id)?.name ?? '';
     function renderLines() {
       const body = $('repair-lines'); body.replaceChildren();
@@ -107,7 +120,7 @@
       if (!order) return;
       const actions = actionState(order, document.body.dataset?.role === 'admin');
       detail.append(element('h3', order.number), element('p', `${statusLabel(order)}｜${order.paymentStatus === 'paid' ? '已收款' : '未收款'}｜${money(order.total)}`));
-      for (const [label, value] of [['業務員', salespersonName(order.salespersonId) || '未歸屬'], ['客戶', `${order.customerName}｜${order.customerPhone}`], ['車牌', order.plateNumber],
+      for (const [label, value] of [['業務員', salespersonName(order.salespersonId) || '未歸屬'], ['維修人員', technicianName(order.technicianId) || '尚未指定'], ['客戶', `${order.customerName}｜${order.customerPhone}`], ['車牌', order.plateNumber],
         ['原廠序號', order.originalSerialNumber], ['車型', order.vehicleName], ['故障', order.issue], ['檢查／處理', order.diagnosis]])
         detail.append(element('p', `${label}：${value || '—'}`));
       for (const line of order.lines) detail.append(element('p', `${line.itemName} × ${line.quantity}｜${money(line.subtotal)}${state().serials.filter(serial => serial.repairLineId === line.id).map(serial => `｜${serial.serialNumber}`).join('')}`));
@@ -152,6 +165,7 @@
         ['plate', order.plateNumber], ['original-serial', order.originalSerialNumber], ['vehicle', order.vehicleName],
         ['issue', order.issue], ['diagnosis', order.diagnosis], ['labor', order.laborAmount]]) $(`repair-${field}`).value = value ?? '';
       if ($('repair-salesperson')) $('repair-salesperson').value = order.salespersonId ?? '';
+      if ($('repair-technician')) $('repair-technician').value = order.technicianId ?? '';
       renderPlateChoices();
       $('repair-form').hidden = !actionState(order).canEdit;
       $('repair-form-title').textContent = `編輯 ${order.number}`;
@@ -186,7 +200,8 @@
         customerPhone: $('repair-customer-phone').value.trim(), plateNumber: $('repair-plate').value.trim(),
         originalSerialNumber: $('repair-original-serial').value.trim(), vehicleName: $('repair-vehicle').value.trim(),
         issue: $('repair-issue').value.trim(), diagnosis: $('repair-diagnosis').value.trim(),
-        laborAmount: Number($('repair-labor').value), status, salespersonId: $('repair-salesperson')?.value || null };
+        laborAmount: Number($('repair-labor').value), status, salespersonId: $('repair-salesperson')?.value || null,
+        technicianId: $('repair-technician')?.value || null };
       if (selectedId) order.id = selectedId;
       if (!order.salespersonId) throw new Error('請選擇業務員。');
       if (!order.plateNumber && !order.originalSerialNumber) throw new Error('車牌與原廠序號至少填一項。');
@@ -238,6 +253,8 @@
       }
       if (action === 'cancel' && !window.confirm(`確定取消維修單 ${order.number}？`)) return;
       if (action === 'complete') {
+        // 資料庫也會檢查；這裡先擋，避免按了確認才看到錯誤。
+        if (!order.technicianId) { message('請先在維修單指定維修人員並儲存，再確認完工。', true); return; }
         if (!window.confirm(`確定將維修單 ${order.number} 標記完工並扣除用料庫存？完成後無法取消。`)) return;
         const selected = {};
         for (const line of order.lines.filter(line => state().items.find(item => item.id === line.itemId)?.category === '電池')) {
@@ -257,13 +274,14 @@
         if (busy) return;
         const request = ++generation;
         try {
-          const loaded = await window.AppData.loadRepairOrders();
+          const [loaded, people] = await Promise.all([window.AppData.loadRepairOrders(),
+            window.AppData.loadRepairTechnicians ? window.AppData.loadRepairTechnicians() : []]);
           if (request !== generation || window.AppAuthUI?.isActive?.() === false) return;
-          orders = loaded; renderChoices(); renderList(); if (selectedOrder()) openOrder(selectedId);
+          orders = loaded; technicians = people; renderChoices(); renderList(); if (selectedOrder()) openOrder(selectedId);
         } catch (error) { if (request === generation) message(`無法讀取維修單：${error.message}`, true); }
       },
       clear() {
-        generation++; busy = false; orders = []; selectedId = ''; draftLines = [];
+        generation++; busy = false; orders = []; technicians = []; selectedId = ''; draftLines = [];
         $('repair-list').replaceChildren(); $('repair-lines').replaceChildren(); $('repair-detail').replaceChildren(); $('repair-detail').hidden = true;
         $('repair-print').replaceChildren(); $('repair-status').textContent = ''; document.body.classList.remove('printing-repair');
       },
