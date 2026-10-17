@@ -181,9 +181,27 @@ function renderSummary() {
   });
 }
 
+// 品項庫存依分類檢視：上方分類按鈕（全部／機車／零件／用品／電池），顯示各分類品項數與低庫存數。
+const ITEM_CATEGORIES = ['機車', '零件', '用品', '電池'];
+let itemCategoryFilter = '';
+function renderItemCategoryTabs() {
+  const tabs = $('item-category-tabs'); if (!tabs) return;
+  tabs.replaceChildren();
+  [['', '全部'], ...ITEM_CATEGORIES.map(category => [category, category])].forEach(([value, label]) => {
+    const inCategory = state.items.filter(item => !value || item.category === value);
+    const low = inCategory.filter(item => item.stock <= item.minimumStock).length;
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'category-tab'; button.dataset.category = value;
+    button.setAttribute('aria-pressed', String(value === itemCategoryFilter));
+    button.textContent = `${label}（${inCategory.length}）`;
+    if (low) { const badge = document.createElement('span'); badge.className = 'category-tab-low'; badge.textContent = `低庫存 ${low}`; button.append(badge); }
+    tabs.append(button);
+  });
+}
 function renderItems() {
+  renderItemCategoryTabs();
   const query = $('item-search').value.trim().toLowerCase();
-  const items = state.items.filter((item) => [item.name, item.sku, item.barcode, item.category].some((value) => value.toLowerCase().includes(query)));
+  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && [item.name, item.sku, item.barcode, item.category].some((value) => value.toLowerCase().includes(query)));
   const list = $('item-list');
   list.replaceChildren();
   if (!items.length) {
@@ -191,7 +209,7 @@ function renderItems() {
     const cell = document.createElement('td');
     cell.colSpan = 9;
     cell.className = 'empty';
-    cell.textContent = query ? '沒有符合搜尋條件的品項。' : '尚未建立品項。';
+    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
     row.append(cell);
     list.append(row);
     return;
@@ -355,6 +373,12 @@ function parseUnitQr(value) {
   return barcode && serialNumber && !extra && /^\d{13}$/.test(barcode) ? { barcode, serialNumber: serialNumber.trim() } : { barcode: raw, serialNumber: '' };
 }
 $('item-search')?.addEventListener('input', renderItems);
+$('item-category-tabs')?.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-category]');
+  if (!button) return;
+  itemCategoryFilter = button.dataset.category;
+  renderItems();
+});
 $('item-search')?.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter') return;
   const barcode = event.currentTarget.value.trim();
