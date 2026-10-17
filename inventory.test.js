@@ -777,3 +777,19 @@ test('replacing parts under an expired warranty needs a manager and is marked', 
   const normal = recordTransaction(state, { ...fields, warrantyId: valid.id });
   assert.equal(normal.transactions.at(-1).note, '故障更換');
 });
+
+test('staff roles: at least one role, legacy staff count as salespeople, technician-only staff cannot sell', () => {
+  assert.throws(() => addSalesperson(emptyState(), { name: '無身分', isSales: false, isTechnician: false }), /至少要勾選一個身分/);
+  const legacy = validateState({ ...emptyState(), salespeople: [{ id: '11111111-1111-4111-8111-111111111111', name: '舊業務', active: true, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' }] });
+  assert.equal(legacy.salespeople[0].isSales, true);
+  assert.equal(legacy.salespeople[0].isTechnician, false);
+  let state = addItem(emptyState(), item);
+  state = addSalesperson(state, { name: '純維修', isSales: false, isTechnician: true });
+  state = addSalesperson(state, { name: '全能', isSales: true, isTechnician: true });
+  const [techOnly, both] = state.salespeople;
+  assert.equal(techOnly.isSales, false);
+  assert.equal(both.isTechnician, true);
+  const lines = [{ itemId: state.items[0].id, quantity: 1 }];
+  assert.throws(() => recordSaleBatch(state, { lines, salespersonId: techOnly.id }), /未勾選業務員身分/);
+  assert.equal(recordSaleBatch(state, { lines, salespersonId: both.id }).sales[0].salespersonId, both.id);
+});

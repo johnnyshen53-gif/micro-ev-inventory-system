@@ -42,8 +42,6 @@
   function mount({ getState, setState, notify }) {
     if (!$('repair-form')) return { load() {}, clear() {} };
     let orders = [], selectedId = '', draftLines = [], busy = false, generation = 0;
-    // 維修人員名單（獨立於業務員）。完工前必須指定一位。
-    let technicians = [];
     const selectedOrder = () => orders.find(order => order.id === selectedId);
     const state = () => getState();
     const message = (text, error = false) => { $('repair-status').textContent = text; $('repair-status').classList.toggle('error', error); notify(text, error); };
@@ -69,16 +67,19 @@
       renderTechnicianChoices();
       renderPlateChoices();
     }
+    // 維修人員＝店員名單中勾選「維修員」身分的人（完工前必須指定一位）。
+    const technicians = () => (state().salespeople ?? []).filter(person => person.isTechnician);
     // 維修人員選單：在職人員；編輯中的維修單若原本的人已停用，仍列出（但完工時資料庫會要求改選在職人員）。
     function renderTechnicianChoices(select = $('repair-technician'), keepId = selectedOrder()?.technicianId ?? '') {
       if (!select) return;
       const old = select.value;
-      const people = technicians.filter(person => person.active || person.id === keepId);
+      const people = technicians().filter(person => person.active || person.id === keepId);
       select.replaceChildren(new Option('尚未指定', ''));
       for (const person of people) select.append(new Option(person.active ? person.name : `${person.name}（已停用）`, person.id));
       select.value = people.some(person => person.id === old) ? old : '';
     }
-    const technicianName = id => technicians.find(person => person.id === id)?.name ?? '';
+    // 明細顯示姓名：用整份店員名單找，之後取消維修員身分的人也查得到姓名。
+    const technicianName = id => (state().salespeople ?? []).find(person => person.id === id)?.name ?? '';
     function renderLines() {
       const body = $('repair-lines'); body.replaceChildren();
       draftLines.forEach((line, index) => {
@@ -235,14 +236,13 @@
         if (busy) return;
         const request = ++generation;
         try {
-          const [loaded, people] = await Promise.all([window.AppData.loadRepairOrders(),
-            window.AppData.loadRepairTechnicians ? window.AppData.loadRepairTechnicians() : []]);
+          const loaded = await window.AppData.loadRepairOrders();
           if (request !== generation || window.AppAuthUI?.isActive?.() === false) return;
-          orders = loaded; technicians = people; renderChoices(); renderList(); if (selectedOrder()) openOrder(selectedId);
+          orders = loaded; renderChoices(); renderList(); if (selectedOrder()) openOrder(selectedId);
         } catch (error) { if (request === generation) message(`無法讀取維修單：${error.message}`, true); }
       },
       clear() {
-        generation++; busy = false; orders = []; technicians = []; selectedId = ''; draftLines = [];
+        generation++; busy = false; orders = []; selectedId = ''; draftLines = [];
         $('repair-list').replaceChildren(); $('repair-lines').replaceChildren(); $('repair-detail').replaceChildren(); $('repair-detail').hidden = true;
         $('repair-print').replaceChildren(); $('repair-status').textContent = ''; document.body.classList.remove('printing-repair');
       },

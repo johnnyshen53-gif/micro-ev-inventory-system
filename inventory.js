@@ -299,8 +299,13 @@ function normalizedCustomer(value, fallbackId, fallbackMemberNumber) {
 
 function normalizedSalesperson(value, fallbackId) {
   const name = text(value?.name);
-  if (!name) throw new Error('業務姓名不可空白');
-  return { id: id(value?.id ?? fallbackId, '業務 ID'), name, authUserId: text(value?.authUserId), active: value?.active !== false, createdAt: date(value?.createdAt, '業務建立日期'), updatedAt: date(value?.updatedAt, '業務更新日期') };
+  if (!name) throw new Error('店員姓名不可空白');
+  // 店員身分：業務員（結帳、報價、機車獎金）／維修員（維修單、維修分紅），可同時勾選。
+  // 舊資料沒有身分欄位時視為「業務員」。
+  const isSales = value?.isSales !== false;
+  const isTechnician = value?.isTechnician === true;
+  if (!isSales && !isTechnician) throw new Error('店員至少要勾選一個身分（業務員或維修員）');
+  return { id: id(value?.id ?? fallbackId, '業務 ID'), name, authUserId: text(value?.authUserId), active: value?.active !== false, isSales, isTechnician, createdAt: date(value?.createdAt, '業務建立日期'), updatedAt: date(value?.updatedAt, '業務更新日期') };
 }
 
 function quotationDecimal(value, label, positive = false) {
@@ -784,6 +789,7 @@ function createQuotation(state, fields) {
   const salesperson = current.salespeople.find((candidate) => candidate.id === fields?.salespersonId);
   if (!salesperson) throw new Error('找不到業務');
   if (!salesperson.active) throw new Error('業務已停用，無法建立報價');
+  if (!salesperson.isSales) throw new Error('此店員未勾選業務員身分，無法建立報價');
   if (!Array.isArray(fields?.lines) || !fields.lines.length) throw new Error('報價至少需要一筆明細');
   const lines = fields.lines.map((line) => {
     const item = current.items.find((candidate) => candidate.id === line?.itemId);
@@ -914,6 +920,7 @@ function recordSale(state, fields) {
   const salesperson = current.salespeople.find(candidate => candidate.id === text(fields?.salespersonId));
   if (!salesperson) throw new Error('請選擇業務員');
   if (!salesperson.active) throw new Error('業務員已停用，請重新選擇');
+  if (!salesperson.isSales) throw new Error('此店員未勾選業務員身分，請重新選擇');
   const createdAt = new Date().toISOString();
   const sale = { id: crypto.randomUUID(), itemId: item.id, itemName: item.name, barcode: item.barcode, quantity, unitPrice: item.price, subtotal: item.price * quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: [], serialNumbers: [] };
   const transaction = { id: crypto.randomUUID(), itemId: item.id, type: 'out', quantity, createdAt, note: '銷售管理' };
@@ -947,6 +954,7 @@ function recordSaleBatch(state, fields) {
   const salesperson = current.salespeople.find(candidate => candidate.id === text(fields?.salespersonId));
   if (!salesperson) throw new Error('請選擇業務員');
   if (!salesperson.active) throw new Error('業務員已停用，請重新選擇');
+  if (!salesperson.isSales) throw new Error('此店員未勾選業務員身分，請重新選擇');
   // checkoutId 是這次結帳的固定識別碼；雲端用它當銷售單 ID，重送時不會重複銷售。
   const checkoutId = fields?.checkoutId ? id(fields.checkoutId, '結帳識別碼') : crypto.randomUUID();
   const createdAt = new Date().toISOString();
