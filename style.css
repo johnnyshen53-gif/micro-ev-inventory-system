@@ -185,6 +185,15 @@ body { background: #f1f5f9; color: #0f172a; }
 .sale-page .sale-cart-wrap th { text-transform: none; letter-spacing: .02em; }
 .sale-page .sale-checkout { border-top-style: solid; }
 .sale-total strong { font-size: 1.75rem; }
+/* 序號管理：品項總覽與序號彈出視窗 */
+.serial-overview-title { margin: 1.5rem 0 .75rem; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; }
+.serial-overview-table td:nth-child(n+3):nth-child(-n+6), .serial-overview-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.serial-overview-table td:last-child { width: 1%; white-space: nowrap; }
+dialog.serial-dialog { width: min(900px, calc(100% - 2rem)); max-height: min(85vh, 860px); padding: 1.25rem 1.4rem; }
+.serial-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.serial-dialog-head h2 { margin: 0; font-size: 1.2rem; }
+.serial-dialog-table { max-height: 55vh; overflow-y: auto; box-shadow: none; }
+.serial-dialog-table table { min-width: 0; }
 /* 序號表底部：筆數與「顯示更多」 */
 .serial-list-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: .75rem; color: #64748b; font-size: .9rem; }
 .serial-list-footer button { min-height: 2.4rem; }

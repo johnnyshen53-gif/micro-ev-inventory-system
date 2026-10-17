@@ -32,7 +32,7 @@ test('serial registration filters products by category and clears stale product 
   c.state.serials = [{ itemId: c.state.items[0].id, serialNumber: 'M1', status: 'in_stock' }, { itemId: 'battery', serialNumber: 'B1', status: 'in_stock' }];
   $('serial-category').value = '電池'; c.renderSerialInventory();
   assert.deepEqual(Array.from($('serial-item').children, option => option.value), ['', 'battery']);
-  assert.equal($('serial-list').children.length, 1);
+  assert.equal($('serial-overview').children.length, 1);
   $('serial-item').value = 'battery'; $('serial-numbers').value = 'old draft';
   $('serial-category').value = '機車'; $('serial-category').listeners.change();
   assert.equal($('serial-item').value, ''); assert.equal($('serial-numbers').value, '');
@@ -205,25 +205,39 @@ test('real app warranty issue selects original customer retains failed input and
   await c.api.resetAppSession();
   assert.equal($('transaction-warranty').value, ''); assert.equal($('transaction-warranty').children.length, 0);
 });
-test('serial table shows 20 newest rows, loads more on demand and resets when filters change', async () => {
+test('serial overview lists products and opens a per-product serial dialog with paging', async () => {
   const c = await ui(), $ = c.$;
   const itemId = c.state.items[0].id;
-  // 45 筆序號，createdAt 越後面越新。
-  c.state.serials = Array.from({ length: 45 }, (_, i) => ({ id: `s${i}`, itemId, serialNumber: `SN${String(i).padStart(3, '0')}`, status: 'in_stock', createdAt: `2026-10-${String(1 + Math.floor(i / 2)).padStart(2, '0')}T00:00:${String(i % 60).padStart(2, '0')}Z` }));
+  c.state.items.push({ ...c.state.items[0], id: 'battery', name: '電池', category: '電池' });
+  // 機車 45 筆序號（createdAt 越後面越新）＋電池 1 筆。
+  c.state.serials = Array.from({ length: 45 }, (_, i) => ({ id: `s${i}`, itemId, serialNumber: `SN${String(i).padStart(3, '0')}`, status: i % 3 === 0 ? 'sold' : 'in_stock', createdAt: `2026-10-${String(1 + Math.floor(i / 2)).padStart(2, '0')}T00:00:${String(i % 60).padStart(2, '0')}Z` }));
+  c.state.serials.push({ id: 'b1', itemId: 'battery', serialNumber: 'BAT-1', status: 'in_stock', createdAt: '2026-10-01T00:00:00Z' });
   c.renderSerialInventory();
+  // 總覽：每個品項一列，顯示各狀態數量，不直接列出序號。
+  assert.equal($('serial-overview').children.length, 2);
+  const motorRow = $('serial-overview').children[0];
+  assert.deepEqual(motorRow.children.slice(0, 4).map(cell => cell.textContent), ['機車', '機車', '30', '15']);
+  assert.equal($('serial-list').children.length, 0);
+
+  // 點「查看序號」→ 視窗列出該品項最新 20 筆，可再顯示更多。
+  const open = id => $('serial-overview').listeners.click({ target: { closest: () => ({ dataset: { action: 'open-serial-dialog', id } }) } });
+  open(itemId);
+  assert.equal($('serial-dialog-title').textContent, '機車 的原廠序號');
   assert.equal($('serial-list').children.length, 20);
-  assert.equal($('serial-list').children[0].children[1].textContent, 'SN044');
+  assert.equal($('serial-list').children[0].children[0].textContent, 'SN044');
   assert.equal($('serial-list-count').textContent, '顯示 20／共 45 筆');
-  assert.equal($('serial-show-more').hidden, false);
-  $('serial-show-more').listeners.click();
-  assert.equal($('serial-list').children.length, 40);
-  $('serial-show-more').listeners.click();
+  $('serial-show-more').listeners.click(); $('serial-show-more').listeners.click();
   assert.equal($('serial-list').children.length, 45);
   assert.equal($('serial-show-more').hidden, true);
-  // 搜尋時只列出符合的，並回到從前 20 筆開始。
-  $('serial-search').value = 'SN00'; c.renderSerialInventory();
+  // 視窗內搜尋：只列符合的，並回到從前 20 筆開始。
+  $('serial-dialog-search').value = 'SN00'; $('serial-dialog-search').listeners.input();
   assert.equal($('serial-list').children.length, 10);
-  assert.equal($('serial-show-more').hidden, true);
-  $('serial-search').value = ''; c.renderSerialInventory();
-  assert.equal($('serial-list').children.length, 20);
+
+  // 總覽搜尋：只留下含此序號的品項，點進去時帶入同樣的搜尋字。
+  $('serial-search').value = 'bat-1'; c.renderSerialInventory();
+  assert.equal($('serial-overview').children.length, 1);
+  open('battery');
+  assert.equal($('serial-dialog-search').value, 'bat-1');
+  assert.equal($('serial-list').children.length, 1);
+  assert.equal($('serial-list').children[0].children[1].textContent, '在庫');
 });
