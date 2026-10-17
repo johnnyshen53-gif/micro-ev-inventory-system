@@ -182,3 +182,49 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
   assert.deepEqual(calls.filter(call => call[0] === 'save').map(call => call[3]), ['sp-1', 'sp-1']);
   assert.equal(orders[0].paymentStatus, 'paid');
 });
+
+test('assigning a salesperson shows the result right next to the button', async () => {
+  const nodes = new Map(), calls = [];
+  function node(tag = 'div') { return { tag, id: '', value: '', textContent: '', hidden: false, disabled: false, dataset: {}, children: [], classList: { values: new Set(), add(name) { this.values.add(name); }, remove() {}, toggle() {}, contains(name) { return this.values.has(name); } },
+    listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...values) { this.children.push(...values); },
+    replaceChildren(...values) { this.children = values; }, reset() {}, reportValidity: () => true }; }
+  const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  const order = { id: 'repair-1', number: 'R-1', status: 'completed', paymentStatus: 'paid', customerName: '甲', customerPhone: '0911', salespersonId: null, lines: [] };
+  let fail = false;
+  const appState = { customers: [], items: [], serials: [], salespeople: [{ id: 'sp-1', name: '小王', active: true }] };
+  const browser = { addEventListener() {}, confirm: () => true, AppAuthUI: { isActive: () => true }, AppData: {
+    loadRepairOrders: async () => [order],
+    async assignRepairSalesperson(id, salespersonId) {
+      calls.push([id, salespersonId]);
+      if (fail) throw new Error('權限不足');
+      return { orders: [{ ...order, salespersonId }], state: appState };
+    },
+  } };
+  const document = { getElementById: get, createElement: node, body: { dataset: { role: 'admin' }, classList: { add() {}, remove() {} } } };
+  vm.runInNewContext(source, { window: browser, document, Option: function Option(text, value) { return { text, value }; } });
+  const ui = browser.RepairUI.mount({ getState: () => appState, setState() {}, notify() {} });
+  await ui.load();
+  const open = () => get('repair-list').listeners.click({ target: { closest: () => ({ dataset: { repairId: order.id } }) } });
+  const assign = () => get('repair-detail').listeners.click({ target: { closest: () => ({ dataset: { repairAction: 'assign-salesperson' } }) } });
+  const note = () => get('repair-detail').children.find(child => child.id === 'repair-assign-status');
+  open();
+  assert.equal(note().textContent, '');
+  get('repair-assign-salesperson').value = '';
+  assign();
+  assert.deepEqual(calls, []);
+  assert.equal(note().textContent, '請先選擇業務員。');
+  assert.equal(note().classList.contains('error'), true);
+  get('repair-assign-salesperson').value = 'sp-1';
+  assign();
+  assert.equal(note().textContent, '更新中…');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, [['repair-1', 'sp-1']]);
+  assert.equal(note().textContent, '✓ 維修單業務員已更新。');
+  assert.equal(note().classList.contains('error'), false);
+  fail = true;
+  assign(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(note().textContent, '權限不足');
+  assert.equal(note().classList.contains('error'), true);
+  open();
+  assert.equal(note().textContent, '');
+});
