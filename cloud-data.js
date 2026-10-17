@@ -34,16 +34,42 @@
     });
   }
 
+  // Supabase 每次查詢預設最多回 1000 列；超過時要分頁抓完，否則畫面會悄悄少資料。
+  const PAGE_SIZE = 1000;
+  const keyColumn = table => table === 'item_costs' ? 'item_id' : 'id';
   async function query(client, table, fields) {
-    const { data, error } = await client.from(table).select(fields);
-    if (error) throw error;
-    return data ?? [];
+    const key = keyColumn(table);
+    const rows = new Map();
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const request = client.from(table).select(fields);
+      // 測試替身沒有 order/range 時，維持單次查詢。
+      if (typeof request?.order !== 'function') {
+        const { data, error } = await request;
+        if (error) throw error;
+        return data ?? [];
+      }
+      // 依主鍵排序，分頁才不會漏抓或重複；同一列跨頁出現時以主鍵去重。
+      const { data, error } = await request.order(key).range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      const page = data ?? [];
+      page.forEach((row, index) => rows.set(row[key] ?? `${from + index}`, row));
+      if (page.length < PAGE_SIZE) return [...rows.values()];
+    }
+  }
+
+  // 只有「同一個登入帳號」寫入的快取，才能在雲端讀取失敗時拿來唯讀顯示。
+  async function sessionUserId() {
+    try {
+      const { data } = await window.AppAuth.client.auth.getSession();
+      return data?.session?.user?.id ?? '';
+    } catch { return ''; }
   }
 
   async function loadSnapshot(validatedUser) {
     const cache = await window.InventoryStorage.loadState();
+    let user = validatedUser;
     try {
-      const user = validatedUser ?? await window.AppAuth.requireActiveUser();
+      user = user ?? await window.AppAuth.requireActiveUser();
       const admin = user.role === 'admin';
       const client = window.AppAuth.client;
       const [items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, shopSettings] = await Promise.all([
@@ -63,10 +89,12 @@
         query(client, 'shop_settings', 'id,hourly_rate'),
       ]);
       const state = snapshotFromRows({ items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, admin });
-      await window.InventoryStorage.saveState(state);
+      await window.InventoryStorage.saveState(state, user.id);
       return { state, hourlyRate: Number(shopSettings[0]?.hourly_rate ?? 0), source: 'cloud', readonly: false };
     } catch (error) {
-      if (cache.state) return { state: cache.state, hourlyRate: 0, source: 'cache', readonly: true, error };
+      // 共用電腦上換人登入時，不可顯示上一位帳號（例如店長的成本、供應商）留下的快取。
+      const currentUserId = user?.id ?? await sessionUserId();
+      if (cache.state && cache.ownerId && cache.ownerId === currentUserId) return { state: cache.state, hourlyRate: 0, source: 'cache', readonly: true, error };
       throw error;
     }
   }

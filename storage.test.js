@@ -177,3 +177,20 @@ test('persists suppliers receipts payment and transaction links and keeps draft 
   await assert.rejects(storage.saveState({ ...paid, purchases: {} }));
   assert.equal(JSON.stringify((await storage.loadState()).state), JSON.stringify(paid));
 });
+
+test('remembers which account wrote the cache and keeps it on plain saves', async () => {
+  const { storage, state } = await createStorage();
+  await storage.saveState(state, 'manager-1');
+  assert.equal((await storage.loadState()).ownerId, 'manager-1');
+  // 沒指定擁有者的一般儲存（離線模式）不可改掉擁有者。
+  await storage.saveState(state);
+  assert.equal((await storage.loadState()).ownerId, 'manager-1');
+  await storage.saveState(state, 'clerk-1');
+  assert.equal((await storage.loadState()).ownerId, 'clerk-1');
+});
+
+test('a cache written before owner tracking has no owner', async () => {
+  const { storage, state } = await createStorage();
+  await storage.saveState(state);
+  assert.equal((await storage.loadState()).ownerId, '');
+});
