@@ -1,0 +1,5 @@
+# macOS 檔案總管產生的資料夾設定檔
+.DS_Store
+
+# Supabase CLI 本機暫存（專案連結、版本資訊）
+supabase/.temp/

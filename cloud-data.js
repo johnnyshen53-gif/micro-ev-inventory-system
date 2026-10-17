@@ -65,30 +65,47 @@
     } catch { return ''; }
   }
 
-  async function loadSnapshot(validatedUser) {
+  // 雲端快照的每張表；key 對應 snapshotFromRows 的參數名稱。
+  const SNAPSHOT_TABLES = [
+    { key: 'items', table: 'items', fields: 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id', adminOnly: false },
+    { key: 'costs', table: 'item_costs', fields: 'item_id,cost', adminOnly: true },
+    { key: 'transactions', table: 'inventory_transactions', fields: 'id,item_id,type,quantity,note,purchase_id,repair_order_id,warranty_id,customer_id,item_name,expires_at,unit_cost_snapshot,serial_ids,serial_numbers,created_by,created_at', adminOnly: false },
+    { key: 'customers', table: 'customers', fields: 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at', adminOnly: false },
+    { key: 'salespeople', table: 'salespeople', fields: 'id,name,active,created_at,updated_at', adminOnly: false },
+    { key: 'sales', table: 'sales', fields: 'id,sale_number,customer_id,created_by,created_at', adminOnly: false },
+    { key: 'saleLines', table: 'sale_lines', fields: 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,subtotal', adminOnly: false },
+    { key: 'suppliers', table: 'suppliers', fields: 'id,name,contact,phone,address,tax_id,note,active,created_at,updated_at', adminOnly: true },
+    { key: 'quotations', table: 'quotations', fields: 'id,quote_number,customer_id,salesperson_id,total,note,created_at', adminOnly: false },
+    { key: 'quotationLines', table: 'quotation_lines', fields: 'quotation_id,item_id,item_name,quantity,unit_price,subtotal,installation_required,labor_hours,hourly_rate,labor_amount', adminOnly: false },
+    { key: 'purchases', table: 'purchases', fields: 'id,purchase_number,supplier_id,supplier_snapshot,status,payment_status,total,note,created_by,received_by,paid_by,created_at,updated_at,received_at,paid_at', adminOnly: true },
+    { key: 'purchaseLines', table: 'purchase_lines', fields: 'purchase_id,item_id,item_name,item_sku,item_barcode,quantity,unit_cost,subtotal', adminOnly: true },
+    { key: 'serials', table: 'inventory_serials', fields: 'id,item_id,serial_number,status,purchase_id,sale_line_id,customer_id,warranty_id,repair_order_id,repair_line_id,repair_used_at,created_by,created_at,sold_at,removed_at,removed_by,removal_reason', adminOnly: false },
+    { key: 'warranties', table: 'warranties', fields: 'id,customer_id,customer_name,item_id,item_name,barcode,source,sale_line_id,sale_number,repair_order_id,serial_id,serial_number,purchased_at,expires_at,note,created_by,created_at', adminOnly: false },
+    { key: 'warrantyCases', table: 'warranty_cases', fields: 'id,warranty_id,issue,status,handled_at,resolution_note,item_name,purchased_at,expires_at,created_by,created_at,updated_at', adminOnly: false },
+    { key: 'shopSettings', table: 'shop_settings', fields: 'id,hourly_rate', adminOnly: false },
+  ];
+  // 上次完整讀取的原始資料。儲存後只重抓有變動的表，其餘沿用這份（超過 2 分鐘就整份重抓）。
+  const PARTIAL_RELOAD_MAX_AGE_MS = 2 * 60 * 1000;
+  let lastRows = null;
+
+  // options.tables：只重抓這些表（Set of key）；其餘沿用上次讀取的資料。
+  async function loadSnapshot(validatedUser, options = {}) {
     const cache = await window.InventoryStorage.loadState();
     let user = validatedUser;
     try {
       user = user ?? await window.AppAuth.requireActiveUser();
       const admin = user.role === 'admin';
       const client = window.AppAuth.client;
-      const [items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, shopSettings] = await Promise.all([
-        query(client, 'items', 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id'),
-        admin ? query(client, 'item_costs', 'item_id,cost') : [], query(client, 'inventory_transactions', 'id,item_id,type,quantity,note,purchase_id,repair_order_id,warranty_id,customer_id,item_name,expires_at,unit_cost_snapshot,serial_ids,serial_numbers,created_by,created_at'),
-        query(client, 'customers', 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at'),
-        query(client, 'salespeople', 'id,name,active,created_at,updated_at'), query(client, 'sales', 'id,sale_number,customer_id,created_by,created_at'),
-        query(client, 'sale_lines', 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,subtotal'),
-        admin ? query(client, 'suppliers', 'id,name,contact,phone,address,tax_id,note,active,created_at,updated_at') : [],
-        query(client, 'quotations', 'id,quote_number,customer_id,salesperson_id,total,note,created_at'),
-        query(client, 'quotation_lines', 'quotation_id,item_id,item_name,quantity,unit_price,subtotal,installation_required,labor_hours,hourly_rate,labor_amount'),
-        admin ? query(client, 'purchases', 'id,purchase_number,supplier_id,supplier_snapshot,status,payment_status,total,note,created_by,received_by,paid_by,created_at,updated_at,received_at,paid_at') : [],
-        admin ? query(client, 'purchase_lines', 'purchase_id,item_id,item_name,item_sku,item_barcode,quantity,unit_cost,subtotal') : [],
-        query(client, 'inventory_serials', 'id,item_id,serial_number,status,purchase_id,sale_line_id,customer_id,warranty_id,repair_order_id,repair_line_id,repair_used_at,created_by,created_at,sold_at,removed_at,removed_by,removal_reason'),
-        query(client, 'warranties', 'id,customer_id,customer_name,item_id,item_name,barcode,source,sale_line_id,sale_number,repair_order_id,serial_id,serial_number,purchased_at,expires_at,note,created_by,created_at'),
-        query(client, 'warranty_cases', 'id,warranty_id,issue,status,handled_at,resolution_note,item_name,purchased_at,expires_at,created_by,created_at,updated_at'),
-        query(client, 'shop_settings', 'id,hourly_rate'),
-      ]);
-      const state = snapshotFromRows({ items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, admin });
+      const reuse = options.tables && lastRows && lastRows.userId === user.id && lastRows.admin === admin && Date.now() - lastRows.loadedAt < PARTIAL_RELOAD_MAX_AGE_MS;
+      const rows = {};
+      await Promise.all(SNAPSHOT_TABLES.map(async spec => {
+        if (spec.adminOnly && !admin) { rows[spec.key] = []; return; }
+        if (reuse && !options.tables.has(spec.key)) { rows[spec.key] = lastRows.rows[spec.key]; return; }
+        rows[spec.key] = await query(client, spec.table, spec.fields);
+      }));
+      const { shopSettings } = rows;
+      const state = snapshotFromRows({ ...rows, admin });
+      lastRows = { userId: user.id, admin, rows, loadedAt: reuse ? lastRows.loadedAt : Date.now() };
       await window.InventoryStorage.saveState(state, user.id);
       return { state, hourlyRate: Number(shopSettings[0]?.hourly_rate ?? 0), source: 'cloud', readonly: false };
     } catch (error) {
@@ -156,8 +173,30 @@
     const { error } = await request;
     if (error) throw error;
   }
+  // 每個 RPC／資料表寫入會影響快照中的哪些表（依資料庫函式實際寫入的表整理）。
+  // 沒列在這裡的操作（進貨、序號登錄、刪除保固等牽動較多表）一律整份重抓。
+  const RPC_TOUCHES = {
+    create_or_update_supplier: ['suppliers'],
+    create_sale_with_serials: ['items', 'transactions', 'sales', 'saleLines', 'serials', 'warranties'],
+    adjust_inventory: ['items', 'transactions'],
+    issue_warranty_replacement: ['items', 'transactions', 'serials'],
+    save_quotation: ['quotations', 'quotationLines'],
+    save_warranty: ['warranties'],
+    save_warranty_case: ['warrantyCases'],
+    delete_warranty_case: ['warrantyCases'],
+  };
+  const TABLE_TOUCHES = { items: ['items'], item_costs: ['costs'], customers: ['customers'], salespeople: ['salespeople'] };
+
   async function replaceCore(previous, next, actorId) {
-    const client = window.AppAuth.client;
+    // 記錄這次寫入動到哪些表，儲存完只重抓那些表；認不得的操作就整份重抓。
+    const touched = new Set();
+    let fullReload = false;
+    const mark = keys => { if (keys) keys.forEach(key => touched.add(key)); else fullReload = true; };
+    const baseClient = window.AppAuth.client;
+    const client = {
+      rpc: (name, args) => { mark(RPC_TOUCHES[name]); return baseClient.rpc(name, args); },
+      from: table => { mark(TABLE_TOUCHES[table]); return baseClient.from(table); },
+    };
     const oldPurchases = byId(rows(previous, 'purchases'));
     const receivedPurchases = rows(next, 'purchases').filter(purchase => purchase.status === 'received' && oldPurchases.get(purchase.id)?.status === 'draft');
     const receivedItemIds = new Set(receivedPurchases.flatMap(purchase => purchase.lines.map(line => line.itemId)));
@@ -239,8 +278,13 @@
     if (addedCustomers.length) await mutate(client, 'customers', 'insert', addedCustomers.map(value => ({ ...customerRow(value), created_by: actorId })));
     for (const customer of updatedCustomers) {
       const { id, ...changes } = customerRow(customer);
-      const { error } = await client.from('customers').update(changes).eq('id', id).select('id').single();
+      // 樂觀鎖定：只有雲端的 updated_at 仍是我們讀到的那個值才更新；被別人先改過就不覆蓋。
+      const previousUpdatedAt = oldCustomers.get(id)?.updatedAt;
+      let request = client.from('customers').update(changes).eq('id', id);
+      if (previousUpdatedAt) request = request.eq('updated_at', previousUpdatedAt);
+      const { data, error } = await request.select('id');
       if (error) throw error;
+      if (!data?.length) throw new Error(`客戶「${customer.name}」剛被其他人修改過，畫面已更新為最新資料，請確認後再編輯。`);
     }
     const oldSalespeople = byId(rows(previous, 'salespeople'));
     const changedSalespeople = rows(next, 'salespeople').filter(value => !same(oldSalespeople.get(value.id), value));
@@ -302,7 +346,7 @@
       const { error } = await client.rpc('delete_warranty', { p_warranty_id: warranty.id });
       if (error) throw error;
     }
-    const result = await loadSnapshot();
+    const result = await loadSnapshot(undefined, { tables: fullReload ? null : touched });
     if (result.readonly || addedSerials.some(serial => !result.state.serials?.some(saved => saved.id === serial.id && saved.itemId === serial.itemId && saved.serialNumber === serial.serialNumber))) {
       throw new Error('序號未在雲端確認，請重新整理核對後再操作。');
     }

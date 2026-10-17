@@ -760,3 +760,20 @@ test('checkout without customer remains valid and failed checkout leaves no warr
   assert.throws(() => recordSaleBatch(ready, { customerId: 'missing', lines: [{ barcode: item.barcode, quantity: 3 }] }), /庫存不足/);
   assert.equal(ready.warranties.length, 0);
 });
+
+test('replacing parts under an expired warranty needs a manager and is marked', () => {
+  let state = addItem(emptyState(), { ...item, warrantyMonths: 1, stock: 3 });
+  state = addCustomer(state, { name: '王小明', phone: '0912' });
+  const base = { customerId: state.customers[0].id, itemId: state.items[0].id, createdBy: '管理員' };
+  state = createWarranty(state, { ...base, purchasedAt: '2020-01-01', expiresAt: '2020-02-01', note: '已過期' });
+  state = createWarranty(state, { ...base, purchasedAt: '2020-01-01', expiresAt: '2999-12-31', note: '有效' });
+  const [expired, valid] = state.warranties;
+  const fields = { type: 'warranty_out', itemId: state.items[0].id, quantity: 1, createdBy: 'clerk', note: '故障更換' };
+
+  assert.throws(() => recordTransaction(state, { ...fields, warrantyId: expired.id }), /2020-02-01 到期，僅店長可放行/);
+  const allowed = recordTransaction(state, { ...fields, warrantyId: expired.id, allowExpiredWarranty: true });
+  assert.equal(allowed.transactions.at(-1).note, '[過期保固放行] 故障更換');
+  assert.equal(allowed.items[0].stock, 2);
+  const normal = recordTransaction(state, { ...fields, warrantyId: valid.id });
+  assert.equal(normal.transactions.at(-1).note, '故障更換');
+});
