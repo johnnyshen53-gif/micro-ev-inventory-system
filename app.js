@@ -1613,23 +1613,17 @@ function renderMonthlySales(refreshPerformance = false) {
   const rows = $('monthly-performance-list');
   rows.replaceChildren();
   $('monthly-performance-status').textContent = '載入業務員績效中…';
-  const loadRepairs = window.AppData.loadMonthlySalespersonRepairs ? window.AppData.loadMonthlySalespersonRepairs(month) : Promise.resolve([]);
-  return Promise.all([window.AppData.loadMonthlySalespersonPerformance(month), window.AppData.loadMonthlySaleAssignments(month), loadRepairs]).then(([performance, assignments, repairs = []]) => {
+  return Promise.all([window.AppData.loadMonthlySalespersonPerformance(month), window.AppData.loadMonthlySaleAssignments(month)]).then(([performance, assignments]) => {
     if (requestId !== renderMonthlySales.requestId || document.body.dataset.role !== 'admin' || monthInput.value !== month) return;
     renderMonthlySales.assignmentMonth = month;
     renderMonthlySales.assignments = new Map(assignments.map(value => [value.saleNumber, value]));
-    // 合併同一位業務員的銷售與維修；沒有業務員的歸到「未歸屬」。
-    const people = new Map();
-    const personFor = (id, name) => { const key = id ?? '__unassigned__'; if (!people.has(key)) people.set(key, { name, quantity: 0, total: 0, repairCount: 0, repairTotal: 0 }); return people.get(key); };
-    performance.forEach(person => Object.assign(personFor(person.salespersonId, person.name), { quantity: person.quantity, total: person.total }));
-    repairs.forEach(person => Object.assign(personFor(person.salespersonId, person.name), { repairCount: person.repairCount, repairTotal: person.repairTotal }));
-    const labels = ['業務員', '售出件數', '銷售金額', '維修件數', '維修金額', '合計'];
-    [...people.entries()].sort(([a, x], [b, y]) => (a === '__unassigned__') - (b === '__unassigned__') || (y.total + y.repairTotal) - (x.total + x.repairTotal)).forEach(([, person]) => {
+    // 業務員績效只算銷售；維修成果改由「分紅管理」的維修人員報表查看。
+    performance.forEach(person => {
       const row = document.createElement('tr');
-      [person.name, formatNumber(person.quantity), formatNumber(person.total), formatNumber(person.repairCount), formatNumber(person.repairTotal), formatNumber(person.total + person.repairTotal)].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = labels[index]; row.append(cell); });
+      [person.name, formatNumber(person.quantity), formatNumber(person.total)].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['業務員', '售出件數', '銷售金額'][index]; row.append(cell); });
       rows.append(row);
     });
-    $('monthly-performance-status').textContent = people.size ? '' : '本月尚無已歸屬的業務員銷售或維修。';
+    $('monthly-performance-status').textContent = performance.length ? '' : '本月尚無已歸屬的業務員銷售。';
     renderMonthlySales();
   }).catch((error) => {
     if (requestId !== renderMonthlySales.requestId || document.body.dataset.role !== 'admin') return;

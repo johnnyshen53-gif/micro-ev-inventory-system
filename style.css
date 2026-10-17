@@ -12,9 +12,6 @@
 .repair-detail button { margin: .5rem .5rem 0 0; }
 .repair-detail select[multiple] { min-height: 8rem; margin-bottom: .75rem; }
 .repair-detail label { display: block; margin: .75rem 0 .25rem; font-weight: 700; }
-.repair-inline-status { margin: .4rem 0 0; color: #15803d; font-weight: 700; }
-.repair-inline-status:empty { display: none; }
-.repair-inline-status.error { color: #b91c1c; }
 .repair-print { max-width: 190mm; padding: 8mm; color: #111; }
 .repair-print table { width: 100%; }
 @media (max-width: 760px) { .purchase-entry, .purchase-filters { grid-template-columns: 1fr; } .purchase-entry > button { margin-top: 0; } }

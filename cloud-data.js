@@ -169,9 +169,6 @@
   const deleteRepairOrder = id => repairMutation('delete_repair_order', { p_order_id: id });
   const completeRepairOrder = (id, serialIdsByLine) => repairMutation('complete_repair_order', { p_order_id: id, p_serial_ids_by_line: serialIdsByLine });
   const markRepairPaid = id => repairMutation('mark_repair_paid', { p_order_id: id });
-  // 店長補登／更正維修單業務員（任何狀態皆可）。
-  const assignRepairSalesperson = (id, salespersonId) => repairMutation('assign_repair_salesperson', { p_order_id: id, p_salesperson_id: salespersonId });
-
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const rows = (state, key) => state[key] ?? [];
   const byId = values => new Map(values.map(value => [value.id, value]));
@@ -388,15 +385,6 @@
     return (data ?? []).map(row => ({ salespersonId: row.salesperson_id, name: row.salesperson_name, quantity: Number(row.quantity), total: Number(row.total) }));
   }
 
-  // 業務員當月維修：完工日在當月的維修單件數與總額。
-  async function loadMonthlySalespersonRepairs(month) {
-    const user = await window.AppAuth.requireActiveUser();
-    if (user.role !== 'admin') throw new Error('只有店長可以查看業務員績效。');
-    const { data, error } = await window.AppAuth.client.rpc('get_monthly_salesperson_repairs', { p_month: month });
-    if (error) throw error;
-    return (data ?? []).map(row => ({ salespersonId: row.salesperson_id, name: row.salesperson_name, repairCount: Number(row.repair_count), repairTotal: Number(row.repair_total) }));
-  }
-
   async function loadMonthlySaleAssignments(month) {
     const user = await window.AppAuth.requireActiveUser();
     if (user.role !== 'admin') throw new Error('只有店長可以查看銷售歸屬。');
@@ -502,5 +490,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadRepairTechnicians, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, saveRepairTechnician, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, assignRepairSalesperson, loadMonthlySalespersonRepairs, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadRepairTechnicians, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, saveRepairTechnician, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();

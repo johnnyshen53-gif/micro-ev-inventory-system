@@ -492,9 +492,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=19"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=20"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=47"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=48"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -1004,10 +1004,11 @@ test('creating another warranty clears a repair case editor from the previous se
   assert.equal($('warranty-case-id').value, '');
 });
 
-test('monthly salesperson performance merges sales and completed repairs per salesperson', async () => {
+test('monthly salesperson performance shows sales only (repairs have no salesperson)', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(html, /<th>維修件數<\/th><th>維修金額<\/th><th>合計<\/th><\/tr><\/thead><tbody id="monthly-performance-list">/);
+  assert.match(html, /<th>業務員<\/th><th>售出件數<\/th><th>銷售金額<\/th><\/tr><\/thead><tbody id="monthly-performance-list">/);
+  assert.doesNotMatch(html, /維修件數|id="repair-salesperson"/);
   const nodes = new Map();
   const node = () => ({ value: '', textContent: '', hidden: false, dataset: {}, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
   const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
@@ -1015,7 +1016,6 @@ test('monthly salesperson performance merges sales and completed repairs per sal
   const context = { $, window: { AppData: {
       loadMonthlySalespersonPerformance: async () => [{ salespersonId: 'p1', name: '張業務', quantity: 3, total: 250 }],
       loadMonthlySaleAssignments: async () => [],
-      loadMonthlySalespersonRepairs: async () => [{ salespersonId: 'p2', name: '李業務', repairCount: 2, repairTotal: 900 }, { salespersonId: 'p1', name: '張業務', repairCount: 1, repairTotal: 100 }, { salespersonId: null, name: '未歸屬', repairCount: 1, repairTotal: 5000 }],
     } },
     document: { body: { dataset: { role: 'admin' } }, createElement: node },
     state: { sales: [] }, salesForMonth: () => [], formatNumber: String, appendEmpty() {},
@@ -1024,11 +1024,6 @@ test('monthly salesperson performance merges sales and completed repairs per sal
   await context.renderMonthlySales(true);
   await new Promise(resolve => setImmediate(resolve));
   const rows = $('monthly-performance-list').children.map(row => row.children.map(cell => cell.textContent));
-  // 依合計排序，「未歸屬」固定排最後。
-  assert.deepEqual(rows, [
-    ['李業務', '0', '0', '2', '900', '900'],
-    ['張業務', '3', '250', '1', '100', '350'],
-    ['未歸屬', '0', '0', '1', '5000', '5000'],
-  ]);
-  assert.equal($('monthly-performance-list').children[0].children[4].dataset.label, '維修金額');
+  assert.deepEqual(rows, [['張業務', '3', '250']]);
+  assert.equal($('monthly-performance-list').children[0].children[2].dataset.label, '銷售金額');
 });
