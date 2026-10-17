@@ -42,6 +42,8 @@
   function mount({ getState, setState, notify }) {
     if (!$('repair-form')) return { load() {}, clear() {} };
     let orders = [], selectedId = '', draftLines = [], busy = false, generation = 0;
+    // 補登業務員的結果訊息：記住是哪一張單，重畫明細後仍顯示在按鈕旁。
+    let inlineNote = null;
     const selectedOrder = () => orders.find(order => order.id === selectedId);
     const state = () => getState();
     const message = (text, error = false) => { $('repair-status').textContent = text; $('repair-status').classList.toggle('error', error); notify(text, error); };
@@ -126,6 +128,10 @@
         select.value = order.salespersonId ?? '';
         const assign = element('button', '更新業務員', 'secondary'); assign.type = 'button'; assign.dataset.repairAction = 'assign-salesperson';
         detail.append(label, select, assign);
+        const note = element('p', inlineNote?.orderId === order.id ? inlineNote.text : '', 'repair-inline-status');
+        note.id = 'repair-assign-status'; note.setAttribute?.('role', 'status');
+        if (inlineNote?.orderId === order.id && inlineNote.error) note.classList.add('error');
+        detail.append(note);
       }
       for (const [key, label, enabled] of [['complete', '確認完工並扣料', actions.canComplete], ['pay', '標記已收全款', actions.canPay],
         ['cancel', '取消維修單', actions.canCancel], ['delete', '刪除維修單', actions.canDelete], ['print', '列印維修單', true]]) {
@@ -153,21 +159,24 @@
       $('repair-quote').hidden = !actionState(order).canQuote;
       renderLines(); renderDetail();
     }
-    async function mutation(run, success) {
+    async function mutation(run, success, inline = false) {
       if (busy || window.AppAuthUI?.isActive?.() === false) return;
-      const request = ++generation;
+      const request = ++generation, orderId = selectedId;
       busy = true; $('repair-save').disabled = true; $('repair-quote').disabled = true;
       try {
         const result = await run();
         if (request !== generation || window.AppAuthUI?.isActive?.() === false) return;
         orders = result.orders; setState(result.state); renderChoices(); renderList();
         if (result.id) selectedId = result.id;
+        if (inline) inlineNote = { orderId, text: `✓ ${success}`, error: false };
         if (selectedOrder()) openOrder(selectedId); else resetForm();
         message(success);
       } catch (error) {
         if (request !== generation) return;
-        message(`${error.operationCommitted ? '操作可能已成功，但重新讀取失敗；請重新整理後確認。' : ''}${error.message}`, true);
+        const text = `${error.operationCommitted ? '操作可能已成功，但重新讀取失敗；請重新整理後確認。' : ''}${error.message}`;
+        message(text, true);
         $('repair-form-error').textContent = error.message; $('repair-form-error').hidden = false;
+        if (inline) { inlineNote = { orderId, text, error: true }; renderDetail(); }
       } finally {
         if (request === generation) { busy = false; $('repair-save').disabled = false; $('repair-quote').disabled = false; }
       }
@@ -208,7 +217,7 @@
     $('repair-lines').addEventListener('click', event => { const button = event.target.closest('button[data-line-index]'); if (button) { draftLines.splice(Number(button.dataset.lineIndex), 1); renderLines(); } });
     $('repair-form').addEventListener('submit', event => { event.preventDefault(); save(selectedOrder()?.status ?? 'intake'); });
     $('repair-quote').addEventListener('click', () => { if ($('repair-form').reportValidity()) save('quoted'); });
-    $('repair-list').addEventListener('click', event => { const button = event.target.closest('button[data-repair-id]'); if (button) openOrder(button.dataset.repairId); });
+    $('repair-list').addEventListener('click', event => { const button = event.target.closest('button[data-repair-id]'); if (button) { inlineNote = null; openOrder(button.dataset.repairId); } });
     $('repair-detail').addEventListener('click', event => {
       const action = event.target.closest('button[data-repair-action]')?.dataset.repairAction, order = selectedOrder();
       if (!action || !order || busy) return;
@@ -221,8 +230,10 @@
       }
       if (action === 'assign-salesperson') {
         const salespersonId = $('repair-assign-salesperson')?.value;
-        if (!salespersonId) { message('請先選擇業務員。', true); return; }
-        mutation(() => window.AppData.assignRepairSalesperson(order.id, salespersonId), '維修單業務員已更新。');
+        if (!salespersonId) { inlineNote = { orderId: order.id, text: '請先選擇業務員。', error: true }; renderDetail(); message('請先選擇業務員。', true); return; }
+        inlineNote = { orderId: order.id, text: '更新中…', error: false }; renderDetail();
+        $('repair-assign-salesperson').value = salespersonId; // 重畫後保留剛選的業務員
+        mutation(() => window.AppData.assignRepairSalesperson(order.id, salespersonId), '維修單業務員已更新。', true);
         return;
       }
       if (action === 'cancel' && !window.confirm(`確定取消維修單 ${order.number}？`)) return;
