@@ -508,7 +508,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=14"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=15"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="app\.js\?v=40"><\/script>/);
   assert.match(html, /id="login-form"/);
@@ -713,7 +713,7 @@ test('loads IndexedDB before enabling inventory actions', async () => {
     readFile(new URL('./app.js', import.meta.url), 'utf8'),
   ]);
 
-  assert.match(html, /<script src="storage\.js\?v=1"><\/script>/);
+  assert.match(html, /<script src="storage\.js\?v=2"><\/script>/);
   assert.match(app, /await InventoryStorage\.loadState\(\)/);
   assert.match(app, /await saveState\(next\)/);
   assert.match(app, /資料庫讀取失敗/);

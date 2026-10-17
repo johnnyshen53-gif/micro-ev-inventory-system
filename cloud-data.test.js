@@ -108,7 +108,7 @@ test('cloud read failure uses existing cache in read-only mode without overwriti
   let writes = 0;
   const appData = await loadCloudData({
     client: { from: () => { throw new Error('network unavailable'); } },
-    cache: { loadState: async () => ({ state: cached, migrated: false }), saveState: async () => { writes += 1; } },
+    cache: { loadState: async () => ({ state: cached, migrated: false, ownerId: 'admin' }), saveState: async () => { writes += 1; } },
     inventory: { emptyState: () => cached, validateState: value => value },
   });
 
@@ -671,4 +671,83 @@ test('a failure after the sale committed reloads the cloud state for the screen'
   assert.match(error.message, /network lost/);
   assert.equal(error.reloadedState.sales[0].checkoutId, 'checkout-1');
   assert.equal(error.reloadedState.items[0].stock, 1);
+});
+
+test('cloud reads page through tables larger than one Supabase response', async () => {
+  // 模擬 Supabase：每頁最多 1000 列，需要用 order + range 分頁。
+  const total = 2345;
+  const all = Array.from({ length: total }, (_, index) => ({ id: `tx-${String(index).padStart(5, '0')}` }));
+  const ranges = [];
+  const client = { from: table => ({ select: () => ({
+    order: column => ({ range: async (from, to) => {
+      ranges.push({ table, column, from, to });
+      return { data: table === 'inventory_transactions' ? all.slice(from, to + 1) : [], error: null };
+    } }),
+  }) }) };
+  let seen;
+  const appData = await loadCloudData({
+    client,
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => { seen = value; return value; } },
+  });
+  await appData.loadSnapshot({ id: 'admin', role: 'admin' });
+  assert.equal(seen.transactions.length, total);
+  assert.deepEqual(ranges.filter(r => r.table === 'inventory_transactions').map(r => [r.from, r.to]), [[0, 999], [1000, 1999], [2000, 2999]]);
+  assert.equal(ranges.find(r => r.table === 'item_costs').column, 'item_id');
+  assert.equal(ranges.find(r => r.table === 'items').column, 'id');
+});
+
+test('a row repeated across pages is kept once', async () => {
+  const first = Array.from({ length: 1000 }, (_, index) => ({ id: `c-${index}`, member_number: String(index), name: 'n', phone: '', address: '', note: '', active: true }));
+  const client = { from: table => ({ select: () => ({ order: () => ({ range: async from => ({
+    data: table !== 'customers' ? [] : from === 0 ? first : [first[999], { ...first[0], id: 'c-new' }], error: null,
+  }) }) }) }) };
+  let seen;
+  const appData = await loadCloudData({
+    client,
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => { seen = value; return value; } },
+  });
+  await appData.loadSnapshot({ id: 'admin', role: 'admin' });
+  assert.equal(seen.customers.length, 1001);
+});
+
+test('a successful cloud load records which account owns the cache', async () => {
+  const saved = [];
+  const appData = await loadCloudData({
+    client: { from: () => ({ select: async () => ({ data: [], error: null }) }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async (state, ownerId) => { saved.push(ownerId); } },
+    inventory: { emptyState: () => ({}), validateState: value => value },
+  });
+  await appData.loadSnapshot({ id: 'manager-1', role: 'admin' });
+  assert.deepEqual(saved, ['manager-1']);
+});
+
+test("cloud read failure never shows another account's cached data", async () => {
+  const cached = { items: [{ id: 'secret-cost-item' }] };
+  for (const ownerId of ['manager-1', '', undefined]) {
+    const appData = await loadCloudData({
+      client: { from: () => { throw new Error('network unavailable'); } },
+      cache: { loadState: async () => ({ state: cached, migrated: false, ownerId }), saveState: async () => {} },
+      inventory: { emptyState: () => ({}), validateState: value => value },
+      requireActiveUser: async () => ({ id: 'clerk-1', role: 'clerk' }),
+    });
+    await assert.rejects(() => appData.loadSnapshot(), /network unavailable/);
+  }
+});
+
+test('offline reload still uses the same account cache via the local session', async () => {
+  const cached = { items: [] };
+  const appData = await loadCloudData({
+    client: {
+      auth: { getSession: async () => ({ data: { session: { user: { id: 'clerk-1' } } } }) },
+      from: () => { throw new Error('network unavailable'); },
+    },
+    cache: { loadState: async () => ({ state: cached, migrated: false, ownerId: 'clerk-1' }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => value },
+    requireActiveUser: async () => { throw new Error('offline'); },
+  });
+  const result = await appData.loadSnapshot();
+  assert.equal(result.source, 'cache');
+  assert.equal(result.readonly, true);
 });
