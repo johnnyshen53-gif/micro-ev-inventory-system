@@ -3,10 +3,10 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 
-async function loadCloudData({ client, cache, inventory }) {
+async function loadCloudData({ client, cache, inventory, requireActiveUser = async () => ({ id: 'admin', role: 'admin' }) }) {
   const context = {
     window: {
-      AppAuth: { client, requireActiveUser: async () => ({ id: 'admin', role: 'admin' }) },
+      AppAuth: { client, requireActiveUser },
       InventoryStorage: cache,
       Inventory: inventory,
     },
@@ -14,6 +14,19 @@ async function loadCloudData({ client, cache, inventory }) {
   vm.runInNewContext(await readFile(new URL('./cloud-data.js', import.meta.url), 'utf8'), context);
   return context.window.AppData;
 }
+
+test('initial cloud snapshot reuses the user already validated during login', async () => {
+  const tables = [];
+  const appData = await loadCloudData({
+    client: { from: table => ({ select: async () => { tables.push(table); return { data: [], error: null }; } }) },
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({}), validateState: value => value },
+    requireActiveUser: async () => { throw new Error('duplicate profile validation'); },
+  });
+  const result = await appData.loadSnapshot({ id: 'manager', role: 'admin' });
+  assert.equal(result.source, 'cloud');
+  assert.ok(tables.includes('item_costs'));
+});
 
 test('cloud repair-used serial and warranty retain repair links in the inventory snapshot', async () => {
   const at = '2026-10-16T05:00:00Z';

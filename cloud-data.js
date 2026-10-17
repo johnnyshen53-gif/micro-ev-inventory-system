@@ -40,10 +40,10 @@
     return data ?? [];
   }
 
-  async function loadSnapshot() {
+  async function loadSnapshot(validatedUser) {
     const cache = await window.InventoryStorage.loadState();
     try {
-      const user = await window.AppAuth.requireActiveUser();
+      const user = validatedUser ?? await window.AppAuth.requireActiveUser();
       const admin = user.role === 'admin';
       const client = window.AppAuth.client;
       const [items, costs, transactions, customers, salespeople, sales, saleLines, suppliers, quotations, quotationLines, purchases, purchaseLines, serials, warranties, warrantyCases, shopSettings] = await Promise.all([

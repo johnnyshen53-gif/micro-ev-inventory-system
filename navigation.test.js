@@ -508,9 +508,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=12"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=13"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=37"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=38"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -780,6 +780,21 @@ test('checkout sends the authenticated bootstrap user as the warranty creator', 
   assert.equal(checkoutFields.customerId, 'customer-1');
   assert.equal(checkoutFields.salespersonId, 'salesperson-1');
   assert.equal(checkoutFields.createdBy, 'authenticated-user-id');
+});
+
+test('bootstrap passes its validated user into the initial cloud snapshot', async () => {
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const user = { id: 'manager', role: 'admin' };
+  let snapshotUser;
+  const context = {
+    user,
+    window: { AppData: { loadSnapshot: async value => { snapshotUser = value; return { state: {}, readonly: false }; } } },
+    $: () => null, render() {}, renderSaleCart() {}, currentPage: () => 'list', showPage() {},
+    setAppEnabled() {}, updateItemPrintButton() {}, renderTransactionItems() {}, resetWarrantyForm() {},
+  };
+  vm.runInNewContext(`let state; let currentUser; let hourlyRate;\n${app.slice(app.indexOf('async function bootstrap('), app.indexOf('window.AppAuthUI.start('))}`, context);
+  await vm.runInNewContext('bootstrap(user)', context);
+  assert.equal(snapshotUser, user);
 });
 
 test('shows salespeople in monthly sales only to administrators', async () => {

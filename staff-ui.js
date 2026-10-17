@@ -82,7 +82,7 @@
   });
   $('staff-refresh')?.addEventListener('click',()=>action(refresh));
   window.StaffUI={
-    async start(value,options) {generation++;user=value;callbacks=options;users=[];request=null;$('staff-panel').hidden=!allowed();if(allowed())await refresh().catch(error=>message(error.message,true));},
-    stop() {generation++;user=null;users=[];request=null;$('staff-panel').hidden=true;$('staff-list').replaceChildren();},
+    async start(value,options) {generation++;user=value;callbacks=options;users=[];request=null;message('');$('staff-list').replaceChildren();$('staff-panel').hidden=!allowed();const token=generation;if(allowed())refresh().catch(error=>{if(token===generation&&allowed())message(error.message,true);});},
+    stop() {generation++;user=null;users=[];request=null;$('staff-panel').hidden=true;$('staff-list').replaceChildren();message('');},
   };
 })();

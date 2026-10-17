@@ -1589,7 +1589,7 @@ async function resetAppSession() {
 async function bootstrap(user, isCurrent = () => true) {
   try {
     currentUser = user;
-    const result = window.AppData?.loadSnapshot ? await window.AppData.loadSnapshot() : await InventoryStorage.loadState();
+    const result = window.AppData?.loadSnapshot ? await window.AppData.loadSnapshot(user) : await InventoryStorage.loadState();
     if (!isCurrent()) return;
     state = result.state;
     hourlyRate = result.hourlyRate ?? 0;
