@@ -629,6 +629,13 @@ function keepSerialEnterInField(event) {
   input.selectionStart = input.selectionEnd = start + 1;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+// 序號管理：先看各品項的序號總覽，點「查看序號」才在彈出視窗列出該品項的序號。
+// 視窗內一次顯示 20 筆（最新登錄的在前），按「顯示更多」再多 20 筆；換品項或改搜尋就回到前 20 筆。
+const SERIAL_PAGE_SIZE = 20;
+const SERIAL_STATUS_LABELS = { in_stock: '在庫', sold: '已售', removed: '已移出', warranty_out: '已出保固', repair_used: '維修使用' };
+let serialVisibleLimit = SERIAL_PAGE_SIZE;
+let serialFilterKey = '';
+let serialDialogItemId = '';
 function renderSerialInventory() {
   const select = $('serial-item'), selected = select.value;
   const category = $('serial-category').value;
@@ -640,11 +647,41 @@ function renderSerialInventory() {
   const count = state.serials.filter(s => s.itemId === item?.id && s.status === 'in_stock').length;
   $('serial-summary').textContent = !item ? '先選品項，再補登現有實物；補登不增加庫存。' : !Number.isSafeInteger(item.stock) ? '庫存不是安全整數，請先盤點更正。' : `庫存 ${item.stock}｜已登錄在庫 ${count}｜待補登 ${item.stock - count}`;
   const query = $('serial-search').value.trim().toLocaleLowerCase();
-  const list = $('serial-list'); list.replaceChildren();
-  state.serials.filter(s => items.some(product => product.id === s.itemId) && (!item || s.itemId === item.id) && (!query || s.serialNumber.toLocaleLowerCase().includes(query))).forEach(serial => {
+  const matchesQuery = (serial, text) => !text || serial.serialNumber.toLocaleLowerCase().includes(text);
+  const overview = $('serial-overview'); overview.replaceChildren();
+  items.forEach(product => {
+    const serials = state.serials.filter(s => s.itemId === product.id);
+    if (query && !serials.some(s => matchesQuery(s, query))) return;
+    const count = status => serials.filter(s => s.status === status).length;
     const row = document.createElement('tr');
-    const product = state.items.find(item => item.id === serial.itemId), customer = state.customers.find(c => c.id === serial.customerId);
-    [product.name, serial.serialNumber, { in_stock: '在庫', sold: '已售', removed: '已移出', warranty_out: '已出保固' }[serial.status], customer?.name || '—', serial.soldAt ? new Date(serial.soldAt).toLocaleDateString('zh-TW') : serial.status === 'warranty_out' ? new Date(serial.removedAt).toLocaleDateString('zh-TW') : '—'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    [product.name, product.category, count('in_stock'), count('sold'), count('warranty_out'), count('removed') + count('repair_used')].forEach(value => { const cell = document.createElement('td'); cell.textContent = String(value); row.append(cell); });
+    const actions = document.createElement('td'), button = document.createElement('button');
+    button.type = 'button'; button.className = 'secondary'; button.textContent = `查看序號（${serials.length}）`;
+    button.dataset.action = 'open-serial-dialog'; button.dataset.id = product.id;
+    actions.append(button); row.append(actions); overview.append(row);
+  });
+  if (!overview.children.length) appendEmpty(overview, query ? '沒有品項含有這個序號。' : '目前沒有機車或電池品項。');
+  renderSerialDialog();
+}
+function renderSerialDialog() {
+  const product = state.items.find(item => item.id === serialDialogItemId);
+  const list = $('serial-list'); if (!list) return; list.replaceChildren();
+  if (!product) return;
+  $('serial-dialog-title').textContent = `${product.name} 的原廠序號`;
+  const query = ($('serial-dialog-search')?.value ?? '').trim().toLocaleLowerCase();
+  const filterKey = [product.id, query].join('|');
+  if (filterKey !== serialFilterKey) { serialFilterKey = filterKey; serialVisibleLimit = SERIAL_PAGE_SIZE; }
+  const matches = state.serials
+    .filter(s => s.itemId === product.id && (!query || s.serialNumber.toLocaleLowerCase().includes(query)))
+    .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
+  const shown = matches.slice(0, serialVisibleLimit);
+  const countLabel = $('serial-list-count'), moreButton = $('serial-show-more');
+  if (countLabel) countLabel.textContent = matches.length ? `顯示 ${shown.length}／共 ${matches.length} 筆` : '';
+  if (moreButton) { moreButton.hidden = shown.length >= matches.length; moreButton.textContent = `顯示更多（再 ${Math.min(SERIAL_PAGE_SIZE, matches.length - shown.length)} 筆）`; }
+  shown.forEach(serial => {
+    const row = document.createElement('tr');
+    const customer = state.customers.find(c => c.id === serial.customerId);
+    [serial.serialNumber, SERIAL_STATUS_LABELS[serial.status] ?? serial.status, customer?.name || '—', serial.soldAt ? new Date(serial.soldAt).toLocaleDateString('zh-TW') : serial.status === 'warranty_out' ? new Date(serial.removedAt).toLocaleDateString('zh-TW') : '—'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
     const actions = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'secondary'; button.textContent = '列印 QR Code';
@@ -653,6 +690,15 @@ function renderSerialInventory() {
     list.append(row);
   });
   if (!list.children.length) appendEmpty(list, '沒有符合條件的序號紀錄。');
+}
+function openSerialDialog(itemId) {
+  serialDialogItemId = itemId;
+  const search = $('serial-dialog-search'), main = $('serial-search');
+  // 從總覽搜尋點進來時，帶入同樣的搜尋字，直接看到那個序號。
+  if (search) search.value = main?.value ?? '';
+  renderSerialDialog();
+  const dialog = $('serial-dialog');
+  if (typeof dialog?.showModal === 'function' && !dialog.open) dialog.showModal();
 }
 function renderTransactionSerials() {
   const item = state.items.find(item => item.id === $('transaction-item').value);
@@ -691,6 +737,14 @@ $('serial-form')?.addEventListener('submit', async event => {
 $('serial-item')?.addEventListener('change', () => { $('serial-numbers').value = ''; renderSerialInventory(); });
 $('serial-category')?.addEventListener('change', () => { $('serial-item').value = ''; $('serial-numbers').value = ''; clearFormError('serial-form'); renderSerialInventory(); });
 $('serial-search')?.addEventListener('input', renderSerialInventory);
+$('serial-show-more')?.addEventListener('click', () => { serialVisibleLimit += SERIAL_PAGE_SIZE; renderSerialDialog(); });
+$('serial-overview')?.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-action="open-serial-dialog"]');
+  if (button) openSerialDialog(button.dataset.id);
+});
+$('serial-dialog-search')?.addEventListener('input', renderSerialDialog);
+$('serial-dialog-close')?.addEventListener('click', () => $('serial-dialog')?.close?.());
+$('serial-dialog')?.addEventListener('close', () => { serialDialogItemId = ''; });
 $('serial-list')?.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-action="print-serial-qr"]');
   if (!button) return;
