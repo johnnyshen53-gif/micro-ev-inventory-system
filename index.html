@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
+    <div class="auth-brand"><p class="eyebrow">MOTORCYCLE SHOP</p><h1>微型機車店庫存</h1><p>安全、清楚地管理每日營運資料</p></div>
     <section class="panel auth-panel" aria-labelledby="login-title">
-      <p class="eyebrow">MOTORCYCLE SHOP</p>
       <h1 id="login-title">登入庫存系統</h1>
       <p>請使用店家管理員建立的帳號登入。</p>
       <form id="login-form">
@@ -17,7 +17,9 @@
         <div class="field"><label for="login-password">密碼</label><input id="login-password" type="password" autocomplete="current-password" required></div>
         <p id="login-error" class="form-error" role="alert" hidden></p>
         <button id="login-submit" type="submit">登入</button>
+        <div id="login-progress" class="login-progress" role="status" aria-live="polite" hidden><strong>正在登入，請稍候</strong><span>系統正在確認帳號與使用權限，完成後將自動開啟工作畫面。</span></div>
       </form>
+      <p class="auth-help">若等待過久，請確認網路連線後再試。</p>
     </section>
   </main>
   <main id="app-shell" class="page" hidden>
@@ -249,7 +251,13 @@
         <article class="panel"><h3>維修單清單</h3><div class="field"><label for="repair-search">搜尋單號、電話、車牌或原廠序號</label><input id="repair-search" type="search"></div><div class="table-wrap"><table><thead><tr><th>單號</th><th>客戶</th><th>車牌／序號</th><th>狀態</th><th>總額</th><th>操作</th></tr></thead><tbody id="repair-list"></tbody></table></div><section id="repair-detail" class="repair-detail" aria-label="維修單明細" hidden></section></article>
       </div>
     </section>
-    <section class="app-page" data-page="monthly-sales" aria-label="月銷售" hidden><div class="section-heading"><h2>月銷售清單</h2><input id="monthly-sales-month" type="month"></div><div class="cards"><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售總額</span><strong id="monthly-sales-total">0</strong></article></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th><th id="monthly-salesperson-heading" hidden>結帳人</th><th id="monthly-assignment-heading" hidden>業務員歸屬</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div><article id="monthly-performance-panel" class="panel" data-role="admin" hidden><h3>業務員月績效</h3><p id="monthly-performance-status" role="status" aria-live="polite"></p><div class="table-wrap"><table><thead><tr><th>業務員</th><th>售出件數</th><th>銷售金額</th></tr></thead><tbody id="monthly-performance-list"></tbody></table></div></article></section>
+    <section class="app-page monthly-sales-page" data-page="monthly-sales" aria-label="月銷售" hidden>
+      <div class="section-heading"><h2>月銷售清單</h2><label class="monthly-month-field">查詢月份<input id="monthly-sales-month" type="month"></label></div>
+      <div class="cards monthly-summary"><article class="card monthly-total-card"><span>本月銷售總額</span><strong id="monthly-sales-total">0</strong></article><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong></article><article class="card"><span>銷售筆數</span><strong id="monthly-sales-count">0</strong></article></div>
+      <h3 class="monthly-detail-title">銷售明細</h3>
+      <div class="table-wrap monthly-table-wrap"><table><thead><tr><th>日期</th><th>品項</th><th>條碼</th><th>單價</th><th>數量</th><th>小計</th><th id="monthly-salesperson-heading" hidden>結帳人</th><th id="monthly-assignment-heading" hidden>業務員歸屬</th></tr></thead><tbody id="monthly-sales-list"></tbody></table></div>
+      <article id="monthly-performance-panel" class="panel" data-role="admin" hidden><h3>業務員月績效</h3><p id="monthly-performance-status" role="status" aria-live="polite"></p><div class="table-wrap monthly-performance-wrap"><table><thead><tr><th>業務員</th><th>售出件數</th><th>銷售金額</th></tr></thead><tbody id="monthly-performance-list"></tbody></table></div></article>
+    </section>
     <section id="repair-print" class="print-document repair-print" hidden></section>
     <section id="qr-label" class="print-document barcode-label" hidden><div id="qr-label-content"></div></section>
     <dialog id="manage-auth-dialog" aria-labelledby="manage-auth-title">
@@ -267,13 +275,13 @@
   <script src="supabase-config.js?v=3"></script>
   <script src="supabase-client.js?v=4"></script>
   <script src="idle-session.js?v=2"></script>
-  <script src="auth-ui.js?v=4"></script>
+  <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
   <script src="inventory.js?v=21"></script>
   <script src="storage.js?v=1"></script>
   <script src="cloud-data.js?v=13"></script>
   <script src="repair-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>

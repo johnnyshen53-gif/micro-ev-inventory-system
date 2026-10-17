@@ -55,3 +55,52 @@ dialog { width: min(420px, calc(100% - 2rem)); border: 1px solid var(--line); bo
 .serial-box { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line, #cbd5e1); border-radius: .7rem; min-width: 0; }
 .serial-box select[multiple] { min-height: 8rem; }
 .serial-panel textarea, .serial-box textarea { font-family: inherit; }
+.auth-page { width: 100%; padding: 2rem 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; background: #f4f6f8; color: #0f172a; }
+.auth-brand { width: min(100%, 460px); }
+.auth-brand .eyebrow { color: #475569; }
+.auth-brand h1 { font-size: 1.9rem; }
+.auth-brand p:last-child { margin: 0; color: #475569; }
+.auth-panel { width: min(100%, 460px); margin: 0; padding: 2rem; border-color: #cbd5e1; border-radius: 10px; box-shadow: 0 12px 30px #0f172a0d; }
+.auth-panel h1 { font-size: 1.55rem; }
+.auth-panel > p { color: #475569; }
+.auth-panel .field { gap: .45rem; margin-bottom: 1.1rem; }
+.auth-panel input { min-height: 46px; border-color: #cbd5e1; color: #0f172a; }
+.auth-panel #login-submit { width: 100%; min-height: 46px; background: #334155; }
+.auth-panel #login-submit:disabled { background: #475569; color: #fff; }
+.login-progress { display: grid; gap: .25rem; margin-top: 1rem; padding: 1rem; border: 1px solid #a7f3d0; border-radius: 8px; background: #ecfdf5; color: #065f46; font-size: .9rem; }
+.auth-panel .auth-help { margin: 1.25rem 0 0; font-size: .85rem; color: #64748b; }
+.monthly-sales-page { color: #0f172a; }
+.monthly-sales-page .section-heading { margin-bottom: 1rem; }
+.monthly-month-field { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; color: #475569; }
+.monthly-month-field input { min-height: 46px; border-color: #cbd5e1; }
+.monthly-summary { margin-bottom: 1.5rem; }
+.monthly-summary .card { border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 4px 14px #0f172a0a; }
+.monthly-summary .card strong { margin-bottom: 0; color: #0f172a; }
+.monthly-summary .monthly-total-card { background: #334155; border-color: #334155; }
+.monthly-summary .monthly-total-card span, .monthly-summary .monthly-total-card strong { color: #fff; }
+.monthly-detail-title { margin-bottom: .75rem; }
+@media (max-width: 700px) {
+  .auth-panel { padding: 1.5rem; }
+  #app-shell:has(.monthly-sales-page:not([hidden])) .hero .backup-actions { display: none; }
+  .monthly-sales-page .section-heading { gap: .75rem; }
+  .monthly-sales-page .section-heading h2 { margin: 0; font-size: 1.5rem; }
+  .monthly-month-field, .monthly-month-field input { width: 100%; }
+  .monthly-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+  .monthly-summary .monthly-total-card { grid-column: 1 / -1; }
+  .monthly-summary .card { min-width: 0; padding: 1rem; }
+  .monthly-summary .card strong { font-size: 1.75rem; overflow-wrap: anywhere; }
+  .monthly-table-wrap, .monthly-performance-wrap { overflow: visible; background: transparent; border: 0; box-shadow: none; }
+  .monthly-table-wrap table, .monthly-performance-wrap table { display: block; min-width: 0; }
+  .monthly-table-wrap thead, .monthly-performance-wrap thead { display: none; }
+  .monthly-table-wrap tbody, .monthly-performance-wrap tbody { display: grid; gap: .75rem; }
+  .monthly-table-wrap tbody tr, .monthly-performance-wrap tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; padding: 1rem; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; }
+  .monthly-table-wrap tbody td, .monthly-performance-wrap tbody td { display: block; min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .monthly-table-wrap tbody td::before, .monthly-performance-wrap tbody td::before { content: attr(data-label); display: block; margin-bottom: .2rem; color: #64748b; font-size: .75rem; font-weight: 700; }
+  .monthly-table-wrap tbody td:first-child, .monthly-table-wrap tbody td:nth-child(2), .monthly-table-wrap tbody td:nth-child(7), .monthly-table-wrap tbody td:nth-child(8), .monthly-performance-wrap tbody td:first-child { grid-column: 1 / -1; }
+  .monthly-table-wrap tbody td:nth-child(2) { font-size: 1.05rem; font-weight: 700; }
+  .monthly-table-wrap tbody td:nth-child(6) { font-weight: 800; }
+  .monthly-table-wrap tbody td .empty { padding: 0; }
+  .monthly-table-wrap tbody td select { margin-bottom: .5rem; }
+  .monthly-table-wrap tbody td button { min-height: 44px; }
+  #monthly-performance-panel { margin-top: 1.5rem; background: #ecfdf5; border-color: #a7f3d0; }
+}

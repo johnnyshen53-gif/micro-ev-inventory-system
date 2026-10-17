@@ -510,7 +510,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=13"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=38"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=39"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -800,7 +800,7 @@ test('bootstrap passes its validated user into the initial cloud snapshot', asyn
 test('shows salespeople in monthly sales only to administrators', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   const elements = new Map();
-  const node = () => ({ value: '', textContent: '', hidden: false, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const node = () => ({ value: '', textContent: '', hidden: false, dataset: {}, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
   const $ = (id) => { if (!elements.has(id)) elements.set(id, node()); return elements.get(id); };
   const context = {
     $, document: { body: { dataset: { role: 'admin' } }, createElement: node },
@@ -821,13 +821,34 @@ test('shows salespeople in monthly sales only to administrators', async () => {
   assert.equal($('monthly-sales-list').children[0].children.length, 6);
 });
 
+test('monthly sales exposes card labels and counts distinct sales without exposing staff details', async () => {
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const nodes = new Map();
+  const node = () => ({ value: '', textContent: '', hidden: false, dataset: {}, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  $('monthly-sales-month').value = '2026-10';
+  const context = {
+    $, document: { body: { dataset: { role: 'clerk' } }, createElement: node },
+    state: { sales: [
+      { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'A', barcode: '1', unitPrice: 10, quantity: 1, subtotal: 10 },
+      { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'B', barcode: '2', unitPrice: 20, quantity: 2, subtotal: 40 },
+      { saleNumber: 'S2', createdAt: '2026-10-13T09:00:00Z', itemName: 'C', barcode: '3', unitPrice: 30, quantity: 1, subtotal: 30 },
+    ] }, salesForMonth: state => state.sales, formatNumber: String, appendEmpty() {},
+  };
+  vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
+  context.renderMonthlySales();
+  assert.equal($('monthly-sales-count').textContent, '2');
+  assert.equal($('monthly-sales-list').children[0].children[1].dataset.label, '品項');
+  assert.equal($('monthly-sales-list').children[0].children.length, 6);
+});
+
 test('monthly performance table is manager-only and distinguishes cashier from salesperson', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /id="monthly-performance-list"/);
   assert.match(html, /id="monthly-salesperson-heading"[^>]*>結帳人</);
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   const nodes = new Map();
-  const node = () => ({ value: '', textContent: '', hidden: false, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const node = () => ({ value: '', textContent: '', hidden: false, dataset: {}, children: [], append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
   const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
   $('monthly-sales-month').value = '2026-10';
   let calls = 0;

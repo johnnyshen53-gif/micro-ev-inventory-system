@@ -1474,11 +1474,12 @@ function renderMonthlySales(refreshPerformance = false) {
   const seenSales = new Set();
   sales.forEach((sale) => {
     const row = document.createElement('tr');
-    [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, formatNumber(sale.unitPrice), formatNumber(sale.quantity), formatNumber(sale.subtotal), ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value) => {
-      const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
+    [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, formatNumber(sale.unitPrice), formatNumber(sale.quantity), formatNumber(sale.subtotal), ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
+      const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['日期', '品項', '條碼', '單價', '數量', '小計', '結帳人'][index]; row.append(cell);
     });
     if (isAdmin) {
       const cell = document.createElement('td');
+      cell.dataset.label = '業務員歸屬';
       if (seenSales.has(sale.saleNumber)) cell.textContent = '—';
       else if (renderMonthlySales.assignmentMonth !== month) cell.textContent = '載入中…';
       else if (renderMonthlySales.assignmentError) cell.textContent = '無法載入歸屬';
@@ -1522,6 +1523,7 @@ function renderMonthlySales(refreshPerformance = false) {
   if (!list.children.length) appendEmpty(list, '本月尚未有銷售紀錄。');
   $('monthly-sales-quantity').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.quantity, 0));
   $('monthly-sales-total').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.subtotal, 0));
+  $('monthly-sales-count').textContent = formatNumber(new Set(sales.map((sale, index) => sale.saleNumber ?? sale.id ?? index)).size);
   const panel = $('monthly-performance-panel');
   panel.hidden = !isAdmin;
   if (!isAdmin) {
@@ -1546,7 +1548,7 @@ function renderMonthlySales(refreshPerformance = false) {
     renderMonthlySales.assignments = new Map(assignments.map(value => [value.saleNumber, value]));
     performance.forEach(person => {
       const row = document.createElement('tr');
-      [person.name, formatNumber(person.quantity), formatNumber(person.total)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+      [person.name, formatNumber(person.quantity), formatNumber(person.total)].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['業務員', '售出件數', '銷售金額'][index]; row.append(cell); });
       rows.append(row);
     });
     $('monthly-performance-status').textContent = performance.length ? '' : '本月尚無已歸屬的業務員銷售。';

@@ -44,6 +44,21 @@ test('bootstrap renders with the authenticated role already applied',async()=>{
   await fixture({bootstrap:async(_user,_current,ctx)=>{roleDuringBootstrap=ctx.document.body.dataset.role;}});
   assert.equal(roleDuringBootstrap,'admin');
 });
+test('login shows a pending state and clears it after a failed attempt',async()=>{
+  let finish;
+  const {$}=await fixture({restore:async()=>{throw Error('no session');},signIn:()=>new Promise(resolve=>{finish=resolve;})});
+  const submitted=$('login-form').listeners.submit({preventDefault(){}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal($('login-form')['aria-busy'],'true');
+  assert.equal($('login-progress').hidden,false);
+  assert.equal($('login-submit').disabled,true);
+  finish({error:Error('Invalid login credentials')});
+  await submitted;
+  assert.equal($('login-form')['aria-busy'],'false');
+  assert.equal($('login-progress').hidden,true);
+  assert.equal($('login-submit').disabled,false);
+  assert.match($('login-error').textContent,/帳號或密碼/);
+});
 test('offline signout and failed storage writes cannot restore the app after reload',async()=>{
   const idleSource=await readFile(new URL('./idle-session.js',import.meta.url),'utf8');
   const stored=new Map([['shop-idle-session-v1',JSON.stringify({userId:'manager',lastActivity:Date.now(),locked:false})]]);

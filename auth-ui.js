@@ -8,8 +8,16 @@
     $('current-user').textContent = `${user.displayName || '使用者'}｜${user.role === 'admin' ? '管理員' : '店員'}`;
   }
 
+  function setLoginBusy(busy) {
+    $('login-form').setAttribute('aria-busy', String(busy));
+    $('login-progress').hidden = !busy;
+    $('login-submit').disabled = busy;
+    $('login-submit').textContent = busy ? '登入中，請稍候…' : '登入';
+  }
+
   function showLogin(message = '') {
     generation++;active=false;idle?.stop();idle=null;
+    setLoginBusy(false);
     delete document.body.dataset.role;
     $('app-shell').hidden = true;
     $('auth-shell').hidden = false;
@@ -20,6 +28,7 @@
   }
 
   function showApp() {
+    setLoginBusy(false);
     $('auth-shell').hidden = true;
     $('app-shell').hidden = false;
   }
@@ -54,8 +63,7 @@
     }
     $('login-form').addEventListener('submit', async (event) => {
       event.preventDefault();
-      const button = $('login-submit');
-      button.disabled = true;
+      setLoginBusy(true);
       $('login-error').hidden = true;
       const token=++generation;
       const current=()=>token===generation;
@@ -72,7 +80,7 @@
       } catch (error) {
         if(current())showLogin(error.message === 'Invalid login credentials' ? '帳號或密碼不正確。' : error.message);
       } finally {
-        button.disabled = false;
+        if(current())setLoginBusy(false);
       }
     });
 
