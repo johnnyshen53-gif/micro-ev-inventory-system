@@ -941,10 +941,12 @@ function recordSaleBatch(state, fields) {
   const salesperson = current.salespeople.find(candidate => candidate.id === text(fields?.salespersonId));
   if (!salesperson) throw new Error('請選擇業務員');
   if (!salesperson.active) throw new Error('業務員已停用，請重新選擇');
+  // checkoutId 是這次結帳的固定識別碼；雲端用它當銷售單 ID，重送時不會重複銷售。
+  const checkoutId = fields?.checkoutId ? id(fields.checkoutId, '結帳識別碼') : crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const saleNumber = `S${createdAt.slice(0, 10).replaceAll('-', '')}-${String(current.sales.length + 1).padStart(4, '0')}`;
   const purchasedAt = taipeiDate(createdAt);
-  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
+  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
     return sale ? { ...serial, status: 'sold', saleId: sale.id, customerId: customer.id, soldAt: createdAt } : serial;

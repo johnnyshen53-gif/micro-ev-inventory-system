@@ -37,6 +37,8 @@ let state = emptyState();
 let quotationLines = [];
 let hourlyRate = 0;
 let saleCart = [];
+// 這次結帳的固定識別碼：購物車內容不變時重按結帳會沿用，雲端據此避免重複銷售。
+let saleCheckoutId = '';
 let saleSerialItemId = '';
 let saleSerialQuantity = 1;
 let selectedWarrantyId = '';
@@ -126,6 +128,8 @@ async function saveState(nextState) {
     state = validState;
     return true;
   } catch (error) {
+    // 雲端已重新讀取時，以雲端為準更新畫面，避免顯示過期的庫存或漏掉已完成的銷售。
+    if (error.reloadedState && epoch === appSessionEpoch) { state = error.reloadedState; render(); }
     setStatus(`無法儲存資料：${error.message}`, true);
     return false;
   } finally {
@@ -1386,6 +1390,7 @@ function addSaleItem(item, quantity, serialIds = []) {
   if ((existing?.quantity ?? 0) + quantity > item.stock) { showFormError('sale-form', `庫存不足：${item.name}`); return false; }
   if (existing) { existing.quantity += quantity; existing.subtotal = existing.quantity * existing.unitPrice; existing.serialIds.push(...serialIds); existing.serialNumbers.push(...serials.map(s => s.serialNumber)); }
   else saleCart.push({ itemId: item.id, barcode: item.barcode, itemName: item.name, unitPrice: item.price, quantity, subtotal: item.price * quantity, serialIds: [...serialIds], serialNumbers: serials.map(s => s.serialNumber) });
+  saleCheckoutId = '';
   clearFormError('sale-form'); renderSaleCart(); renderSalePicker(); renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)); return true;
 }
 function showSaleItem(item) { const info = $('sale-item-info'); info.textContent = `${item.name}｜庫存：${formatNumber(item.stock)}｜售價：${formatNumber(item.price)}`; info.hidden = false; }
@@ -1427,7 +1432,7 @@ $('sale-pick-add')?.addEventListener('click', () => {
   if (requiresSerial(item)) return beginSaleSerialSelection(item, Number($('sale-pick-quantity').value));
   if (addSaleItem(item, Number($('sale-pick-quantity').value))) $('sale-pick-quantity').value = '1';
 });
-$('sale-cart')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-sale-remove]'); if (!button) return; saleCart.splice(Number(button.dataset.saleRemove), 1); renderSaleCart(); renderSalePicker(); renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)); });
+$('sale-cart')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-sale-remove]'); if (!button) return; saleCart.splice(Number(button.dataset.saleRemove), 1); saleCheckoutId = ''; renderSaleCart(); renderSalePicker(); renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)); });
 $('sale-serial-ids')?.addEventListener('change', () => renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)));
 $('sale-serial-scan')?.addEventListener('keydown', event => {
   if (event.key !== 'Enter') return;
@@ -1447,13 +1452,23 @@ $('sale-serial-add')?.addEventListener('click', () => {
 if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (pendingSave) return;
-  try {
-    const next = recordSaleBatch(state, { lines: saleCart, customerId: $('sale-customer').value, salespersonId: $('sale-salesperson').value, createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id });
-    if (!await saveState(next)) return;
-    saleCart = []; saleSerialItemId = ''; saleSerialQuantity = 1;
+  const finishSale = (message) => {
+    saleCart = []; saleCheckoutId = ''; saleSerialItemId = ''; saleSerialQuantity = 1;
     $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1';
     $('sale-serial-panel').hidden = true; $('sale-serial-ids').replaceChildren(); $('sale-item-info').hidden = true;
-    clearFormError('sale-form'); renderSaleCart(); render(); setStatus('銷售已完成。');
+    clearFormError('sale-form'); renderSaleCart(); render(); setStatus(message);
+  };
+  const committed = () => (state.sales ?? []).some(sale => sale.checkoutId === saleCheckoutId);
+  try {
+    saleCheckoutId ||= crypto.randomUUID();
+    // 上一次送出其實已在雲端完成（畫面已重新讀取到這張單）：直接收尾，不再送一次。
+    if (committed()) { finishSale('此筆銷售先前已完成，未重複扣庫存。'); return; }
+    const next = recordSaleBatch(state, { lines: saleCart, checkoutId: saleCheckoutId, customerId: $('sale-customer').value, salespersonId: $('sale-salesperson').value, createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id });
+    if (!await saveState(next)) {
+      if (committed()) finishSale('連線中斷，但雲端已確認此筆銷售完成，未重複扣庫存。');
+      return;
+    }
+    finishSale('銷售已完成。');
   } catch (error) { showFormError('sale-form', error.message); }
 });
 function renderMonthlySales(refreshPerformance = false) {
@@ -1575,7 +1590,7 @@ async function resetAppSession() {
   setAppEnabled(false);
   window.StaffUI?.stop();
   try { await pendingSave; } catch { /* The save path already reports the failure. */ }
-  state = emptyState();saleCart = [];quotationLines = [];hourlyRate = 0;purchaseLines = [];
+  state = emptyState();saleCart = [];saleCheckoutId = '';quotationLines = [];hourlyRate = 0;purchaseLines = [];
   saleSerialItemId = ''; saleSerialQuantity = 1;
   receiptPurchaseId = ''; receiptSerialNumbersByItem = {};
   purchaseSupplierId = '';selectedPurchaseId = '';selectedWarrantyId = '';purchaseBusy = false;

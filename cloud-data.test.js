@@ -300,19 +300,20 @@ test('salespeople insert, edit, and deactivate persist without rewriting creator
   assert.deepEqual(saved.salespeople.map(value => value.id).sort(), ['edited', 'new', 'unchanged']);
 });
 
-test('salesperson RLS denial leaves local cache unchanged', async () => {
+test('salesperson RLS denial never caches the rejected change', async () => {
   const old = { items: [], transactions: [], customers: [], salespeople: [], sales: [] };
-  let cacheWrites = 0;
+  const cacheWrites = [];
   const appData = await loadCloudData({
     client: { from: table => ({
       insert: async () => ({ error: table === 'salespeople' ? new Error('row-level security policy') : null }),
       select: async () => ({ data: [], error: null }),
     }) },
-    cache: { loadState: async () => ({ state: old }), saveState: async () => { cacheWrites += 1; } },
+    cache: { loadState: async () => ({ state: old }), saveState: async value => { cacheWrites.push(value); } },
     inventory: { emptyState: () => old, validateState: value => value },
   });
   await assert.rejects(() => appData.saveSnapshot(old, { ...old, salespeople: [{ id: 'new', name: '業務', active: true }] }), /row-level security/);
-  assert.equal(cacheWrites, 0);
+  // 失敗後只會快取重新讀回的雲端資料，被拒絕的業務員不可出現在快取裡。
+  assert.ok(cacheWrites.every(state => !(state.salespeople ?? []).some(person => person.id === 'new')));
 });
 
 test('cloud reload retains supplier and quotation details', async () => {
@@ -551,4 +552,123 @@ test('warranty replacement uses its atomic RPC rather than ordinary inventory ad
   await appData.saveSnapshot(old, { ...old, items: [{ ...item, stock: 0 }], transactions: [entry], serials: [{ ...serial, status: 'warranty_out' }] });
   assert.equal(calls.find(call => call.name === 'issue_warranty_replacement')?.args.p_warranty_id, 'warranty-1');
   assert.equal(calls.some(call => call.name === 'adjust_inventory'), false);
+});
+
+// 模擬 supabase client：記錄 rpc 與 items 的寫入內容；select 回傳 tables 內的資料。
+function recordingClient({ tables = {}, fail = {} } = {}) {
+  const calls = [];
+  const client = {
+    calls,
+    rpc: async (name, args) => { calls.push({ kind: 'rpc', name, args }); return { error: fail.rpc?.(name) ?? null }; },
+    from: table => ({
+      select: async () => ({ data: tables[table] ?? [], error: null }),
+      upsert: async (rows, options) => { calls.push({ kind: 'upsert', table, rows, options }); return { error: null }; },
+      update: changes => ({ eq: (_column, id) => ({ select: () => ({ single: async () => {
+        calls.push({ kind: 'update', table, id, changes });
+        return { error: fail.update?.(table) ?? null };
+      } }) }) }),
+    }),
+  };
+  return client;
+}
+
+test('checkout sends the cart checkout id so a retried checkout is de-duplicated by the cloud', async () => {
+  const old = { items: [{ id: 'item-1', stock: 3 }], customers: [], transactions: [], sales: [] };
+  const lines = [
+    { id: 'line-1', checkoutId: 'checkout-1', itemId: 'item-1', quantity: 1, salespersonId: 'sp-1' },
+    { id: 'line-2', checkoutId: 'checkout-1', itemId: 'item-1', quantity: 1, salespersonId: 'sp-1' },
+  ];
+  const client = recordingClient();
+  const appData = await loadCloudData({
+    client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await appData.saveSnapshot(old, { ...old, items: [{ id: 'item-1', stock: 1 }], sales: lines });
+  const sale = client.calls.find(call => call.name === 'create_sale_with_serials');
+  assert.equal(sale.args.p_checkout_id, 'checkout-1');
+  assert.equal(client.calls.filter(call => call.name === 'create_sale_with_serials').length, 1);
+});
+
+test('checkout rejects lines from different checkouts before writing', async () => {
+  const old = { items: [], customers: [], transactions: [], sales: [] };
+  const client = recordingClient();
+  const appData = await loadCloudData({
+    client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await assert.rejects(() => appData.saveSnapshot(old, { ...old, sales: [
+    { id: '1', checkoutId: 'a', itemId: 'x', quantity: 1, salespersonId: 'sp' },
+    { id: '2', checkoutId: 'b', itemId: 'y', quantity: 1, salespersonId: 'sp' },
+  ] }), /一張銷售單/);
+  assert.equal(client.calls.length, 0);
+});
+
+test('editing an item never writes its possibly stale stock back to the cloud', async () => {
+  // 畫面上庫存是 5，但另一台裝置可能已賣掉一個；只改品名時不可把 5 寫回去。
+  const original = { id: 'item-1', name: '舊名', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 5, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 1 };
+  const old = { items: [original], customers: [], transactions: [], sales: [] };
+  const client = recordingClient();
+  const appData = await loadCloudData({
+    client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await appData.saveSnapshot(old, { ...old, items: [{ ...original, name: '新名' }] });
+  const update = client.calls.find(call => call.kind === 'update' && call.table === 'items');
+  assert.equal(update.id, 'item-1');
+  assert.equal(update.changes.name, '新名');
+  assert.equal('stock' in update.changes, false);
+  assert.equal(client.calls.some(call => call.kind === 'upsert' && call.table === 'items'), false);
+  assert.equal(client.calls.some(call => call.name === 'adjust_inventory'), false);
+});
+
+test('a deliberate stock edit is sent as a relative inventory adjustment', async () => {
+  const original = { id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 5, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 1 };
+  const old = { items: [original], customers: [], transactions: [], sales: [] };
+  for (const [stock, type, quantity] of [[8, 'in', 3], [2, 'out', 3]]) {
+    const client = recordingClient();
+    const appData = await loadCloudData({
+      client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+      inventory: { emptyState: () => old, validateState: value => value },
+    });
+    await appData.saveSnapshot(old, { ...old, items: [{ ...original, stock }] });
+    const adjust = client.calls.find(call => call.name === 'adjust_inventory');
+    assert.equal(adjust.args.p_type, type);
+    assert.equal(adjust.args.p_quantity, quantity);
+    assert.equal(client.calls.some(call => call.kind === 'update' && call.table === 'items'), false);
+  }
+});
+
+test('new items are inserted with their initial stock without overwriting an existing row', async () => {
+  const old = { items: [], customers: [], transactions: [], sales: [] };
+  const client = recordingClient();
+  const appData = await loadCloudData({
+    client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => old, validateState: value => value },
+  });
+  await appData.saveSnapshot(old, { ...old, items: [{ id: 'new-1', name: '新品', category: '零件', sku: 'N1', barcode: 'N1', price: 1, stock: 4, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 0 }] });
+  const upsert = client.calls.find(call => call.kind === 'upsert' && call.table === 'items');
+  assert.equal(upsert.rows[0].stock, 4);
+  assert.equal(upsert.options.ignoreDuplicates, true);
+});
+
+test('a failure after the sale committed reloads the cloud state for the screen', async () => {
+  const now = '2026-10-17T00:00:00Z';
+  const original = { id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 2, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 0 };
+  const old = { items: [original], customers: [], transactions: [], sales: [] };
+  const tables = {
+    items: [{ id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 1, minimum_stock: 0, warranty_months: 0, notes: '' }],
+    sales: [{ id: 'checkout-1', sale_number: 'S1', customer_id: null, created_by: 'admin', created_at: now }],
+    sale_lines: [{ id: 'cloud-line-1', sale_id: 'checkout-1', item_id: 'item-1', item_name: '零件', barcode: 'P1', quantity: 1, unit_price: 10, subtotal: 10 }],
+  };
+  const client = recordingClient({ tables, fail: { update: () => new Error('network lost') } });
+  const appData = await loadCloudData({
+    client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => ({ items: [], transactions: [], customers: [], salespeople: [], suppliers: [], quotations: [], purchases: [], serials: [], warranties: [], warrantyCases: [], sales: [] }), validateState: value => value },
+  });
+  const sale = { id: 'line-1', checkoutId: 'checkout-1', itemId: 'item-1', quantity: 1, salespersonId: 'sp-1' };
+  // 同時改了品名 → 銷售成功後，品項更新失敗。
+  const error = await appData.saveSnapshot(old, { ...old, items: [{ ...original, name: '改名', stock: 1 }], sales: [sale] }).catch(value => value);
+  assert.match(error.message, /network lost/);
+  assert.equal(error.reloadedState.sales[0].checkoutId, 'checkout-1');
+  assert.equal(error.reloadedState.items[0].stock, 1);
 });
