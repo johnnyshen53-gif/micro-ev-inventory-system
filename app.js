@@ -590,7 +590,7 @@ $('import-file').addEventListener('change', async (event) => {
   event.target.value = '';
   if (!file) return;
   if (typeof window !== 'undefined' && window.AppData) {
-    setStatus('雲端模式不可使用舊式覆蓋還原；請使用「首次資料移轉」，有差異時先核對備份。', true);
+    setStatus('雲端模式不可使用舊式覆蓋還原；資料以雲端為準，備份檔僅供保存與核對。', true);
     return;
   }
   try {
@@ -610,36 +610,6 @@ $('import-file').addEventListener('change', async (event) => {
     setStatus('備份已還原。');
   } catch (error) {
     setStatus(`無法匯入備份：${error.message}`, true);
-  }
-});
-
-$('migration-file')?.addEventListener('change', async (event) => {
-  const [file] = event.target.files;
-  event.target.value = '';
-  if (!file) return;
-  if (currentUser?.role !== 'admin' || isMobileView()) {
-    setStatus('首次資料移轉僅限桌面版店長執行。', true);
-    return;
-  }
-  let reloadFailed = false;
-  try {
-    const local = validateState(JSON.parse(await file.text()));
-    if (!confirm('將選取的本機備份與雲端資料核對並匯入尚缺的營運資料。系統會先另存一份備份；若資料不相容，整筆移轉會取消且不覆蓋雲端。確定繼續嗎？')) return;
-    const epoch = appSessionEpoch;
-    setAppEnabled(false);
-    const result = await window.AppData.migrateLocalStateToCloud(local,
-      data => downloadBackup(data, 'motorcycle-inventory-before-cloud-migration'));
-    if (epoch !== appSessionEpoch) return;
-    state = result.state;
-    render(); renderSaleCart(); showPage(currentPage());
-    setStatus(result.migrated ? '已完成首次資料移轉；已啟動原始備份下載。' : '此批資料先前已移轉，未重複匯入。');
-  } catch (error) {
-    reloadFailed = error.reloadFailed === true;
-    setStatus(reloadFailed
-      ? `雲端資料可能已匯入，但重新讀取失敗：${error.message}。操作已鎖定，請重新登入核對；不要再次匯入。`
-      : `首次資料移轉未完成：${error.message}。原始備份未刪除，請先核對資料。`, true);
-  } finally {
-    setAppEnabled(!reloadFailed && window.AppAuthUI?.isActive?.() !== false);
   }
 });
 

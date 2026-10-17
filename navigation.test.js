@@ -265,27 +265,11 @@ test('import warns old backups clear suppliers and purchases and cancellation pr
   assert.equal(context.state.suppliers[0].id, 'existing');
 });
 
-test('cloud migration requires an explicit backup file, admin role, and confirmation', async () => {
+test('first-time cloud migration button is removed from the toolbar', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
-  const elements = new Map();
-  const $ = id => { if (!elements.has(id)) elements.set(id, { listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; } }); return elements.get(id); };
-  const calls = [];
-  const context = { $, state: {}, currentUser: { role: 'clerk' }, appSessionEpoch: 0, window: { AppData: {
-    migrateLocalStateToCloud: async (data, backup) => { calls.push('migrate'); await backup(data); return { migrated: true, state: data }; },
-  } }, isMobileView: () => false, validateState: value => value,
-  confirm: () => true, downloadBackup: () => calls.push('backup'), setStatus: () => {},
-  render() {}, renderSaleCart() {}, showPage() {}, currentPage: () => 'list',
-  setAppEnabled() {}, updateItemPrintButton() {}, renderTransactionItems() {}, resetWarrantyForm() {},
-  };
-  const start = app.indexOf("$('migration-file')?.addEventListener");
-  assert.ok(start >= 0, 'migration control is implemented');
-  vm.runInNewContext(app.slice(start, app.indexOf('function serialNumbersFromInput')), context);
-  const file = { text: async () => JSON.stringify({ items: [] }) };
-  await $('migration-file').listeners.change({ target: { files: [file], value: 'backup.json' } });
-  assert.deepEqual(calls, []);
-  context.currentUser.role = 'admin';
-  await $('migration-file').listeners.change({ target: { files: [file], value: 'backup.json' } });
-  assert.deepEqual(calls, ['migrate', 'backup']);
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /migration-file|首次資料移轉/);
+  assert.doesNotMatch(app, /migration-file|首次資料移轉/);
 });
 
 test('purchase clear button stays available after a draft is saved and reset', async () => {
@@ -510,7 +494,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=18"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=45"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=46"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
