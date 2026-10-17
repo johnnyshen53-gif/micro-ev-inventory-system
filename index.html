@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -210,21 +210,26 @@
       </div>
       <section id="warranty-detail" class="panel" hidden><h2>保固詳情與送修案件</h2><p id="warranty-detail-summary"></p><p id="warranty-detail-status" class="warranty-state"></p><h3 id="warranty-case-form-title">新增送修案件</h3><form id="warranty-case-form"><input id="warranty-case-id" type="hidden"><div class="field"><label for="warranty-case-issue">故障說明</label><textarea id="warranty-case-issue" rows="2" required></textarea></div><div class="split-fields"><div class="field"><label for="warranty-case-status">案件狀態</label><select id="warranty-case-status"><option value="pending">待處理</option><option value="in_progress">處理中</option><option value="completed">已完成</option><option value="not_covered">不符保固</option></select></div><div class="field"><label for="warranty-case-handled-at">處理日期（選填）</label><input id="warranty-case-handled-at" type="date"></div></div><div class="field"><label for="warranty-case-resolution-note">處理備註</label><textarea id="warranty-case-resolution-note" rows="2"></textarea></div><p id="warranty-case-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存案件</button><button id="warranty-case-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form><div class="table-wrap"><table><thead><tr><th>故障說明</th><th>狀態</th><th>處理日期</th><th>處理備註</th><th>操作</th></tr></thead><tbody id="warranty-case-list"></tbody></table></div><h3>出保固更換紀錄</h3><div class="table-wrap"><table><thead><tr><th>日期</th><th>換出品項</th><th>數量</th><th>換出序號</th><th>沿用到期日</th><th>原因</th><th>操作帳號</th></tr></thead><tbody id="warranty-replacement-list"></tbody></table></div></section>
     </section>
-    <section class="app-page grid forms" data-page="sales" aria-label="銷售管理" hidden>
-      <article class="panel sale-panel">
-        <div class="section-heading"><div><p class="eyebrow">POS</p><h2>銷售管理</h2></div><p class="sale-hint">掃描後按 Enter，或由庫存選擇品項，加入同一購物車。</p></div>
-        <form id="sale-form">
-          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div id="sale-item-info" class="scan-result" hidden></div><div class="field"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入購物車</button></div>
+    <section class="app-page sale-page" data-page="sales" aria-label="銷售管理" hidden>
+      <div class="section-heading sale-heading"><div><p class="eyebrow">POS</p><h2>銷售結帳</h2></div><p class="sale-hint">掃描 QR Code 或由庫存挑選商品，確認右側訂單後一次結帳。</p></div>
+      <form id="sale-form" class="sale-layout">
+        <div class="sale-entry panel">
+          <h3 class="sale-step"><span class="sale-step-number">1</span>加入商品</h3>
+          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div class="field sale-qty"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button">加入</button></div>
+          <div id="sale-item-info" class="scan-result" hidden></div>
           <p class="sale-hint">掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。</p>
-          <fieldset class="sale-picker"><legend>由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>機車</option><option>零件</option><option>用品</option><option>電池</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="split-fields"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入購物車</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
+          <fieldset class="sale-picker"><legend>或由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>機車</option><option>零件</option><option>用品</option><option>電池</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="sale-picker-actions"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
           <div id="sale-serial-panel" class="serial-box" hidden><h3>指定本次實物序號</h3><p id="sale-serial-hint" aria-live="polite"></p><div class="field"><label for="sale-serial-scan">掃描原廠序號（非商品條碼）</label><input id="sale-serial-scan" type="text" autocomplete="off" placeholder="掃描後按 Enter 選取"></div><div class="field"><label for="sale-serial-ids">選擇在庫序號（可多選）</label><select id="sale-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div><button id="sale-serial-add" type="button">確認序號並加入購物車</button></div>
           <p id="sale-form-error" class="form-error" role="alert" hidden></p>
-          <div class="table-wrap sale-cart-wrap"><table><thead><tr><th>品項</th><th>單價</th><th>數量</th><th>小計</th><th>操作</th></tr></thead><tbody id="sale-cart"></tbody><tfoot><tr><th colspan="3">合計</th><th id="sale-cart-total">0</th><th></th></tr></tfoot></table></div>
-          <div class="field sale-customer"><label for="sale-customer">客戶（機車／電池必選；有保固月數時會建立保固）</label><select id="sale-customer"><option value="">不指定客戶</option></select></div>
+        </div>
+        <aside class="sale-summary panel" aria-label="本次訂單">
+          <h3 class="sale-step"><span class="sale-step-number">2</span>確認訂單</h3>
+          <div class="table-wrap sale-cart-wrap"><table><thead><tr><th>品項</th><th class="num">單價</th><th class="num">數量</th><th class="num">小計</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="sale-cart"></tbody></table></div>
+          <div class="field sale-customer"><label for="sale-customer">客戶</label><select id="sale-customer"><option value="">不指定客戶</option></select><small>機車／電池必選；有保固月數時會自動建立保固。</small></div>
           <div class="field"><label for="sale-salesperson">業務員（必選）</label><select id="sale-salesperson" required><option value="">請選擇業務員</option></select></div>
-          <div class="sale-checkout"><span>確認購物車內容後結帳</span><button type="submit">一次結帳</button></div>
-        </form>
-      </article>
+          <div class="sale-checkout"><div class="sale-total"><span>合計</span><strong>NT$ <span id="sale-cart-total">0</span></strong></div><button type="submit">確認結帳</button></div>
+        </aside>
+      </form>
     </section>
     <section class="app-page repair-page" data-page="repairs" aria-label="維修單管理" hidden>
       <div class="section-heading"><h2>維修單</h2><button id="repair-new" type="button" class="secondary">新增接修</button></div>
@@ -282,6 +287,6 @@
   <script src="cloud-data.js?v=16"></script>
   <script src="repair-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=41"></script>
+  <script src="app.js?v=42"></script>
 </body>
 </html>

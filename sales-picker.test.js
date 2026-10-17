@@ -70,7 +70,9 @@ test('scanning serialized products requires distinct available units before addi
   assert.equal(c.addSaleItem(c.state.items[0], 1), false);
   assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1']), true);
   assert.equal(c.saleCart[0].serialNumbers[0], '000A');
-  assert.match(c.$('sale-cart').children[0].children[0].textContent, /000A/);
+  // 序號顯示在品名下方的小字（品名儲存格的子元素）。
+  const nameCell = c.$('sale-cart').children[0].children[0];
+  assert.match([nameCell.textContent, ...Array.from(nameCell.children ?? [], child => child.textContent)].join(''), /000A/);
   assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1']), false);
   assert.equal(c.addSaleItem(c.state.items[0], 1, ['s2']), true);
   assert.equal(c.saleCart[0].quantity, 2);
