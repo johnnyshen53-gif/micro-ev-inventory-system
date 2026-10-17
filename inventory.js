@@ -1,5 +1,6 @@
 const categories = new Set(['機車', '零件', '用品', '電池']);
 const transactionTypes = new Set(['in', 'out', 'adjust', 'warranty_out']);
+const EXPIRED_WARRANTY_MARK = '[過期保固放行]';
 const warrantyCaseStatuses = new Set(['pending', 'in_progress', 'completed', 'not_covered']);
 
 function emptyState() {
@@ -675,6 +676,11 @@ function recordTransaction(state, fields) {
   if (type === 'warranty_out') {
     if (!warranty) throw new Error('請選擇原保固紀錄');
     positiveInteger(quantity, '出保固數量'); serialStock(quantity); id(fields.createdBy, '操作帳號'); id(fields.note, '出保固原因');
+    // 原保固已過期：只有店長可放行，並在原因前加註記（與雲端資料庫的規則一致）。
+    if (warranty.expiresAt < taipeiDate(new Date())) {
+      if (!fields.allowExpiredWarranty) throw new Error(`原保固已於 ${warranty.expiresAt} 到期，僅店長可放行出保固`);
+      if (!text(fields.note).startsWith(EXPIRED_WARRANTY_MARK)) fields = { ...fields, note: `${EXPIRED_WARRANTY_MARK} ${text(fields.note)}` };
+    }
   }
   const stock = type === 'in' ? item.stock + quantity : type === 'out' || type === 'warranty_out' ? item.stock - quantity : quantity;
   if (stock < 0) throw new Error('庫存不足，無法售出');

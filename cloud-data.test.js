@@ -254,10 +254,10 @@ test('new customers include the signed-in creator without changing existing cust
       from: table => ({
         insert: async value => { calls.push({ table, method: 'insert', value }); return { error: null }; },
         upsert: async () => ({ error: new Error('new row violates row-level security policy for table "customers"') }),
-        update: value => ({ eq: (field, id) => ({ select: () => ({ single: async () => {
+        update: value => ({ eq: (field, id) => ({ select: async () => {
           calls.push({ table, method: 'update', value, field, id });
-          return { data: { id }, error: null };
-        } }) }) }),
+          return { data: [{ id }], error: null };
+        } }) }),
         select: async () => ({ data: [], error: null }),
       }),
     },
@@ -750,4 +750,64 @@ test('offline reload still uses the same account cache via the local session', a
   const result = await appData.loadSnapshot();
   assert.equal(result.source, 'cache');
   assert.equal(result.readonly, true);
+});
+
+// 可鏈式呼叫的 update 替身：記錄所有 eq 條件，最後 select 時依 matched() 決定是否有列被更新。
+function updateBuilder(log, table, changes, matched) {
+  const filters = {};
+  const builder = {
+    eq: (column, value) => { filters[column] = value; return builder; },
+    select: async () => { log.push({ table, changes, filters: { ...filters } }); return { data: matched(filters) ? [{ id: filters.id }] : [], error: null }; },
+  };
+  return builder;
+}
+
+test('editing a customer only succeeds when nobody changed it in the meantime', async () => {
+  const at = '2026-10-17T03:00:00.123456+00:00';
+  const customer = { id: 'cust-1', memberNumber: 'M1', name: '王小明', phone: '', address: '', plateNumbers: [], note: '', active: true, createdAt: at, updatedAt: at };
+  const old = { items: [], transactions: [], customers: [customer], salespeople: [], sales: [] };
+  for (const [cloudUpdatedAt, shouldSucceed] of [[at, true], ['2026-10-17T03:05:00+00:00', false]]) {
+    const log = [];
+    const appData = await loadCloudData({
+      client: { from: table => ({
+        update: changes => updateBuilder(log, table, changes, filters => filters.id === 'cust-1' && filters.updated_at === cloudUpdatedAt),
+        select: async () => ({ data: [], error: null }),
+      }) },
+      cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+      inventory: { emptyState: () => old, validateState: value => value },
+    });
+    const attempt = appData.saveSnapshot(old, { ...old, customers: [{ ...customer, name: '王大明', updatedAt: '2026-10-17T04:00:00Z' }] });
+    if (shouldSucceed) await attempt; else await assert.rejects(attempt, /剛被其他人修改過/);
+    // 條件用的是「讀到時」的 updated_at，不是本機編輯後的新時間。
+    assert.equal(log[0].filters.updated_at, at);
+  }
+});
+
+test('after a save only the tables that operation touched are fetched again', async () => {
+  const fetched = [];
+  const client = {
+    rpc: async () => ({ error: null }),
+    from: table => ({
+      select: async () => { fetched.push(table); return { data: [], error: null }; },
+      update: changes => updateBuilder([], table, changes, () => true),
+    }),
+  };
+  const empty = { items: [], transactions: [], customers: [], salespeople: [], sales: [], suppliers: [], quotations: [], purchases: [], serials: [], warranties: [], warrantyCases: [] };
+  const appData = await loadCloudData({
+    client,
+    cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
+    inventory: { emptyState: () => empty, validateState: value => value },
+  });
+  await appData.loadSnapshot({ id: 'admin', role: 'admin' });
+  assert.equal(fetched.length, 16);
+
+  // 只新增一筆報價：只重抓報價主檔與明細。
+  fetched.length = 0;
+  await appData.saveSnapshot(empty, { ...empty, quotations: [{ id: 'q-1', lines: [] }] });
+  assert.deepEqual(fetched.sort(), ['quotation_lines', 'quotations']);
+
+  // 認不得的操作（例如進貨）會整份重抓。
+  fetched.length = 0;
+  await appData.saveSnapshot(empty, { ...empty, purchases: [{ id: 'p-1', status: 'draft', lines: [] }] });
+  assert.equal(fetched.length, 16);
 });

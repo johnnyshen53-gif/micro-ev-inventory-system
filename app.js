@@ -539,6 +539,7 @@ if ($('transaction-form')) $('transaction-form').addEventListener('submit', asyn
       serialNumbers: serialNumbersFromInput($('transaction-serial-numbers').value),
       serialIds: Array.from($('transaction-serial-ids').selectedOptions, option => option.value),
       createdBy: currentUser?.id,
+      allowExpiredWarranty: currentUser?.role === 'admin',
     });
     if (!await saveState(next)) return;
     $('transaction-form').reset();
