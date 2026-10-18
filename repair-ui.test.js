@@ -204,3 +204,58 @@ test('technician choices come from staff with the technician role only', () => {
   browser.RepairUI.mount({ getState: () => state, setState() {}, notify() {} });
   assert.deepEqual(get('repair-technician').children.map(option => option.text), ['尚未指定', '全能', '純維修']);
 });
+
+test('repair labor hours multiply the shop rate, allow manual override and keep the saved rate snapshot', async () => {
+  const nodes = new Map(), saved = [];
+  function node(tag = 'div') { return { tag, value: '', textContent: '', hidden: false, disabled: false, dataset: {}, children: [], classList: { add() {}, remove() {}, toggle() {} },
+    listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...values) { this.children.push(...values); },
+    replaceChildren(...values) { this.children = values; }, reset() {}, reportValidity: () => true }; }
+  const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  const state = { customers: [], salespeople: [], items: [], serials: [] };
+  let orders = [], rate = 800;
+  const browser = { print() {}, confirm: () => true, addEventListener() {}, AppAuthUI: { isActive: () => true }, AppData: {
+    loadRepairOrders: async () => orders,
+    async saveRepairOrder(order) { saved.push(order); orders = [{ ...order, id: 'repair-1', number: 'R-1', status: 'intake', paymentStatus: 'unpaid', updatedAt: '1', lines: [] }]; return { id: 'repair-1', orders, state }; },
+  } };
+  vm.runInNewContext(source, { window: browser, document: { getElementById: get, createElement: node, body: { classList: { add() {}, remove() {} } } }, Option: function Option(text, value) { return { text, value }; } });
+  browser.RepairUI.mount({ getState: () => state, setState() {}, notify() {}, getHourlyRate: () => rate });
+  for (const [id, value] of [['repair-customer-name', '客'], ['repair-customer-phone', '0911'], ['repair-plate', 'ABC'], ['repair-vehicle', '車型'], ['repair-issue', '保養']]) get(id).value = value;
+  get('repair-labor-hours').value = '1.5';
+  get('repair-labor-hours').listeners.input();
+  assert.equal(get('repair-labor').value, '1200');
+  assert.match(get('repair-labor-hint').textContent, /1\.5 小時/);
+  get('repair-labor').value = '1000';
+  get('repair-form').listeners.submit({ preventDefault() {} });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual([saved[0].laborHours, saved[0].laborRate, saved[0].laborAmount], [1.5, 800, 1000]);
+  // 店長之後調高費率：重開舊單仍沿用當時 800，直到改了工時才用新費率。
+  rate = 900;
+  get('repair-form').listeners.submit({ preventDefault() {} });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(saved[1].laborRate, 800);
+  get('repair-labor-hours').value = '2';
+  get('repair-labor-hours').listeners.input();
+  assert.equal(get('repair-labor').value, '1800');
+  // 清空工時＝直接輸入工資，不送費率。
+  get('repair-labor-hours').value = '';
+  get('repair-labor-hours').listeners.input();
+  get('repair-form').listeners.submit({ preventDefault() {} });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual([saved[2].laborHours, saved[2].laborRate], [null, null]);
+});
+
+test('repair print shows hours and rate and flags a manual labor adjustment', () => {
+  const nodes = new Map();
+  function node() { return { textContent: '', children: [], className: '', append(...values) { this.children.push(...values); }, replaceChildren(...values) { this.children = values; } }; }
+  const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
+  const browser = { print() {} };
+  vm.runInNewContext(source, { window: browser, document: { getElementById: get, createElement: node, body: { classList: { add() {} } } } });
+  browser.RepairUI.printRepairOrder({ number: 'R-1', status: 'intake', paymentStatus: 'unpaid', laborAmount: 1000, laborHours: 1.5, laborRate: 800, total: 1000 }, []);
+  const text = get('repair-print').children.map(child => child.textContent).join('\n');
+  assert.match(text, /工資：NT\$ 1,000（1\.5 小時 × NT\$ 800／小時，已手動調整）/);
+});
+
+test('repair form offers optional labor hours next to the labor amount', () => {
+  assert.match(html, /<input id="repair-labor-hours" type="number" min="0" max="999\.99" step="0\.01"/);
+  assert.match(html, /id="repair-labor-hint"/);
+});

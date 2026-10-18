@@ -216,3 +216,38 @@ dialog.serial-dialog { width: min(900px, calc(100% - 2rem)); max-height: min(85v
 .bonus-page .warning { color: #b45309; font-weight: 700; }
 .bonus-report { margin-top: 1.25rem; }
 .bonus-report .table-wrap + .table-wrap { margin-top: 1rem; }
+
+/* 營運總覽的店長區塊（較上月、趨勢、熱銷） */
+.monthly-summary .dashboard-change { margin-top: .35rem; }
+.dashboard-change { font-weight: 700; }
+.dashboard-change[data-trend="up"] { color: #15803d; }
+.dashboard-change[data-trend="down"] { color: var(--danger); }
+.monthly-total-card .dashboard-change { color: #e2e8f0; }
+.monthly-total-card .dashboard-change[data-trend="up"] { color: #86efac; }
+.monthly-total-card .dashboard-change[data-trend="down"] { color: #fca5a5; }
+.dashboard-trend-panel { margin-bottom: 1.5rem; }
+.dashboard-trend { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .75rem; align-items: end; min-height: 13rem; }
+.dashboard-bar-column { display: grid; grid-template-rows: auto 10rem auto; gap: .35rem; text-align: center; min-width: 0; }
+.dashboard-bar-value { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+.dashboard-bar-track { display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid #cbd5e1; }
+.dashboard-bar { width: min(3rem, 70%); min-height: 2px; background: #94a3b8; border-radius: 6px 6px 0 0; }
+.dashboard-bar-column.current .dashboard-bar { background: var(--brand); }
+.dashboard-bar-column.current .dashboard-bar-label, .dashboard-bar-column.current .dashboard-bar-value { color: var(--brand-dark); font-weight: 800; }
+.dashboard-bar-label { color: var(--muted); font-size: .85rem; }
+.dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 1.5rem; align-items: start; }
+.dashboard-grid .panel h3 { margin-top: 0; }
+.dashboard-note { margin: -.4rem 0 .5rem; color: var(--muted); font-size: .85rem; }
+.dashboard-table { min-width: 0; }
+.dashboard-table td:nth-child(n+3), .dashboard-table th:nth-child(n+3) { text-align: right; }
+@media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+.dashboard-hbar { display: grid; gap: .65rem; }
+.dashboard-hbar-row { display: grid; grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr) auto; gap: .6rem; align-items: center; }
+.dashboard-hbar-name { overflow-wrap: anywhere; font-weight: 700; font-size: .9rem; }
+.dashboard-hbar-track { height: .9rem; background: #eef2f7; border-radius: 999px; overflow: hidden; }
+.dashboard-hbar-bar { height: 100%; min-width: 2px; background: var(--brand); border-radius: 999px; }
+.dashboard-hbar-value { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+#monthly-performance-panel, #monthly-months-panel { margin-bottom: 1.5rem; }
+#monthly-months-list tr.current { background: #eff6ff; }
+.monthly-detail-heading { align-items: center; }
+.monthly-detail-heading .monthly-detail-title { margin: 0 0 .75rem; }
+@media (max-width: 700px) { .dashboard-hbar-row { grid-template-columns: 1fr auto; } .dashboard-hbar-track { grid-column: 1 / -1; grid-row: 2; } }

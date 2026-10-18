@@ -9,6 +9,7 @@ const {
   addWarrantyCase,
   createQuotation,
   createWarranty,
+  dashboardSummary,
   deactivateCustomer,
   deactivateSalesperson,
   deleteCustomer,
@@ -116,6 +117,8 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
   getState: () => state,
   setState: next => { state = next; render(); },
   notify: setStatus,
+  // 全店工時費率（店長在分紅管理設定）供維修單依工時自動算工資。
+  getHourlyRate: () => hourlyRate,
 });
 // 分紅管理（店長專用）：業務員與品項名單取自目前狀態，金額設定與紀錄另由店長專用 RPC 讀取。
 if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
@@ -1598,6 +1601,8 @@ function renderMonthlySales(refreshPerformance = false) {
   $('monthly-sales-quantity').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.quantity, 0));
   $('monthly-sales-total').textContent = formatNumber(sales.reduce((sum, sale) => sum + sale.subtotal, 0));
   $('monthly-sales-count').textContent = formatNumber(new Set(sales.map((sale, index) => sale.saleNumber ?? sale.id ?? index)).size);
+  // 較上月、趨勢圖、熱銷品項（店長專用）透過掛勾呼叫，讓只載入本函式的測試不受影響。
+  renderMonthlySales.renderOverview?.(month, isAdmin);
   const panel = $('monthly-performance-panel');
   panel.hidden = !isAdmin;
   if (!isAdmin) {
@@ -1637,6 +1642,115 @@ function renderMonthlySales(refreshPerformance = false) {
   });
 }
 $('monthly-sales-month')?.addEventListener('change', () => renderMonthlySales(true));
+// 營運總覽的店長區塊：由已載入的銷售資料計算，不另外查詢資料庫。
+function dashboardChangeText(value) {
+  if (value === null) return '上月無資料';
+  const rounded = Math.round(value * 10) / 10;
+  return `較上月 ${rounded > 0 ? '+' : ''}${formatNumber(rounded)}%`;
+}
+function renderMonthlyOverview(month, isAdmin) {
+  const chart = $('monthly-trend');
+  const top = $('monthly-top-items');
+  const motorcycleChart = $('monthly-motorcycle-chart');
+  const monthList = $('monthly-months-list');
+  for (const id of ['monthly-trend-panel', 'monthly-top-panel', 'monthly-motorcycle-panel', 'monthly-months-panel', 'monthly-detail-back']) $(id).hidden = !isAdmin;
+  // 店長先看各月清單，點選月份後才顯示明細；店員維持直接看當月明細。
+  const showDetail = !isAdmin || renderMonthlySales.detailMonth === month;
+  $('monthly-detail-panel').hidden = !showDetail;
+  $('monthly-months-panel').hidden = !isAdmin || showDetail;
+  $('monthly-detail-title').textContent = isAdmin ? `${month} 銷售明細` : '銷售明細';
+  for (const key of ['total', 'quantity', 'count']) $(`monthly-sales-${key}-change`).hidden = !isAdmin;
+  if (!isAdmin) {
+    // 店員看不到這些區塊，也不保留先前店長畫面的內容。
+    chart.replaceChildren(); top.replaceChildren(); motorcycleChart.replaceChildren(); monthList.replaceChildren();
+    for (const key of ['total', 'quantity', 'count']) $(`monthly-sales-${key}-change`).textContent = '';
+    return;
+  }
+  let summary;
+  try { summary = dashboardSummary(state, month); } catch (error) { setStatus(`無法計算營運總覽：${error.message}`, true); return; }
+  for (const key of ['total', 'quantity', 'count']) {
+    const change = $(`monthly-sales-${key}-change`);
+    const value = summary.change[key];
+    change.textContent = dashboardChangeText(value);
+    change.dataset.trend = value === null ? 'none' : value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
+  }
+  // 長條圖：高度以期間最大值為 100%，全為 0 時只顯示 0。
+  chart.replaceChildren();
+  const max = Math.max(0, ...summary.trend.map(point => point.total));
+  summary.trend.forEach(point => {
+    const column = document.createElement('div');
+    column.className = 'dashboard-bar-column';
+    if (point.month === month) column.classList.add('current');
+    const value = document.createElement('span'); value.className = 'dashboard-bar-value'; value.textContent = formatNumber(point.total);
+    const track = document.createElement('div'); track.className = 'dashboard-bar-track';
+    const bar = document.createElement('div'); bar.className = 'dashboard-bar';
+    bar.setAttribute('style', `height: ${max ? point.total / max * 100 : 0}%`);
+    track.append(bar);
+    const label = document.createElement('span'); label.className = 'dashboard-bar-label'; label.textContent = `${Number(point.month.slice(5))}月`;
+    column.append(value, track, label);
+    chart.append(column);
+  });
+  chart.setAttribute('aria-label', `近 6 個月銷售額：${summary.trend.map(point => `${point.month} ${formatNumber(point.total)}`).join('、')}`);
+  top.replaceChildren();
+  summary.topItems.forEach((item, index) => {
+    const row = document.createElement('tr');
+    [String(index + 1), item.name, formatNumber(item.quantity), formatNumber(item.total)].forEach((value, column) => {
+      const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['排名', '品項', '售出件數', '銷售金額'][column]; row.append(cell);
+    });
+    top.append(row);
+  });
+  if (!summary.topItems.length) {
+    const row = document.createElement('tr'); const cell = document.createElement('td');
+    cell.colSpan = 4; cell.className = 'empty'; cell.textContent = '本月尚未有銷售紀錄。';
+    row.append(cell); top.append(row);
+  }
+  // 機車排名橫條圖：長度以第一名台數為 100%。
+  motorcycleChart.replaceChildren();
+  const topQuantity = summary.motorcycles[0]?.quantity ?? 0;
+  summary.motorcycles.forEach((entry, index) => {
+    const row = document.createElement('div'); row.className = 'dashboard-hbar-row';
+    const name = document.createElement('span'); name.className = 'dashboard-hbar-name'; name.textContent = `${index + 1}. ${entry.name}`;
+    const track = document.createElement('div'); track.className = 'dashboard-hbar-track';
+    const bar = document.createElement('div'); bar.className = 'dashboard-hbar-bar';
+    bar.setAttribute('style', `width: ${topQuantity ? entry.quantity / topQuantity * 100 : 0}%`);
+    track.append(bar);
+    const value = document.createElement('span'); value.className = 'dashboard-hbar-value'; value.textContent = `${formatNumber(entry.quantity)} 台｜${formatNumber(entry.total)}`;
+    row.append(name, track, value);
+    motorcycleChart.append(row);
+  });
+  if (!summary.motorcycles.length) { const empty = document.createElement('p'); empty.className = 'empty'; empty.textContent = '本月尚未售出機車。'; motorcycleChart.append(empty); }
+  motorcycleChart.setAttribute('aria-label', summary.motorcycles.length ? `本月機車銷售排名：${summary.motorcycles.map(entry => `${entry.name} ${formatNumber(entry.quantity)} 台`).join('、')}` : '本月尚未售出機車');
+  monthList.replaceChildren();
+  summary.months.forEach(entry => {
+    const row = document.createElement('tr');
+    if (entry.month === month) row.className = 'current';
+    [entry.month, formatNumber(entry.total), formatNumber(entry.count), formatNumber(entry.quantity)].forEach((value, column) => {
+      const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['月份', '銷售額', '銷售筆數', '售出件數'][column]; row.append(cell);
+    });
+    const cell = document.createElement('td'); cell.dataset.label = '明細';
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.textContent = '查看明細'; button.dataset.month = entry.month;
+    cell.append(button); row.append(cell); monthList.append(row);
+  });
+  if (!summary.months.length) {
+    const row = document.createElement('tr'); const cell = document.createElement('td');
+    cell.colSpan = 5; cell.className = 'empty'; cell.textContent = '尚未有銷售紀錄。';
+    row.append(cell); monthList.append(row);
+  }
+}
+renderMonthlySales.renderOverview = renderMonthlyOverview;
+// 點「查看明細」：整頁切換到該月份並展開明細；「返回」回到各月清單。
+$('monthly-months-list')?.addEventListener('click', (event) => {
+  const month = event.target.closest?.('button[data-month]')?.dataset.month;
+  if (!month || document.body.dataset.role !== 'admin') return;
+  $('monthly-sales-month').value = month;
+  renderMonthlySales.detailMonth = month;
+  renderMonthlySales(true);
+  $('monthly-detail-panel').scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+});
+$('monthly-detail-back')?.addEventListener('click', () => {
+  renderMonthlySales.detailMonth = '';
+  renderMonthlySales();
+});
 
 async function resetAppSession() {
   appSessionEpoch++;
@@ -1647,6 +1761,8 @@ async function resetAppSession() {
   renderMonthlySales.assignmentMonth = '';
   renderMonthlySales.assignments = null;
   renderMonthlySales.assignmentError = '';
+  $('monthly-trend')?.replaceChildren();
+  renderMonthlySales.detailMonth = '';
   currentUser = null;
   setAppEnabled(false);
   window.StaffUI?.stop();
