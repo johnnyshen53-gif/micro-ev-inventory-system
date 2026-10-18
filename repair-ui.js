@@ -10,7 +10,8 @@
   const statusLabel = order => ({ intake: '接修中', quoted: '已報價', completed: '已完工', cancelled: '已取消' })[order.status] ?? order.status;
   // 工資＝工時 × 費率，先換成「分」整數再相乘，避免小數誤差（與報價單算法相同）。
   const laborFromHours = (hours, rate) => Math.round(Math.round(hours * 100) * Math.round(rate * 100) / 100) / 100;
-  const money = value => `NT$ ${new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
+  // 金額：整數不顯示小數；有小數時固定兩位（例：41.20），避免 41.2 與 1,000 格式不一致。
+  const money = value => { const amount = Number(value) || 0; const digits = Number.isInteger(amount) ? 0 : 2; return `NT$ ${new Intl.NumberFormat('zh-TW', { minimumFractionDigits: digits, maximumFractionDigits: 2 }).format(amount)}`; };
   function element(tag, text = '', className = '') {
     const node = document.createElement(tag);
     node.textContent = text;

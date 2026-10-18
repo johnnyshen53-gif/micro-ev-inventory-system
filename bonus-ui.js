@@ -3,7 +3,8 @@
 // 金額一律由資料庫在結帳／完工當下計算與記帳；這個畫面只送出設定、顯示已記帳的快照。
 (function () {
   const $ = id => document.getElementById(id);
-  const money = value => `NT$ ${new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
+  // 金額：整數不顯示小數；有小數時固定兩位（例：41.20），避免 41.2 與 1,000 格式不一致。
+  const money = value => { const amount = Number(value) || 0; const digits = Number.isInteger(amount) ? 0 : 2; return `NT$ ${new Intl.NumberFormat('zh-TW', { minimumFractionDigits: digits, maximumFractionDigits: 2 }).format(amount)}`; };
   function element(tag, text = '', className = '') {
     const node = document.createElement(tag);
     node.textContent = text;

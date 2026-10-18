@@ -81,7 +81,7 @@ test('manager overview adds month-over-month change, six trend bars and top item
   assert.equal($('monthly-trend').children.length, 6);
   assert.equal($('monthly-trend').children[5].children[1].children[0].attributes.style, 'height: 100%');
   assert.equal($('monthly-trend').children[0].children[1].children[0].attributes.style, 'height: 0%');
-  assert.deepEqual(cellsOf($('monthly-top-items').children[0]), ['1', '前煞車皮', '2', '700']);
+  assert.deepEqual(cellsOf($('monthly-top-items').children[0]), ['1', '前煞車皮', '2', 'NT$ 700']);
   assert.equal($('monthly-top-panel').hidden, false);
 });
 
@@ -123,7 +123,7 @@ test('manager sees the month list until choosing a month, then that month detail
   context.renderMonthlyOverview('2026-10', true);
   assert.equal($('monthly-months-panel').hidden, false);
   assert.equal($('monthly-detail-panel').hidden, true);
-  assert.deepEqual(cellsOf($('monthly-months-list').children[0]).slice(0, 4), ['2026-10', '700', '1', '2']);
+  assert.deepEqual(cellsOf($('monthly-months-list').children[0]).slice(0, 4), ['2026-10', 'NT$ 700', '1', '2']);
   assert.equal($('monthly-months-list').children[0].children[4].children[0].dataset.month, '2026-10');
   context.renderMonthlySales.detailMonth = '2026-10';
   context.renderMonthlyOverview('2026-10', true);
@@ -151,5 +151,5 @@ test('manager motorcycle chart draws bars relative to the top seller', async () 
   const row = $('monthly-motorcycle-chart').children[0];
   assert.equal(row.children[0].textContent, '1. 前煞車皮');
   assert.equal(row.children[1].children[0].attributes.style, 'width: 100%');
-  assert.equal(row.children[2].textContent, '2 台｜700');
+  assert.equal(row.children[2].textContent, '2 台｜NT$ 700');
 });

@@ -159,8 +159,8 @@ body { background: #f1f5f9; color: #0f172a; }
 .sale-picker-actions .field { margin-bottom: 0; }
 .sale-picker-actions button { min-height: 2.75rem; justify-self: start; }
 .sale-page button { border-radius: 8px; font-weight: 700; }
-.sale-page button:not(.secondary):not(.danger) { background: var(--sale-ink); box-shadow: none; }
-.sale-page button:not(.secondary):not(.danger):hover { background: #1e293b; }
+.sale-page button:not(.secondary):not(.danger) { background: var(--brand); box-shadow: none; }
+.sale-page button:not(.secondary):not(.danger):hover { background: var(--brand-dark); }
 .sale-page button.secondary { background: #fff; border: 1px solid #cbd5e1; color: var(--sale-ink); }
 .sale-page button.secondary:hover { background: var(--sale-soft); }
 .sale-page button:disabled, .sale-page button.secondary:disabled { background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8; }
@@ -263,3 +263,58 @@ dialog.serial-dialog { width: min(900px, calc(100% - 2rem)); max-height: min(85v
 .monthly-detail-heading { align-items: center; }
 .monthly-detail-heading .monthly-detail-title { margin: 0 0 .75rem; }
 @media (max-width: 700px) { .dashboard-hbar-row { grid-template-columns: 1fr auto; } .dashboard-hbar-track { grid-column: 1 / -1; grid-row: 2; } }
+
+/* ===== 2026-10 UI 審查修正（UI UX Pro Max） ===== */
+/* 頁首：品牌小字至少 12px；右側放「匯出備份」與「登入者＋登出」，登出不再藏在頁面最底部。 */
+.hero .eyebrow { font-size: .75rem; }
+.hero-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 1rem; }
+.hero .account-bar { margin: 0; gap: .6rem; color: #cbd5e1; font-size: .9rem; white-space: nowrap; }
+.hero .account-bar button { min-height: 2.6rem; padding: .5rem 1.1rem; border: 1px solid #334155; border-radius: 6px; background: transparent; box-shadow: none; color: #e2e8f0; font-size: 1rem; }
+.hero .account-bar button:hover { background: #1e293b; }
+@media (max-width: 700px) { .hero-actions { width: 100%; justify-content: space-between; } .hero .account-bar { width: 100%; justify-content: space-between; } }
+/* 大字金額：「NT$」縮小，數字不會在手機上被擠到第二行。 */
+.money-figure { white-space: nowrap; }
+.card .money-figure span { display: inline; color: inherit; }
+.money-figure .currency { margin-right: .1em; font-size: .55em; font-weight: 700; }
+
+/* 表頭一律不換行，避免「姓名」「狀態」被擠成直排。 */
+th { white-space: nowrap; }
+
+/* 「左表單＋右清單」頁面：表單固定寬，清單吃剩下空間；minmax(0, …) 讓清單不會撐破頁面。 */
+@media (min-width: 701px) {
+  .app-page[data-page="suppliers"].forms, .app-page[data-page="customers"].forms, .warranty-page > .grid.forms { grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr); }
+  .app-page[data-page="suppliers"] table, .app-page[data-page="customers"] table, .warranty-page table { min-width: 0; }
+}
+/* 短欄位不換行（編號、姓名、電話、狀態、日期），長文字（地址、備註）才換行。 */
+#supplier-list td:nth-child(3), #supplier-list td:nth-child(5), #supplier-list td:nth-child(7), #customer-list td:nth-child(-n+3), #customer-list td:nth-child(7), #warranty-list td:nth-child(1), #warranty-list td:nth-child(n+4) { white-space: nowrap; }
+#customer-list td:nth-child(4) { word-break: keep-all; }
+.app-page[data-page="customers"] :is(th, td) { padding: .7rem .55rem; }
+#customer-list td:nth-child(5) { min-width: 8rem; }
+/* 兩欄小欄位（例如購買日期／到期日期）可縮小，不會把日期框推出卡片外。 */
+@media (min-width: 701px) { .split-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.split-fields input { min-width: 0; }
+
+/* 列內的危險按鈕（刪除／停用）平常用白底紅字外框，不再一整排紅色；真正刪除前仍有確認視窗。 */
+.table-wrap button.danger { border: 1px solid #fca5a5; background: #fff; box-shadow: none; color: var(--danger); }
+.table-wrap button.danger:hover { border-color: var(--danger); background: #fef2f2; }
+
+/* 數字欄（金額、數量）靠右對齊＋等寬數字，上下比較位數更容易。手機卡片版不套用。 */
+@media (min-width: 701px) {
+  :is(
+    table:has(#item-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7)),
+    table:has(#purchase-lines) :is(th, td):nth-child(5),
+    table:has(#purchase-list) :is(th, td):nth-child(3),
+    .purchase-detail-table :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(6)),
+    table:has(#quotation-lines) :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(4), :nth-child(6), :nth-child(7), :nth-child(8), :nth-child(9)),
+    table:has(#quotation-list) :is(th, td):nth-child(5),
+    table:has(#warranty-replacement-list) :is(th, td):nth-child(3),
+    table:has(#repair-lines) :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(4)),
+    table:has(#repair-list) :is(th, td):nth-child(5),
+    table:has(#bonus-costs) :is(th, td):nth-child(3),
+    table:has(#bonus-summary) :is(th, td):is(:nth-child(3), :nth-child(4)),
+    table:has(#bonus-detail) :is(th, td):is(:nth-child(5), :nth-child(6)),
+    table:has(#monthly-performance-list) :is(th, td):is(:nth-child(2), :nth-child(3)),
+    table:has(#monthly-months-list) :is(th, td):nth-child(2),
+    table:has(#monthly-sales-list) :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(6))
+  ) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+}
