@@ -1006,15 +1006,17 @@ function dashboardSummary(state, month, options = {}) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('月份格式無效');
   const trendMonths = options.trendMonths ?? 6;
   const topLimit = options.topLimit ?? 5;
+  // 只驗證一次整份資料（資料多時驗證較花時間）。
+  const current = validateState(state);
   const byMonth = new Map();
-  for (const sale of validateState(state).sales) {
+  for (const sale of current.sales) {
     const key = taipeiMonth(sale.createdAt);
     if (!byMonth.has(key)) byMonth.set(key, []);
     byMonth.get(key).push(sale);
   }
   const salesOf = key => byMonth.get(key) ?? [];
   const previousMonth = shiftMonth(month, -1);
-  const current = monthTotals(salesOf(month));
+  const thisMonth = monthTotals(salesOf(month));
   const previous = monthTotals(salesOf(previousMonth));
   const trend = Array.from({ length: trendMonths }, (_, index) => {
     const key = shiftMonth(month, index - trendMonths + 1);
@@ -1031,14 +1033,14 @@ function dashboardSummary(state, month, options = {}) {
   // 依銷售金額排序，金額相同再比件數，最後依品名固定順序。
   const topItems = [...items.values()].sort((a, b) => b.total - a.total || b.quantity - a.quantity || a.name.localeCompare(b.name, 'zh-TW')).slice(0, topLimit);
   // 機車銷售排名：依品項分類「機車」計算當月台數，台數相同再比金額。品項已刪除者無法判斷分類，不列入。
-  const categories = new Map(validateState(state).items.map(item => [item.id, item.category]));
+  const categories = new Map(current.items.map(item => [item.id, item.category]));
   const motorcycles = [...items.values()].filter(entry => categories.get(entry.itemId) === '機車')
     .sort((a, b) => b.quantity - a.quantity || b.total - a.total || a.name.localeCompare(b.name, 'zh-TW'));
   // 月份清單：所有有銷售的月份，由新到舊。
   const months = [...byMonth.keys()].sort().reverse().map(key => ({ month: key, ...monthTotals(byMonth.get(key)) }));
   return {
-    month, previousMonth, current, previous,
-    change: { total: percentChange(current.total, previous.total), quantity: percentChange(current.quantity, previous.quantity), count: percentChange(current.count, previous.count) },
+    month, previousMonth, current: thisMonth, previous,
+    change: { total: percentChange(thisMonth.total, previous.total), quantity: percentChange(thisMonth.quantity, previous.quantity), count: percentChange(thisMonth.count, previous.count) },
     trend, topItems, motorcycles, months,
   };
 }
