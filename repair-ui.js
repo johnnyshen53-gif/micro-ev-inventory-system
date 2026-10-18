@@ -94,6 +94,7 @@
         const cell = element('td'), remove = element('button', '移除', 'secondary');
         remove.type = 'button'; remove.dataset.lineIndex = String(index); cell.append(remove); row.append(cell); body.append(row);
       });
+      if (!draftLines.length) { const row = element('tr'), cell = element('td', '尚未加入用料。選擇品項後按「加入用料」。', 'empty'); cell.colSpan = 5; row.append(cell); body.append(row); }
     }
     function renderList() {
       const body = $('repair-list'); body.replaceChildren();

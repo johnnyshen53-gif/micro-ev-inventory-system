@@ -150,7 +150,7 @@ body { background: #f1f5f9; color: #0f172a; }
 .sale-page .sale-hint { color: var(--sale-muted); font-size: .85rem; margin: .5rem 0 0; }
 .sale-page .sale-scanner { grid-template-columns: minmax(0, 1fr) 6rem auto; padding: 1rem; border: 1px solid var(--sale-line); border-radius: 10px; background: var(--sale-soft); }
 .sale-page #sale-barcode { min-height: 3.1rem; font-size: 1.05rem; border-width: 2px; }
-.sale-page #sale-barcode:focus { border-color: var(--sale-accent); outline: none; box-shadow: 0 0 0 4px #1e3a8a1f; }
+.sale-page #sale-barcode:focus { border-color: var(--sale-accent); box-shadow: 0 0 0 4px #1e3a8a1f; }
 .sale-page .sale-scanner button { min-height: 3.1rem; min-width: 5.5rem; }
 .sale-page #sale-item-info { margin-top: .75rem; }
 .sale-page .sale-picker { margin: 1.25rem 0 0; padding: 1rem; border: 1px solid var(--sale-line); border-radius: 10px; }
@@ -317,4 +317,24 @@ th { white-space: nowrap; }
     table:has(#monthly-months-list) :is(th, td):nth-child(2),
     table:has(#monthly-sales-list) :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(6))
   ) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+}
+
+/* ===== 2026-10 UI 審查修正（第二批） ===== */
+/* 低庫存文字標籤（與分類按鈕上的「低庫存 n」同一種樣式）。 */
+.low-badge { display: block; width: fit-content; margin: .2rem 0 0 auto; padding: .05rem .4rem; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .72rem; font-weight: 700; }
+/* 標籤放在數字下一行，庫存欄不會變寬；分類（機車／零件）不換行。 */
+#item-list td:nth-child(2) { white-space: nowrap; }
+/* 區塊間距：統計卡片與下方提示、建立帳號按鈕與帳號表格不再貼在一起。 */
+.app-page[data-page="list"] .cards + .grid { margin-top: 1rem; }
+form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { margin-top: 1.25rem; }
+/* 工時費率只是一個數字，輸入框不需要橫跨整頁。 */
+#shop-hourly-rate { max-width: 12rem; }
+/* 空表格提示置中、淡色。 */
+#quotation-lines .empty, #repair-lines .empty { padding: 1rem .8rem; color: var(--muted); text-align: center; }
+@media (max-width: 700px) {
+  /* 手機只開放營運總覽，單一分頁按鈕看起來像能按卻沒作用，所以隱藏。 */
+  .page-nav { display: none; }
+  /* 長條圖數值改顯示短格式（12.7萬）。 */
+  .dashboard-bar-value { font-size: 0; white-space: nowrap; }
+  .dashboard-bar-value::after { content: attr(data-short); font-size: .75rem; }
 }

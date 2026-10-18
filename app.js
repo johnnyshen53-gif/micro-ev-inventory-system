@@ -225,7 +225,8 @@ function renderItems() {
     [item.name, item.category, item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
       const cell = document.createElement('td');
       cell.textContent = value;
-      if (index === 5 && item.stock <= item.minimumStock) cell.className = 'low';
+      // 低庫存不只靠橘色：再加「低庫存」文字標籤，色弱或黑白列印也看得出來。
+      if (index === 5 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
       row.append(cell);
     });
     const actions = document.createElement('td');
@@ -1147,6 +1148,7 @@ function renderQuotationBuilder() {
   if (state.items.some((candidate) => candidate.id === selectedItem)) item.value = selectedItem;
   $('quotation-hourly-rate').textContent = formatNumber(hourlyRate);
   const lines = $('quotation-lines'); lines.replaceChildren(); quotationLines.forEach((line, index) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.stock), `NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? `NT$ ${formatNumber(line.hourlyRate)}` : '—', `NT$ ${formatNumber(line.subtotal)}`, `NT$ ${formatNumber(line.laborAmount)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const cell = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.removeLine = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); lines.append(row); });
+  if (!quotationLines.length) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 10; cell.className = 'empty'; cell.textContent = '尚未加入明細。請選品項後按「加入明細」。'; row.append(cell); lines.append(row); }
   $('quotation-total').textContent = 'NT$ ' + formatNumber(quotationLines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0));
 }
 function renderQuotations() {
@@ -1682,6 +1684,8 @@ function renderMonthlyOverview(month, isAdmin) {
     column.className = 'dashboard-bar-column';
     if (point.month === month) column.classList.add('current');
     const value = document.createElement('span'); value.className = 'dashboard-bar-value'; value.textContent = formatNumber(point.total);
+    // 手機上欄位窄，改顯示「12.7萬」這種短格式（CSS 讀 data-short），避免數字斷成兩行。
+    value.dataset.short = point.total >= 10000 ? `${(point.total / 10000).toFixed(1).replace(/\.0$/, '')}萬` : formatNumber(point.total);
     const track = document.createElement('div'); track.className = 'dashboard-bar-track';
     const bar = document.createElement('div'); bar.className = 'dashboard-bar';
     bar.setAttribute('style', `height: ${max ? point.total / max * 100 : 0}%`);
