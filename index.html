@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -25,14 +25,16 @@
   <main id="app-shell" class="page" hidden>
     <header class="hero">
       <div>
-        <p class="eyebrow">SECURE LOCAL INVENTORY</p>
+        <p class="eyebrow">MOTORCYCLE SHOP</p>
         <h1>微型機車店庫存</h1>
         <p>營運資料以雲端為主，本機保留唯讀快取；請定期匯出備份。</p>
       </div>
-      <div class="backup-actions" aria-label="資料備份" data-role="admin">
-        <button id="export-button" type="button">匯出備份</button>
-        <label class="button secondary" for="import-file">匯入備份</label>
-        <input id="import-file" type="file" accept="application/json" hidden>
+      <div class="hero-actions">
+        <div class="backup-actions" aria-label="資料備份" data-role="admin">
+          <button id="export-button" type="button">匯出備份</button>
+          <input id="import-file" type="file" accept="application/json" hidden>
+        </div>
+        <div class="account-bar"><span id="current-user"></span><button id="sign-out-button" type="button" class="secondary">登出</button></div>
       </div>
     </header>
 
@@ -214,7 +216,7 @@
       <form id="sale-form" class="sale-layout">
         <div class="sale-entry panel">
           <h3 class="sale-step"><span class="sale-step-number">1</span>加入商品</h3>
-          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div class="field sale-qty"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button">加入</button></div>
+          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div class="field sale-qty"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入</button></div>
           <div id="sale-item-info" class="scan-result" hidden></div>
           <p class="sale-hint">掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。</p>
           <fieldset class="sale-picker"><legend>或由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>機車</option><option>零件</option><option>用品</option><option>電池</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="sale-picker-actions"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
@@ -287,7 +289,7 @@
     </section>
     <section class="app-page monthly-sales-page" data-page="monthly-sales" aria-label="營運總覽" hidden>
       <div class="section-heading"><h2>營運總覽</h2><label class="monthly-month-field">查詢月份<input id="monthly-sales-month" type="month"></label></div>
-      <div class="cards monthly-summary"><article class="card monthly-total-card"><span>本月銷售總額</span><strong id="monthly-sales-total">0</strong><small id="monthly-sales-total-change" class="dashboard-change" data-role="admin" hidden></small></article><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong><small id="monthly-sales-quantity-change" class="dashboard-change" data-role="admin" hidden></small></article><article class="card"><span>銷售筆數</span><strong id="monthly-sales-count">0</strong><small id="monthly-sales-count-change" class="dashboard-change" data-role="admin" hidden></small></article></div>
+      <div class="cards monthly-summary"><article class="card monthly-total-card"><span>本月銷售總額</span><strong class="money-figure"><span class="currency">NT$</span> <span id="monthly-sales-total">0</span></strong><small id="monthly-sales-total-change" class="dashboard-change" data-role="admin" hidden></small></article><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong><small id="monthly-sales-quantity-change" class="dashboard-change" data-role="admin" hidden></small></article><article class="card"><span>銷售筆數</span><strong id="monthly-sales-count">0</strong><small id="monthly-sales-count-change" class="dashboard-change" data-role="admin" hidden></small></article></div>
       <article id="monthly-trend-panel" class="panel dashboard-trend-panel" data-role="admin" hidden><h3>近 6 個月銷售額</h3><div id="monthly-trend" class="dashboard-trend" role="img" aria-label="近 6 個月銷售額"></div></article>
       <div class="grid dashboard-grid">
         <article id="monthly-top-panel" class="panel" data-role="admin" hidden><h3>本月熱銷品項 Top 5</h3><div class="table-wrap monthly-performance-wrap"><table class="dashboard-table"><thead><tr><th>排名</th><th>品項</th><th>售出件數</th><th>銷售金額</th></tr></thead><tbody id="monthly-top-items"></tbody></table></div></article>
@@ -311,7 +313,6 @@
         <div class="form-actions"><button id="manage-auth-submit" type="submit">確認進入</button><button id="manage-auth-cancel" class="secondary" type="button">取消</button></div>
       </form>
     </dialog>
-    <footer class="account-bar"><span id="current-user"></span><button id="sign-out-button" type="button" class="secondary">登出</button></footer>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=3"></script>
@@ -322,9 +323,9 @@
   <script src="inventory.js?v=25"></script>
   <script src="storage.js?v=2"></script>
   <script src="cloud-data.js?v=22"></script>
-  <script src="repair-ui.js?v=9"></script>
-  <script src="bonus-ui.js?v=2"></script>
+  <script src="repair-ui.js?v=10"></script>
+  <script src="bonus-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=50"></script>
+  <script src="app.js?v=51"></script>
 </body>
 </html>

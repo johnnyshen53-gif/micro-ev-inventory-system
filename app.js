@@ -222,7 +222,7 @@ function renderItems() {
   }
   items.forEach((item) => {
     const row = document.createElement('tr');
-    [item.name, item.category, item.sku || '—', item.barcode || '—', formatNumber(item.price), formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
+    [item.name, item.category, item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
       const cell = document.createElement('td');
       cell.textContent = value;
       if (index === 5 && item.stock <= item.minimumStock) cell.className = 'low';
@@ -929,7 +929,7 @@ function renderPurchaseLines() {
     const lineValid = Number.isSafeInteger(subtotal) && subtotal >= 0 && Number.isSafeInteger(Number(line.quantity)) && Number(line.quantity) > 0 && /^\d+(\.\d{1,2})?$/.test(String(line.unitCost));
     valid = valid && lineValid;
     cents += subtotal;
-    const cell = document.createElement('td'); cell.textContent = lineValid ? formatNumber(subtotal / 100) : '請修正'; row.append(cell);
+    const cell = document.createElement('td'); cell.textContent = lineValid ? `NT$ ${formatNumber(subtotal / 100)}` : '請修正'; row.append(cell);
     const actions = document.createElement('td');
     const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.textContent = '移除'; button.dataset.purchaseRemove = String(index);
     actions.append(button); row.append(actions); list.append(row);
@@ -946,7 +946,7 @@ function renderPurchases() {
   const payment = $('purchase-payment-filter').value;
   [...state.purchases].reverse().filter((purchase) => (!status || purchase.status === status) && (!payment || purchase.paymentStatus === payment) && [purchase.number, purchase.supplierSnapshot.name].some((value) => value.toLowerCase().includes(query))).forEach((purchase) => {
     const row = document.createElement('tr');
-    [purchase.number, purchase.supplierSnapshot.name, formatNumber(purchase.total), purchase.status === 'draft' ? '草稿' : '已收貨', purchase.paymentStatus === 'paid' ? '已付款' : '未付款'].forEach((value) => {
+    [purchase.number, purchase.supplierSnapshot.name, `NT$ ${formatNumber(purchase.total)}`, purchase.status === 'draft' ? '草稿' : '已收貨', purchase.paymentStatus === 'paid' ? '已付款' : '未付款'].forEach((value) => {
       const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
     });
     const actions = document.createElement('td'); actions.className = 'actions';
@@ -979,13 +979,13 @@ function renderPurchaseDetail() {
     const paragraph = document.createElement('p'); paragraph.textContent = value; detail.append(paragraph);
   }
   const wrapper = document.createElement('div'); wrapper.className = 'table-wrap';
-  const table = document.createElement('table'); const header = document.createElement('tr');
+  const table = document.createElement('table'); table.className = 'purchase-detail-table'; const header = document.createElement('tr');
   ['品項', '料號', '條碼', '數量', '進貨單價', '小計'].forEach((value) => { const cell = document.createElement('th'); cell.textContent = value; header.append(cell); });
   const head = document.createElement('thead'); head.append(header); table.append(head);
   const body = document.createElement('tbody');
   purchase.lines.forEach((line) => {
     const row = document.createElement('tr');
-    [line.itemName, line.sku || '—', line.barcode || '—', formatNumber(line.quantity), formatNumber(line.unitCost), formatNumber(line.subtotal)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    [line.itemName, line.sku || '—', line.barcode || '—', formatNumber(line.quantity), `NT$ ${formatNumber(line.unitCost)}`, `NT$ ${formatNumber(line.subtotal)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
     body.append(row);
   });
   table.append(body); wrapper.append(table); detail.append(wrapper);
@@ -1146,12 +1146,12 @@ function renderQuotationBuilder() {
   if (state.salespeople.some((candidate) => (candidate.active && candidate.isSales !== false) && candidate.id === selectedSalesperson)) salesperson.value = selectedSalesperson;
   if (state.items.some((candidate) => candidate.id === selectedItem)) item.value = selectedItem;
   $('quotation-hourly-rate').textContent = formatNumber(hourlyRate);
-  const lines = $('quotation-lines'); lines.replaceChildren(); quotationLines.forEach((line, index) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.stock), formatNumber(line.unitPrice), formatNumber(line.quantity), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? formatNumber(line.hourlyRate) : '—', formatNumber(line.subtotal), formatNumber(line.laborAmount)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const cell = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.removeLine = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); lines.append(row); });
-  $('quotation-total').textContent = formatNumber(quotationLines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0));
+  const lines = $('quotation-lines'); lines.replaceChildren(); quotationLines.forEach((line, index) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.stock), `NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? `NT$ ${formatNumber(line.hourlyRate)}` : '—', `NT$ ${formatNumber(line.subtotal)}`, `NT$ ${formatNumber(line.laborAmount)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const cell = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.removeLine = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); lines.append(row); });
+  $('quotation-total').textContent = 'NT$ ' + formatNumber(quotationLines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0));
 }
 function renderQuotations() {
   const query = $('quotation-search').value.trim().toLowerCase(); const list = $('quotation-list'); list.replaceChildren();
-  state.quotations.filter((quotation) => [quotation.number, quotation.customerName, quotation.customerPhone, quotation.salespersonName].some((value) => value.toLowerCase().includes(query))).forEach((quotation) => { const row = document.createElement('tr'); [quotation.number, new Date(quotation.createdAt).toLocaleDateString('zh-TW'), quotation.customerName, quotation.salespersonName || '未填寫', formatNumber(quotation.total)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const action = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.dataset.quotationId = quotation.id; button.textContent = '查看／列印'; action.append(button); row.append(action); list.append(row); });
+  state.quotations.filter((quotation) => [quotation.number, quotation.customerName, quotation.customerPhone, quotation.salespersonName].some((value) => value.toLowerCase().includes(query))).forEach((quotation) => { const row = document.createElement('tr'); [quotation.number, new Date(quotation.createdAt).toLocaleDateString('zh-TW'), quotation.customerName, quotation.salespersonName || '未填寫', `NT$ ${formatNumber(quotation.total)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const action = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.dataset.quotationId = quotation.id; button.textContent = '查看／列印'; action.append(button); row.append(action); list.append(row); });
   if (!list.children.length) appendEmpty(list, '尚未有符合條件的報價。');
 }
 function showQuotation(quotation) { const detail = $('quotation-detail'); detail.hidden = false; const content = $('quotation-print-content'); content.replaceChildren(); const heading = document.createElement('h2'); heading.textContent = `報價單 ${quotation.number}`; const info = document.createElement('p'); info.textContent = `日期：${new Date(quotation.createdAt).toLocaleDateString('zh-TW')}｜客戶：${quotation.customerName}｜電話：${quotation.customerPhone}｜業務：${quotation.salespersonName || '未填寫'}`; const table = document.createElement('table'); table.innerHTML = '<thead><tr><th>品項</th><th>單價</th><th>數量</th><th>材料小計</th><th>安裝</th><th>工時</th><th>時薪</th><th>工資</th></tr></thead>'; const body = document.createElement('tbody'); quotation.lines.forEach((line) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.unitPrice), formatNumber(line.quantity), formatNumber(line.subtotal), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? formatNumber(line.hourlyRate) : '—', formatNumber(line.laborAmount ?? 0)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); body.append(row); }); table.append(body); const total = document.createElement('p'); total.textContent = `合計：${formatNumber(quotation.total)}`; content.append(heading, info, table, total); }
@@ -1454,14 +1454,14 @@ function addSaleItem(item, quantity, serialIds = []) {
 function showSaleItem(item) { const info = $('sale-item-info'); info.textContent = `${item.name}｜庫存：${formatNumber(item.stock)}｜售價：${formatNumber(item.price)}`; info.hidden = false; }
 function renderSaleCart() {
   const list = $('sale-cart'); if (!list) return; list.replaceChildren();
-  if (!saleCart.length) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 5; cell.className = 'empty'; cell.textContent = '購物車目前沒有品項。請掃描條碼或輸入條碼後加入。'; row.append(cell); list.append(row); }
+  if (!saleCart.length) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 5; cell.className = 'empty'; cell.textContent = '購物車目前沒有品項。請掃描或輸入 QR Code 後加入。'; row.append(cell); list.append(row); }
   saleCart.forEach((line, index) => {
     const row = document.createElement('tr');
     // 品名一行；有序號時在下一行用小字列出，避免和品名擠在一起。
     const nameCell = document.createElement('td'); nameCell.textContent = line.itemName;
     if (line.serialNumbers?.length) { const serials = document.createElement('small'); serials.className = 'sale-serials'; serials.textContent = `序號：${line.serialNumbers.join('、')}`; nameCell.append(serials); }
     row.append(nameCell);
-    [formatNumber(line.unitPrice), formatNumber(line.quantity), formatNumber(line.subtotal)].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    [`NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), `NT$ ${formatNumber(line.subtotal)}`].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
     const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.saleRemove = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); list.append(row);
   });
   $('sale-cart-total').textContent = formatNumber(saleCart.reduce((sum, line) => sum + line.subtotal, 0));
@@ -1551,7 +1551,7 @@ function renderMonthlySales(refreshPerformance = false) {
   const seenSales = new Set();
   sales.forEach((sale) => {
     const row = document.createElement('tr');
-    [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, formatNumber(sale.unitPrice), formatNumber(sale.quantity), formatNumber(sale.subtotal), ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
+    [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, `NT$ ${formatNumber(sale.unitPrice)}`, formatNumber(sale.quantity), `NT$ ${formatNumber(sale.subtotal)}`, ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
       const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['日期', '品項', '條碼', '單價', '數量', '小計', '結帳人'][index]; row.append(cell);
     });
     if (isAdmin) {
@@ -1628,7 +1628,7 @@ function renderMonthlySales(refreshPerformance = false) {
     // 業務員績效只算銷售；維修成果改由「分紅管理」的維修人員報表查看。
     performance.forEach(person => {
       const row = document.createElement('tr');
-      [person.name, formatNumber(person.quantity), formatNumber(person.total)].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['業務員', '售出件數', '銷售金額'][index]; row.append(cell); });
+      [person.name, formatNumber(person.quantity), `NT$ ${formatNumber(person.total)}`].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['業務員', '售出件數', '銷售金額'][index]; row.append(cell); });
       rows.append(row);
     });
     $('monthly-performance-status').textContent = performance.length ? '' : '本月尚無已歸屬的業務員銷售。';
@@ -1694,7 +1694,7 @@ function renderMonthlyOverview(month, isAdmin) {
   top.replaceChildren();
   summary.topItems.forEach((item, index) => {
     const row = document.createElement('tr');
-    [String(index + 1), item.name, formatNumber(item.quantity), formatNumber(item.total)].forEach((value, column) => {
+    [String(index + 1), item.name, formatNumber(item.quantity), `NT$ ${formatNumber(item.total)}`].forEach((value, column) => {
       const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['排名', '品項', '售出件數', '銷售金額'][column]; row.append(cell);
     });
     top.append(row);
@@ -1714,7 +1714,7 @@ function renderMonthlyOverview(month, isAdmin) {
     const bar = document.createElement('div'); bar.className = 'dashboard-hbar-bar';
     bar.setAttribute('style', `width: ${topQuantity ? entry.quantity / topQuantity * 100 : 0}%`);
     track.append(bar);
-    const value = document.createElement('span'); value.className = 'dashboard-hbar-value'; value.textContent = `${formatNumber(entry.quantity)} 台｜${formatNumber(entry.total)}`;
+    const value = document.createElement('span'); value.className = 'dashboard-hbar-value'; value.textContent = `${formatNumber(entry.quantity)} 台｜NT$ ${formatNumber(entry.total)}`;
     row.append(name, track, value);
     motorcycleChart.append(row);
   });
@@ -1724,7 +1724,7 @@ function renderMonthlyOverview(month, isAdmin) {
   summary.months.forEach(entry => {
     const row = document.createElement('tr');
     if (entry.month === month) row.className = 'current';
-    [entry.month, formatNumber(entry.total), formatNumber(entry.count), formatNumber(entry.quantity)].forEach((value, column) => {
+    [entry.month, `NT$ ${formatNumber(entry.total)}`, formatNumber(entry.count), formatNumber(entry.quantity)].forEach((value, column) => {
       const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['月份', '銷售額', '銷售筆數', '售出件數'][column]; row.append(cell);
     });
     const cell = document.createElement('td'); cell.dataset.label = '明細';

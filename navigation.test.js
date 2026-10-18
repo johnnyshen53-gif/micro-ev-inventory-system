@@ -67,7 +67,7 @@ test('quotation builder prices installation hours and prints saved labor while o
   assert.equal($('quotation-labor-hours-wrap').hidden, false);
   $('quotation-labor-hours').value = '1.5';
   $('quotation-add-line').listeners.click();
-  assert.equal($('quotation-total').textContent, '1550');
+  assert.equal($('quotation-total').textContent, 'NT$ 1550');
   await $('quotation-form').listeners.submit({ preventDefault() {} });
   assert.equal(context.state.quotations[0].lines[0].hourlyRate, 800);
   assert.equal(context.state.quotations[0].total, 1550);
@@ -494,7 +494,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=22"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=50"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=51"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -688,7 +688,7 @@ test('gives sales checkout and empty-cart guidance clear UI hooks', async () => 
 
   assert.match(html, /class="sale-scanner"/);
   assert.match(html, /class="sale-checkout"/);
-  assert.match(app, /購物車目前沒有品項。請掃描條碼或輸入條碼後加入。/);
+  assert.match(app, /購物車目前沒有品項。請掃描或輸入 QR Code 後加入。/);
 });
 
 test('loads IndexedDB before enabling inventory actions', async () => {
@@ -1024,7 +1024,7 @@ test('monthly salesperson performance shows sales only (repairs have no salesper
   await context.renderMonthlySales(true);
   await new Promise(resolve => setImmediate(resolve));
   const rows = $('monthly-performance-list').children.map(row => row.children.map(cell => cell.textContent));
-  assert.deepEqual(rows, [['張業務', '3', '250']]);
+  assert.deepEqual(rows, [['張業務', '3', 'NT$ 250']]);
   assert.equal($('monthly-performance-list').children[0].children[2].dataset.label, '銷售金額');
 });
 
