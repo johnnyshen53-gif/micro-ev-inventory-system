@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>微型機車店庫存</title>
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -175,7 +175,7 @@
     </section>
     <section class="app-page grid forms" data-page="customers" aria-label="客戶管理" hidden>
       <article class="panel"><h2 id="customer-form-title">新增客戶</h2><form id="customer-form"><input id="customer-id" type="hidden"><div class="field"><label for="customer-member-number">會員編號</label><input id="customer-member-number" readonly placeholder="儲存後自動產生"></div><div class="field"><label for="customer-name">姓名</label><input id="customer-name" required></div><div class="field"><label for="customer-phone">電話</label><input id="customer-phone" required></div><div class="field"><label for="customer-plates">車牌（選填，每行一個）</label><textarea id="customer-plates" rows="2" placeholder="ABC-1234&#10;DEF-5678"></textarea></div><div class="field"><label for="customer-address">地址（選填）</label><input id="customer-address" autocomplete="street-address"></div><div class="field"><label for="customer-note">備註</label><textarea id="customer-note" rows="2"></textarea></div><p id="customer-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存客戶</button><button id="customer-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
-      <article class="panel"><div class="section-heading"><h2>客戶資料</h2><input id="customer-search" class="search" type="search" placeholder="搜尋會員編號、姓名、電話、車牌或地址"></div><div class="table-wrap"><table><thead><tr><th>會員編號</th><th>姓名</th><th>電話</th><th>車牌</th><th>地址</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="customer-list"></tbody></table></div></article>
+      <article class="panel"><div class="section-heading"><h2>客戶資料</h2><input id="customer-search" class="search" type="search" aria-label="搜尋客戶" placeholder="搜尋會員編號、姓名、電話、車牌或地址"></div><div class="table-wrap"><table><thead><tr><th>會員編號</th><th>姓名</th><th>電話</th><th>車牌</th><th>地址</th><th>備註</th><th>狀態</th><th>操作</th></tr></thead><tbody id="customer-list"></tbody></table></div></article>
     </section>
     <section class="app-page grid forms" data-page="salespeople" aria-label="店員管理" data-role="admin" hidden>
       <article id="staff-panel" class="panel" hidden>
@@ -200,7 +200,7 @@
     </section>
     <section class="app-page" data-page="quotations" aria-label="報價單" hidden>
       <article class="panel"><h2>建立報價單</h2><form id="quotation-form"><div class="field"><label for="quotation-customer">客戶</label><select id="quotation-customer" required></select></div><div class="field"><label for="quotation-salesperson">業務人員</label><select id="quotation-salesperson" required></select></div><div class="split-fields"><div class="field"><label for="quotation-item">品項</label><select id="quotation-item"></select></div><div class="field"><label for="quotation-quantity">數量</label><input id="quotation-quantity" type="number" min="1" value="1"></div></div><div class="split-fields"><div class="field"><label for="quotation-installation-required">是否安裝</label><select id="quotation-installation-required"><option value="no">免安裝</option><option value="yes">需安裝</option></select></div><div class="field" id="quotation-labor-hours-wrap" hidden><label for="quotation-labor-hours">安裝工時（小時）</label><input id="quotation-labor-hours" type="number" min="0.01" step="0.01"></div></div><p>目前每小時工資：<span id="quotation-hourly-rate">0</span> 元</p><button id="quotation-add-line" class="secondary" type="button">加入明細</button><div class="table-wrap"><table><thead><tr><th>品項</th><th>庫存</th><th>單價</th><th>數量</th><th>安裝</th><th>工時</th><th>時薪</th><th>材料小計</th><th>工資</th><th>操作</th></tr></thead><tbody id="quotation-lines"></tbody><tfoot><tr><th colspan="8">合計</th><th id="quotation-total">0</th><th></th></tr></tfoot></table></div><div class="field"><label for="quotation-note">備註</label><textarea id="quotation-note" rows="2"></textarea></div><p id="quotation-form-error" class="form-error" role="alert" hidden></p><button type="submit">建立報價單</button></form></article>
-      <section><div class="section-heading"><h2>報價紀錄</h2><input id="quotation-search" class="search" type="search" placeholder="搜尋編號、客戶或電話"></div><div class="table-wrap"><table><thead><tr><th>編號</th><th>日期</th><th>客戶</th><th>業務</th><th>總額</th><th>操作</th></tr></thead><tbody id="quotation-list"></tbody></table></div></section>
+      <section><div class="section-heading"><h2>報價紀錄</h2><input id="quotation-search" class="search" type="search" aria-label="搜尋報價紀錄" placeholder="搜尋編號、客戶或電話"></div><div class="table-wrap"><table><thead><tr><th>編號</th><th>日期</th><th>客戶</th><th>業務</th><th>總額</th><th>操作</th></tr></thead><tbody id="quotation-list"></tbody></table></div></section>
       <section id="quotation-detail" class="panel print-document" hidden><div class="section-heading no-print"><h2>報價詳情</h2><button id="print-quotation" type="button">列印報價單</button></div><div id="quotation-print-content"></div></section>
     </section>
     <section class="app-page warranty-page" data-page="warranties" aria-label="保固管理" hidden>
@@ -323,9 +323,9 @@
   <script src="inventory.js?v=25"></script>
   <script src="storage.js?v=2"></script>
   <script src="cloud-data.js?v=22"></script>
-  <script src="repair-ui.js?v=10"></script>
+  <script src="repair-ui.js?v=11"></script>
   <script src="bonus-ui.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=51"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>
