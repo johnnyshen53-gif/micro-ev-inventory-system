@@ -6,7 +6,19 @@
 #purchase-lines input { min-width: 100px; width: 100%; }
 .purchase-total { text-align: right; font-size: 1.2rem; margin-top: 1rem; }
 .purchase-detail { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
-.repair-material-entry { display: grid; grid-template-columns: minmax(150px, 2fr) 5rem 8rem auto; gap: .5rem; align-items: end; }
+/* 維修單：兩欄等寬且可縮小（minmax(0, …)），避免右側清單表格把整頁撐出畫面。 */
+@media (min-width: 701px) { .repair-page > .forms { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+.repair-page .table-wrap table { min-width: 0; }
+.repair-page #repair-list td { padding: .7rem .5rem; font-size: .9rem; word-break: keep-all; }
+.repair-page #repair-list td:nth-child(n+4) { white-space: nowrap; }
+.repair-page table:has(#repair-list) th { padding: .7rem .5rem; white-space: nowrap; }
+.repair-page #repair-list button { margin-right: 0; }
+/* 故障、處理說明預設約五行高，可往下拉大。 */
+#repair-issue, #repair-diagnosis { min-height: 7.5rem; resize: vertical; line-height: 1.5; }
+/* 用料：品項選單獨佔一列，數量／單價／加入放第二列，欄位不再擠在一起。 */
+.repair-material-entry { display: grid; grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 1.4fr) auto; gap: .6rem .75rem; align-items: end; margin-bottom: .75rem; }
+.repair-material-entry .field:first-child { grid-column: 1 / -1; }
+.repair-material-entry button { min-height: 2.8rem; white-space: nowrap; }
 .repair-material-entry .field { margin-bottom: 0; }
 .repair-detail { margin-top: 1.5rem; border-top: 1px solid var(--line); padding-top: 1rem; overflow-wrap: anywhere; }
 .repair-detail button { margin: .5rem .5rem 0 0; }
