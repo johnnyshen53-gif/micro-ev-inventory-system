@@ -986,4 +986,61 @@ function salesForMonth(state, month) {
   });
 }
 
-window.Inventory = { requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+// 營運總覽：一次走訪銷售紀錄，以台灣時間（UTC+8）月份分組，邊界與 salesForMonth 相同。
+function taipeiMonth(value) { return new Date(Date.parse(value) + 8 * 60 * 60 * 1000).toISOString().slice(0, 7); }
+function shiftMonth(month, offset) {
+  const [year, numericMonth] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, numericMonth - 1 + offset, 1)).toISOString().slice(0, 7);
+}
+function monthTotals(sales) {
+  return {
+    total: sales.reduce((sum, sale) => sum + sale.subtotal, 0),
+    quantity: sales.reduce((sum, sale) => sum + sale.quantity, 0),
+    // 一張銷售單可含多個品項，筆數以銷售單號計算。
+    count: new Set(sales.map((sale, index) => sale.saleNumber || sale.id || index)).size,
+  };
+}
+// 上月為 0 時無法計算成長率，回傳 null 讓畫面顯示「上月無資料」。
+function percentChange(current, previous) { return previous ? (current - previous) / previous * 100 : null; }
+function dashboardSummary(state, month, options = {}) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('月份格式無效');
+  const trendMonths = options.trendMonths ?? 6;
+  const topLimit = options.topLimit ?? 5;
+  const byMonth = new Map();
+  for (const sale of validateState(state).sales) {
+    const key = taipeiMonth(sale.createdAt);
+    if (!byMonth.has(key)) byMonth.set(key, []);
+    byMonth.get(key).push(sale);
+  }
+  const salesOf = key => byMonth.get(key) ?? [];
+  const previousMonth = shiftMonth(month, -1);
+  const current = monthTotals(salesOf(month));
+  const previous = monthTotals(salesOf(previousMonth));
+  const trend = Array.from({ length: trendMonths }, (_, index) => {
+    const key = shiftMonth(month, index - trendMonths + 1);
+    const totals = monthTotals(salesOf(key));
+    return { month: key, total: totals.total, quantity: totals.quantity };
+  });
+  const items = new Map();
+  for (const sale of salesOf(month)) {
+    const entry = items.get(sale.itemId) ?? { itemId: sale.itemId, name: sale.itemName, quantity: 0, total: 0 };
+    entry.quantity += sale.quantity;
+    entry.total += sale.subtotal;
+    items.set(sale.itemId, entry);
+  }
+  // 依銷售金額排序，金額相同再比件數，最後依品名固定順序。
+  const topItems = [...items.values()].sort((a, b) => b.total - a.total || b.quantity - a.quantity || a.name.localeCompare(b.name, 'zh-TW')).slice(0, topLimit);
+  // 機車銷售排名：依品項分類「機車」計算當月台數，台數相同再比金額。品項已刪除者無法判斷分類，不列入。
+  const categories = new Map(validateState(state).items.map(item => [item.id, item.category]));
+  const motorcycles = [...items.values()].filter(entry => categories.get(entry.itemId) === '機車')
+    .sort((a, b) => b.quantity - a.quantity || b.total - a.total || a.name.localeCompare(b.name, 'zh-TW'));
+  // 月份清單：所有有銷售的月份，由新到舊。
+  const months = [...byMonth.keys()].sort().reverse().map(key => ({ month: key, ...monthTotals(byMonth.get(key)) }));
+  return {
+    month, previousMonth, current, previous,
+    change: { total: percentChange(current.total, previous.total), quantity: percentChange(current.quantity, previous.quantity), count: percentChange(current.count, previous.count) },
+    trend, topItems, motorcycles, months,
+  };
+}
+
+window.Inventory = { requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

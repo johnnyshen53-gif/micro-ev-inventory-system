@@ -129,13 +129,16 @@
   async function loadRepairOrders() {
     await window.AppAuth.requireActiveUser();
     const [orders, lines] = await Promise.all([
-      query(window.AppAuth.client, 'repair_orders', 'id,repair_number,salesperson_id,technician_id,customer_id,customer_name,customer_phone,plate_number,original_serial_number,vehicle_name,issue,diagnosis,labor_amount,total,status,payment_status,created_at,updated_at,quoted_at,completed_at,cancelled_at,paid_at'),
+      query(window.AppAuth.client, 'repair_orders', 'id,repair_number,salesperson_id,technician_id,customer_id,customer_name,customer_phone,plate_number,original_serial_number,vehicle_name,issue,diagnosis,labor_amount,labor_hours,labor_rate,total,status,payment_status,created_at,updated_at,quoted_at,completed_at,cancelled_at,paid_at'),
       query(window.AppAuth.client, 'repair_lines', 'id,repair_order_id,item_id,item_name,item_sku,quantity,unit_price,subtotal'),
     ]);
     return orders.map(row => ({
       id: row.id, number: row.repair_number, salespersonId: row.salesperson_id ?? '', technicianId: row.technician_id ?? '', customerId: row.customer_id ?? '', customerName: row.customer_name,
       customerPhone: row.customer_phone, plateNumber: row.plate_number, originalSerialNumber: row.original_serial_number,
       vehicleName: row.vehicle_name, issue: row.issue, diagnosis: row.diagnosis, laborAmount: Number(row.labor_amount),
+      // 工時與費率快照；舊單為 null，代表工資是直接輸入的。
+      laborHours: row.labor_hours === null || row.labor_hours === undefined ? null : Number(row.labor_hours),
+      laborRate: row.labor_rate === null || row.labor_rate === undefined ? null : Number(row.labor_rate),
       total: Number(row.total), status: row.status, paymentStatus: row.payment_status, createdAt: row.created_at,
       updatedAt: row.updated_at, quotedAt: row.quoted_at ?? '', completedAt: row.completed_at ?? '',
       cancelledAt: row.cancelled_at ?? '', paidAt: row.paid_at ?? '',

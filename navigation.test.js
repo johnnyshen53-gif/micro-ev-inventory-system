@@ -1027,3 +1027,12 @@ test('monthly salesperson performance shows sales only (repairs have no salesper
   assert.deepEqual(rows, [['張業務', '3', '250']]);
   assert.equal($('monthly-performance-list').children[0].children[2].dataset.label, '銷售金額');
 });
+
+test('shop hourly rate is maintained on the manager-only bonus page instead of quotations', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const section = page => html.match(new RegExp(`<section class="app-page[^"]*" data-page="${page}"[\\s\\S]*?\\n    </section>`))?.[0] ?? '';
+  assert.match(section('bonus'), /id="shop-rate-form"/);
+  assert.match(section('bonus'), /id="shop-hourly-rate"/);
+  assert.doesNotMatch(section('quotations'), /shop-rate-form/);
+  assert.match(html, /data-page="bonus" aria-label="分紅管理" data-role="admin"/);
+});

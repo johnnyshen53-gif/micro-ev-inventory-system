@@ -8,6 +8,8 @@
     canPay: order.status === 'completed' && order.paymentStatus === 'unpaid',
     canDelete: isAdmin && ['intake', 'quoted', 'cancelled'].includes(order.status) && order.paymentStatus === 'unpaid' });
   const statusLabel = order => ({ intake: '接修中', quoted: '已報價', completed: '已完工', cancelled: '已取消' })[order.status] ?? order.status;
+  // 工資＝工時 × 費率，先換成「分」整數再相乘，避免小數誤差（與報價單算法相同）。
+  const laborFromHours = (hours, rate) => Math.round(Math.round(hours * 100) * Math.round(rate * 100) / 100) / 100;
   const money = value => `NT$ ${new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
   function element(tag, text = '', className = '') {
     const node = document.createElement(tag);
@@ -34,14 +36,17 @@
         serials.filter(serial => serial.repairLineId === line.id).map(serial => serial.serialNumber).join('、') || '—']) row.append(element('td', String(value)));
       table.append(row);
     }
-    print.append(table, element('p', `工資：${money(order.laborAmount)}`), element('strong', `總額：${money(order.total)}`));
+    const hasHours = order.laborHours !== null && order.laborHours !== undefined && order.laborRate !== null && order.laborRate !== undefined;
+    const laborNote = hasHours ? `（${order.laborHours} 小時 × ${money(order.laborRate)}／小時${laborFromHours(order.laborHours, order.laborRate) === Number(order.laborAmount) ? '' : '，已手動調整'}）` : '';
+    print.append(table, element('p', `工資：${money(order.laborAmount)}${laborNote}`), element('strong', `總額：${money(order.total)}`));
     document.body.classList.add('printing-repair');
     window.print();
   }
 
-  function mount({ getState, setState, notify }) {
+  function mount({ getState, setState, notify, getHourlyRate = () => 0 }) {
     if (!$('repair-form')) return { load() {}, clear() {} };
-    let orders = [], selectedId = '', draftLines = [], busy = false, generation = 0;
+    // draftRate：這張單工時計算所用的費率快照；重開舊單沿用當時費率，改工時才換成目前費率。
+    let orders = [], selectedId = '', draftLines = [], busy = false, generation = 0, draftRate = null;
     const selectedOrder = () => orders.find(order => order.id === selectedId);
     const state = () => getState();
     const message = (text, error = false) => { $('repair-status').textContent = text; $('repair-status').classList.toggle('error', error); notify(text, error); };
@@ -128,17 +133,36 @@
         button.type = 'button'; button.dataset.repairAction = key; detail.append(button);
       }
     }
+    function renderLaborHint() {
+      const hint = $('repair-labor-hint'); if (!hint) return;
+      const hours = String($('repair-labor-hours')?.value ?? '').trim();
+      const rate = Number(getHourlyRate()) || 0;
+      if (hours !== '' && draftRate !== null) hint.textContent = `${hours} 小時 × ${money(draftRate)}／小時 = ${money(laborFromHours(Number(hours), draftRate))}；工資可再手動修改。`;
+      else hint.textContent = rate > 0 ? `全店工時費率 ${money(rate)}／小時；輸入工時會自動算工資，也可直接填工資。` : '尚未設定全店工時費率（店長可在分紅管理設定）；請直接填工資。';
+    }
+    function applyLaborHours() {
+      const raw = String($('repair-labor-hours').value ?? '').trim();
+      if (raw === '') { draftRate = null; renderLaborHint(); return; }
+      const hours = Number(raw), rate = Number(getHourlyRate()) || 0;
+      if (!Number.isFinite(hours) || hours < 0) { renderLaborHint(); return; }
+      if (rate <= 0) { draftRate = null; message('尚未設定全店工時費率，請店長到分紅管理設定，或直接填工資。', true); renderLaborHint(); return; }
+      draftRate = rate;
+      $('repair-labor').value = String(laborFromHours(hours, rate));
+      renderLaborHint();
+    }
     function resetForm() {
-      selectedId = ''; draftLines = []; $('repair-form').reset(); $('repair-form').hidden = false;
+      selectedId = ''; draftLines = []; draftRate = null; $('repair-form').reset(); $('repair-form').hidden = false;
       $('repair-form-title').textContent = '新增接修'; $('repair-save').textContent = '儲存接修'; $('repair-quote').hidden = true;
-      $('repair-form-error').hidden = true; renderChoices(); renderLines(); renderDetail();
+      $('repair-form-error').hidden = true; renderChoices(); renderLines(); renderDetail(); renderLaborHint();
     }
     function openOrder(id) {
       const order = orders.find(value => value.id === id); if (!order) return;
       selectedId = id; draftLines = order.lines.map(line => ({ ...line })); renderChoices();
       for (const [field, value] of [['customer', order.customerId], ['customer-name', order.customerName], ['customer-phone', order.customerPhone],
         ['plate', order.plateNumber], ['original-serial', order.originalSerialNumber], ['vehicle', order.vehicleName],
-        ['issue', order.issue], ['diagnosis', order.diagnosis], ['labor', order.laborAmount]]) $(`repair-${field}`).value = value ?? '';
+        ['issue', order.issue], ['diagnosis', order.diagnosis], ['labor', order.laborAmount], ['labor-hours', order.laborHours]]) $(`repair-${field}`).value = value ?? '';
+      draftRate = order.laborHours === null || order.laborHours === undefined ? null : order.laborRate ?? null;
+      renderLaborHint();
       if ($('repair-technician')) $('repair-technician').value = order.technicianId ?? '';
       renderPlateChoices();
       $('repair-form').hidden = !actionState(order).canEdit;
@@ -173,9 +197,14 @@
         issue: $('repair-issue').value.trim(), diagnosis: $('repair-diagnosis').value.trim(),
         laborAmount: Number($('repair-labor').value), status,
         technicianId: $('repair-technician')?.value || null };
+      const hoursText = String($('repair-labor-hours')?.value ?? '').trim();
+      order.laborHours = hoursText === '' ? null : Number(hoursText);
+      order.laborRate = order.laborHours === null ? null : draftRate;
       if (selectedId) order.id = selectedId;
       if (!order.plateNumber && !order.originalSerialNumber) throw new Error('車牌與原廠序號至少填一項。');
       if (!Number.isFinite(order.laborAmount) || order.laborAmount < 0) throw new Error('工資不可為負數。');
+      if (order.laborHours !== null && (!Number.isFinite(order.laborHours) || order.laborHours < 0 || order.laborHours > 999.99)) throw new Error('工時須為 0 到 999.99 小時。');
+      if (order.laborHours !== null && order.laborRate === null) throw new Error('尚未設定全店工時費率，無法依工時計算；請清空工時並直接填工資。');
       return order;
     }
     function save(status) {
@@ -186,6 +215,7 @@
     }
     $('repair-new').addEventListener('click', resetForm);
     $('repair-search').addEventListener('input', renderList);
+    $('repair-labor-hours')?.addEventListener('input', applyLaborHours);
     $('repair-customer').addEventListener('change', () => {
       const customer = state().customers.find(value => value.id === $('repair-customer').value);
       if (customer) { $('repair-customer-name').value = customer.name; $('repair-customer-phone').value = customer.phone; }
@@ -238,7 +268,7 @@
         try {
           const loaded = await window.AppData.loadRepairOrders();
           if (request !== generation || window.AppAuthUI?.isActive?.() === false) return;
-          orders = loaded; renderChoices(); renderList(); if (selectedOrder()) openOrder(selectedId);
+          orders = loaded; renderChoices(); renderList(); if (selectedOrder()) openOrder(selectedId); else renderLaborHint();
         } catch (error) { if (request === generation) message(`無法讀取維修單：${error.message}`, true); }
       },
       clear() {
