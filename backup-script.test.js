@@ -31,3 +31,10 @@ test('backup docs explain that the web JSON export cannot restore the cloud data
   assert.match(readme, /docs\/database-backup\.md/);
   assert.doesNotMatch(readme, /首次資料移轉/);
 });
+
+// macOS 內建 bash 3.2 會把 $變數 後面緊接的中文字當成變數名稱（曾出現 SIZE?: unbound variable）。
+test('backup script wraps variables in braces when followed by non-ASCII text', async () => {
+  const script = await readFile(new URL('./scripts/backup-db.sh', import.meta.url), 'utf8');
+  const risky = script.split('\n').filter(line => !line.trimStart().startsWith('#') && /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/.test(line));
+  assert.deepEqual(risky, []);
+});

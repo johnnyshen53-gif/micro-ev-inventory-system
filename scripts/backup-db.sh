@@ -41,7 +41,7 @@ if [ ! -s "$URL_FILE" ]; then
     *) echo "這看起來不是 postgresql:// 開頭的連線字串，已取消。" >&2; exit 1 ;;
   esac
   ( umask 077; mkdir -p "$CONFIG_DIR"; printf '%s\n' "$url" > "$URL_FILE" )
-  echo "已記住連線字串（不含密碼）：$URL_FILE"
+  echo "已記住連線字串（不含密碼）：${URL_FILE}"
 fi
 DB_URL="$(head -n 1 "$URL_FILE")"
 
@@ -61,14 +61,14 @@ OUT="$BACKUP_ROOT/$STAMP"
 LOG="$OUT/pg_dump.log"
 fail() {
   echo "" >&2
-  echo "備份失敗：$1" >&2
+  echo "備份失敗：${1}" >&2
   if [ -s "$LOG" ]; then echo "--- 詳細訊息 ---" >&2; cat "$LOG" >&2; fi
   echo "常見原因：密碼錯誤、網路不通，或 pg_dump 版本比雲端資料庫舊（請執行 brew upgrade libpq）。" >&2
   rm -rf "$OUT"
   exit 1
 }
 
-echo "開始備份到：$OUT"
+echo "開始備份到：${OUT}"
 # 營業資料：public（庫存、銷售、客戶…）與 app_private（分紅等內部資料）。
 "$PG_DUMP" --dbname="$DB_URL" --data-only --no-owner --no-privileges \
   --table='public.*' --table='app_private.*' \
@@ -85,7 +85,7 @@ echo "開始備份到：$OUT"
 # 5. 檢查備份內容：商品、銷售與登入帳號的資料段落都要在。
 for check in "data.sql public.items" "data.sql public.sales" "auth.sql auth.users"; do
   set -- $check
-  grep -q "^COPY $2 " "$OUT/$1" || fail "備份檔 $1 裡找不到 $2，請不要使用這份備份。"
+  grep -q "^COPY $2 " "$OUT/$1" || fail "備份檔 ${1} 裡找不到 ${2}，請不要使用這份備份。"
 done
 TABLES="$(grep -c '^COPY ' "$OUT/data.sql")"
 SIZE="$(du -h "$OUT/data.sql" | cut -f1)"
@@ -93,6 +93,7 @@ SIZE="$(du -h "$OUT/data.sql" | cut -f1)"
 rm -f "$LOG"
 chmod 600 "$OUT"/*.sql
 
-echo "備份完成：營業資料 $TABLES 張資料表（$SIZE），登入帳號另存在 auth.sql。"
-echo "位置：$OUT"
+# 變數一律用 ${} 包起來：macOS 內建 bash 3.2 會把緊接在後的中文字誤當成變數名稱的一部分。
+echo "備份完成：營業資料 ${TABLES} 張資料表（${SIZE}），登入帳號另存在 auth.sql。"
+echo "位置：${OUT}"
 echo "提醒：備份檔含客戶與登入帳號資料，請勿上傳到 GitHub 或分享給他人。"
