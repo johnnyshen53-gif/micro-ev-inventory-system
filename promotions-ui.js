@@ -199,11 +199,17 @@
   // ── 銷售結帳：偵測、挑選、套用組合 ──
   // getCart()：目前購物車（app.js 的 saleCart）；addItem(item, quantity)：加入購物車（失敗會自己顯示錯誤並回傳 false）；
   // onChange()：套用／取消組合後通知結帳畫面重畫（並讓結帳識別碼重新產生，因為送出的內容變了）。
-  function mountCheckout({ getState, getCart, addItem, onChange = () => {}, requiresSerial = () => false }) {
-    if (!$('sale-promo-panel')) return null;
+  function mountCheckout({ getState, getCart, addItem, onChange = () => {}, requiresSerial = () => false, prefix = 'sale-promo', noun = '購物車', checkStock = true }) {
+    const el = name => $(`${prefix}-${name}`);
+    if (!el('panel')) return null;
     let promotions = [], applied = [], generation = 0, loaded = false;
     const inventory = () => window.Inventory;
-    const cartLines = () => getCart().map(line => ({ itemId: line.itemId, unitPrice: line.unitPrice, quantity: line.quantity }));
+    // 同一品項可能分好幾列（報價單），先合併數量再計算。
+    const cartLines = () => [...getCart().reduce((merged, line) => {
+      const entry = merged.get(line.itemId);
+      if (entry) entry.quantity += line.quantity; else merged.set(line.itemId, { itemId: line.itemId, unitPrice: line.unitPrice, quantity: line.quantity });
+      return merged;
+    }, new Map()).values()];
     const inPeriod = promotion => inventory().promotionInPeriod(promotion, taipeiToday());
     const available = () => promotions.filter(inPeriod);
     const resolve = (list = applied) => list.map(entry => ({ promotion: promotions.find(promotion => promotion.id === entry.promotionId), times: entry.times }));
@@ -214,7 +220,7 @@
       try { return inventory().promotionDiscounts(cartLines(), resolve(list)); }
       catch (error) { return { error: error.message, byItem: new Map(), entries: [], total: 0 }; }
     }
-    const hint = (text, error = false) => { $('sale-promo-hint').textContent = text; $('sale-promo-hint').classList.toggle('error', error); };
+    const hint = (text, error = false) => { el('hint').textContent = text; el('hint').classList.toggle('error', error); };
 
     // 購物車變動後，把放不下的組數往下調（調到 0 就移除），並回報有沒有變動。
     function reconcile() {
@@ -246,24 +252,24 @@
     }
     function render() {
       const list = available();
-      $('sale-promo-panel').hidden = !list.length && !applied.length;
-      const select = $('sale-promo-select'), selected = select.value;
+      el('panel').hidden = !list.length && !applied.length;
+      const select = el('select'), selected = select.value;
       select.replaceChildren(new Option(list.length ? '選擇本期組合' : '目前沒有進行中的組合', ''));
       for (const promotion of list) select.append(new Option(`${promotion.name}｜組合價 ${money(promotion.comboPrice)}`, promotion.id));
       select.value = list.some(promotion => promotion.id === selected) ? selected : '';
-      $('sale-promo-add').disabled = !select.value;
+      el('add').disabled = !select.value;
 
-      const suggestionList = $('sale-promo-suggestions'); suggestionList.replaceChildren();
+      const suggestionList = el('suggestions'); suggestionList.replaceChildren();
       for (const { promotion, current, extra, saving } of suggestions()) {
         const item = element('li', '', 'sale-promo-suggestion');
-        const label = element('span', `購物車符合「${promotion.name}」，可${current ? '再' : ''}套用 ${extra} 組，省 ${money(saving)}`);
+        const label = element('span', `${noun}符合「${promotion.name}」，可${current ? '再' : ''}套用 ${extra} 組，省 ${money(saving)}`);
         const button = element('button', '套用'); button.type = 'button';
         button.dataset.promoApply = promotion.id; button.dataset.times = String(current + extra);
         item.append(label, button); suggestionList.append(item);
       }
       suggestionList.hidden = !suggestionList.children.length;
 
-      const appliedList = $('sale-promo-applied'); appliedList.replaceChildren();
+      const appliedList = el('applied'); appliedList.replaceChildren();
       const result = compute();
       for (const entry of result.entries) {
         const item = element('li', '', 'sale-promo-applied-item');
@@ -281,31 +287,31 @@
       applied = next; hint(message); onChange(); return true;
     }
 
-    $('sale-promo-select').addEventListener('change', () => { $('sale-promo-add').disabled = !$('sale-promo-select').value; hint(''); });
+    el('select').addEventListener('change', () => { el('add').disabled = !el('select').value; hint(''); });
     // 由組合加入：把組合內的商品一次加進購物車，並直接套用 1 組。
-    $('sale-promo-add').addEventListener('click', () => {
-      const promotion = promotions.find(candidate => candidate.id === $('sale-promo-select').value);
+    el('add').addEventListener('click', () => {
+      const promotion = promotions.find(candidate => candidate.id === el('select').value);
       if (!promotion || !inPeriod(promotion)) return hint('請選擇進行中的組合。', true);
       const items = getState().items ?? [], cart = getCart();
       const parts = promotion.items.map(part => ({ part, item: items.find(item => item.id === part.itemId) }));
       if (parts.some(({ item }) => !item)) return hint('組合中有品項已刪除，請店長更新組合內容。', true);
       if (parts.some(({ item }) => requiresSerial(item))) return hint('此組合含車身或電池，需要指定序號：請逐一加入購物車，系統會自動提示套用。', true);
-      const short = parts.find(({ part, item }) => item.stock - (cart.find(line => line.itemId === item.id)?.quantity ?? 0) < part.quantity);
+      const short = checkStock && parts.find(({ part, item }) => item.stock - (cart.find(line => line.itemId === item.id)?.quantity ?? 0) < part.quantity);
       if (short) return hint(`庫存不足：${short.item.name}，無法加入這個組合。`, true);
       for (const { part, item } of parts) if (!addItem(item, part.quantity)) return;
       const current = applied.find(entry => entry.promotionId === promotion.id)?.times ?? 0;
       setTimes(promotion.id, current + 1, `已加入「${promotion.name}」並套用組合價。`);
     });
-    $('sale-promo-suggestions').addEventListener('click', event => {
+    el('suggestions').addEventListener('click', event => {
       const button = event.target.closest('button[data-promo-apply]');
       if (!button) return;
       const promotion = promotions.find(candidate => candidate.id === button.dataset.promoApply);
       setTimes(button.dataset.promoApply, Number(button.dataset.times), promotion ? `已套用「${promotion.name}」。` : '');
     });
-    $('sale-promo-applied').addEventListener('click', event => {
+    el('applied').addEventListener('click', event => {
       const button = event.target.closest('button[data-promo-cancel]');
       if (!button) return;
-      setTimes(button.dataset.promoCancel, 0, '已取消套用組合，商品仍留在購物車。');
+      setTimes(button.dataset.promoCancel, 0, `已取消套用組合，商品仍留在${noun}。`);
     });
 
     return {
@@ -323,7 +329,7 @@
       // 購物車重畫時呼叫：調整放不下的組數並重畫組合區；回傳 true 代表套用內容有變。
       sync() {
         const changed = loaded && reconcile();
-        if (changed) hint('購物車數量變動，已自動調整套用的組合。');
+        if (changed) hint(`${noun}數量變動，已自動調整套用的組合。`);
         render();
         return changed;
       },

@@ -87,3 +87,28 @@ test('checkout sends combos to the database and the sales page has the combo are
   assert.match(app, /window\.PromotionUI\?\.checkout\?\.clear\(\);/);
   assert.match(ui, /mountCheckout/);
 });
+
+test('quotations apply combos with the same split and spill discounts across repeated item rows', () => {
+  const state = Inventory.validateState({ ...Inventory.emptyState(),
+    items: [
+      { id: cam, name: '行車記錄器', category: '電控元件', sku: '22001', barcode: '22001', price: 6550, cost: 0, stock: 0, minimumStock: 0, warrantyMonths: 0 },
+      { id: tire, name: '輪胎', category: '機構元件', sku: '33001', barcode: '33001', price: 1450, cost: 0, stock: 0, minimumStock: 0, warrantyMonths: 0 },
+      { id: mirror, name: '後照鏡', category: '外觀元件', sku: '44001', barcode: '44001', price: 800, cost: 0, stock: 0, minimumStock: 0, warrantyMonths: 0 },
+    ],
+    customers: [{ id: 'c1', memberNumber: 'M000001', name: '客戶', phone: '0911000000', active: true, createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z' }],
+    salespeople: [{ id: 's1', name: '業務', active: true, isSales: true, createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z' }] });
+  // A×1：材料 8800＋工資 800−折扣 800＝8800，和資料庫測試同一組數字。
+  const quoted = Inventory.createQuotation(state, { customerId: 'c1', salespersonId: 's1', hourlyRate: 800, promotions: [{ promotion: promoA, times: 1 }],
+    lines: [{ itemId: cam, quantity: 1, installationRequired: true, laborHours: 1 }, { itemId: tire, quantity: 1 }, { itemId: mirror, quantity: 1 }] }).quotations[0];
+  assert.equal(quoted.total, 8800);
+  assert.deepEqual(plain(quoted.lines.map(line => [line.subtotal, line.discount, line.laborAmount])), [[6550, 597, 800], [1450, 131, 0], [800, 72, 0]]);
+  assert.deepEqual(plain(quoted.promotions), [{ promotionId: 'pa', name: 'A 保養組', times: 1, discount: 800 }]);
+  // 同一品項分兩列：折扣 2800 先扣滿第一列 1450，剩下 1350 扣第二列。
+  const pair = { ...promoB, id: 'pp', name: 'P 輪胎組', comboPrice: 100 };
+  const split = Inventory.createQuotation(state, { customerId: 'c1', salespersonId: 's1', hourlyRate: 800, promotions: [{ promotion: pair, times: 1 }],
+    lines: [{ itemId: tire, quantity: 1 }, { itemId: tire, quantity: 1 }] }).quotations[0];
+  assert.deepEqual(plain(split.lines.map(line => line.discount)), [1450, 1350]);
+  assert.equal(split.total, 100);
+  // 讀回的報價：總額必須等於 材料−折扣＋工資。
+  assert.throws(() => Inventory.validateState({ ...state, quotations: [{ ...quoted, total: 9600 }] }), /報價總額無效/);
+});

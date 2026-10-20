@@ -347,10 +347,16 @@ function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallba
     const hourlyRate = installationRequired ? quotationDecimal(line.hourlyRate, '工時費率', true) : number(line.hourlyRate ?? 0, '工時費率');
     const laborAmount = number(line.laborAmount ?? 0, '工資');
     if (installationRequired ? laborAmount !== quotationLabor(laborHours, hourlyRate) : laborHours !== 0 || hourlyRate !== 0 || laborAmount !== 0) throw new Error('報價工資無效');
-    return { itemId, itemName, quantity, unitPrice, subtotal, installationRequired, laborHours, hourlyRate, laborAmount };
+    // 特惠組合折扣：材料小計（subtotal）維持原價，折扣另外記；最多扣到材料小計為 0。
+    const discount = number(line.discount ?? 0, '報價組合折扣');
+    if (discount > subtotal) throw new Error('報價組合折扣無效');
+    return { itemId, itemName, quantity, unitPrice, subtotal, discount, installationRequired, laborHours, hourlyRate, laborAmount };
   });
   const total = number(value?.total, '報價總額');
-  if (total !== Math.round(lines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0) * 100) / 100) throw new Error('報價總額無效');
+  if (total !== quotationTotal(lines)) throw new Error('報價總額無效');
+  if (value?.promotions !== undefined && !Array.isArray(value.promotions)) throw new Error('報價組合資料格式無效');
+  const promotions = (value?.promotions ?? []).map(entry => ({ promotionId: id(entry?.promotionId, '組合 ID'), name: text(entry?.name),
+    times: positiveInteger(entry?.times, '組合組數'), discount: number(entry?.discount ?? 0, '組合折扣') }));
   const numberValue = text(value?.number);
   const customerName = text(value?.customerName);
   const customerPhone = text(value?.customerPhone);
@@ -367,10 +373,15 @@ function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallba
     salespersonId,
     salespersonName,
     lines,
+    promotions,
     total,
     note: text(value?.note),
     createdAt: date(value?.createdAt, '報價日期'),
   };
+}
+// 報價總額＝Σ（材料小計 − 組合折扣 ＋ 工資），用「分」計算避免小數誤差。
+function quotationTotal(lines) {
+  return lines.reduce((sum, line) => sum + toCents(line.subtotal) - toCents(line.discount ?? 0) + toCents(line.laborAmount), 0) / 100;
 }
 
 function validateState(value) {
@@ -805,8 +816,22 @@ function createQuotation(state, fields) {
     const hourlyRate = installationRequired ? quotationDecimal(fields.hourlyRate, '工時費率', true) : 0;
     const laborAmount = installationRequired ? quotationLabor(laborHours, hourlyRate) : 0;
     return { itemId: item.id, itemName: item.name, quantity, unitPrice: item.price, subtotal: quantity * item.price,
-      installationRequired, laborHours, hourlyRate, laborAmount };
+      discount: 0, installationRequired, laborHours, hourlyRate, laborAmount };
   });
+  // 特惠組合：同一品項的數量先合併計算折扣，再依明細順序往下扣（和資料庫 save_quotation 相同）。
+  const applied = Array.isArray(fields?.promotions) ? fields.promotions : [];
+  let promotionEntries = [];
+  if (applied.length) {
+    const merged = new Map();
+    lines.forEach(line => { const entry = merged.get(line.itemId); if (entry) entry.quantity += line.quantity; else merged.set(line.itemId, { itemId: line.itemId, unitPrice: line.unitPrice, quantity: line.quantity }); });
+    const result = promotionDiscounts([...merged.values()], applied);
+    const left = new Map(result.byItem);
+    for (const line of lines) {
+      const cut = Math.min(left.get(line.itemId) ?? 0, toCents(line.unitPrice) * line.quantity);
+      if (cut) { line.discount = cut / 100; left.set(line.itemId, left.get(line.itemId) - cut); }
+    }
+    promotionEntries = result.entries.map(entry => ({ promotionId: entry.promotionId, name: entry.name, times: entry.times, discount: entry.discount }));
+  }
   const timestamp = new Date().toISOString();
   const datePrefix = timestamp.slice(0, 10).replaceAll('-', '');
   const sequence = current.quotations.reduce((largest, quotation) => {
@@ -822,7 +847,8 @@ function createQuotation(state, fields) {
     salespersonId: salesperson.id,
     salespersonName: salesperson.name,
     lines,
-    total: Math.round(lines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0) * 100) / 100,
+    promotions: promotionEntries,
+    total: quotationTotal(lines),
     note: text(fields.note),
     createdAt: timestamp,
   };

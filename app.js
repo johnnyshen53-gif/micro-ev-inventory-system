@@ -87,6 +87,7 @@ function showPage(page) {
   if (page === 'bonus') window.BonusUI?.instance?.load();
   if (page === 'promotions') window.PromotionUI?.instance?.load();
   if (page === 'sales') window.PromotionUI?.checkout?.load();
+  if (page === 'quotations') window.PromotionUI?.quotation?.load();
   if (page === 'manage') loadPriceMarkups();
 }
 
@@ -136,6 +137,14 @@ if (window.PromotionUI) window.PromotionUI.checkout = window.PromotionUI.mountCh
   addItem: (item, quantity) => addSaleItem(item, quantity),
   onChange: () => { saleCheckoutId = ''; renderSaleCart(); },
   requiresSerial,
+});
+// 報價單的特惠組合：同一套規則；報價不扣庫存，所以不檢查庫存、也不需要序號。
+if (window.PromotionUI) window.PromotionUI.quotation = window.PromotionUI.mountCheckout({
+  prefix: 'quotation-promo', noun: '報價明細', checkStock: false,
+  getState: () => state,
+  getCart: () => quotationLines,
+  addItem: (item, quantity) => addQuotationItem(item, quantity),
+  onChange: () => renderQuotationBuilder(),
 });
 
 async function saveState(nextState) {
@@ -1204,21 +1213,34 @@ function renderQuotationBuilder() {
   if (state.salespeople.some((candidate) => (candidate.active && candidate.isSales !== false) && candidate.id === selectedSalesperson)) salesperson.value = selectedSalesperson;
   if (state.items.some((candidate) => candidate.id === selectedItem)) item.value = selectedItem;
   $('quotation-hourly-rate').textContent = formatNumber(hourlyRate);
-  const lines = $('quotation-lines'); lines.replaceChildren(); quotationLines.forEach((line, index) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.stock), `NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? `NT$ ${formatNumber(line.hourlyRate)}` : '—', `NT$ ${formatNumber(line.subtotal)}`, `NT$ ${formatNumber(line.laborAmount)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const cell = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.removeLine = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); lines.append(row); });
+  // 特惠組合：先調整套用的組數，再把各品項分到的折扣依明細順序往下扣（和存檔時的算法相同），只用來顯示。
+  const promotions = globalThis.PromotionUI?.quotation;
+  promotions?.sync();
+  const { discount, byItem } = promotions?.summary() ?? { discount: 0, byItem: new Map() };
+  const left = new Map(byItem);
+  const lineDiscounts = quotationLines.map(line => { const cut = Math.min(left.get(line.itemId) ?? 0, Math.round(line.unitPrice * 100) * line.quantity); if (cut) left.set(line.itemId, left.get(line.itemId) - cut); return cut / 100; });
+  const lines = $('quotation-lines'); lines.replaceChildren(); quotationLines.forEach((line, index) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.stock), `NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? `NT$ ${formatNumber(line.hourlyRate)}` : '—', `NT$ ${formatNumber(line.subtotal)}`, `NT$ ${formatNumber(line.laborAmount)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); if (lineDiscounts[index]) { const note = document.createElement('small'); note.className = 'sale-line-discount'; note.textContent = `組合折 −NT$ ${formatNumber(lineDiscounts[index])}`; row.children[7].append(note); } const cell = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.removeLine = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); lines.append(row); });
   if (!quotationLines.length) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 10; cell.className = 'empty'; cell.textContent = '尚未加入明細。請選品項後按「加入明細」。'; row.append(cell); lines.append(row); }
-  $('quotation-total').textContent = 'NT$ ' + formatNumber(quotationLines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0));
+  if ($('quotation-discount-row')) { $('quotation-discount-row').hidden = !discount; $('quotation-discount').textContent = `−NT$ ${formatNumber(discount)}`; }
+  $('quotation-total').textContent = 'NT$ ' + formatNumber(Math.round((quotationLines.reduce((sum, line) => sum + line.subtotal + line.laborAmount, 0) - discount) * 100) / 100);
+}
+// 報價加入一列（由特惠組合一次加入時使用）：免安裝；需要安裝的可以之後再加一列。
+function addQuotationItem(item, quantity) {
+  if (!item || !Number.isInteger(quantity) || quantity <= 0) return false;
+  quotationLines.push({ itemId: item.id, itemName: item.name, stock: item.stock, unitPrice: item.price, quantity, subtotal: item.price * quantity, installationRequired: false, laborHours: 0, hourlyRate: 0, laborAmount: 0 });
+  clearFormError('quotation-form'); renderQuotationBuilder(); return true;
 }
 function renderQuotations() {
   const query = $('quotation-search').value.trim().toLowerCase(); const list = $('quotation-list'); list.replaceChildren();
   state.quotations.filter((quotation) => [quotation.number, quotation.customerName, quotation.customerPhone, quotation.salespersonName].some((value) => value.toLowerCase().includes(query))).forEach((quotation) => { const row = document.createElement('tr'); [quotation.number, new Date(quotation.createdAt).toLocaleDateString('zh-TW'), quotation.customerName, quotation.salespersonName || '未填寫', `NT$ ${formatNumber(quotation.total)}`].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const action = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.dataset.quotationId = quotation.id; button.textContent = '查看／列印'; action.append(button); row.append(action); list.append(row); });
   if (!list.children.length) appendEmpty(list, '尚未有符合條件的報價。');
 }
-function showQuotation(quotation) { const detail = $('quotation-detail'); detail.hidden = false; const content = $('quotation-print-content'); content.replaceChildren(); const heading = document.createElement('h2'); heading.textContent = `報價單 ${quotation.number}`; const info = document.createElement('p'); info.textContent = `日期：${new Date(quotation.createdAt).toLocaleDateString('zh-TW')}｜客戶：${quotation.customerName}｜電話：${quotation.customerPhone}｜業務：${quotation.salespersonName || '未填寫'}`; const table = document.createElement('table'); table.innerHTML = '<thead><tr><th>品項</th><th>單價</th><th>數量</th><th>材料小計</th><th>安裝</th><th>工時</th><th>時薪</th><th>工資</th></tr></thead>'; const body = document.createElement('tbody'); quotation.lines.forEach((line) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.unitPrice), formatNumber(line.quantity), formatNumber(line.subtotal), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? formatNumber(line.hourlyRate) : '—', formatNumber(line.laborAmount ?? 0)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); body.append(row); }); table.append(body); const total = document.createElement('p'); total.textContent = `合計：${formatNumber(quotation.total)}`; content.append(heading, info, table, total); }
+function showQuotation(quotation) { const detail = $('quotation-detail'); detail.hidden = false; const content = $('quotation-print-content'); content.replaceChildren(); const heading = document.createElement('h2'); heading.textContent = `報價單 ${quotation.number}`; const info = document.createElement('p'); info.textContent = `日期：${new Date(quotation.createdAt).toLocaleDateString('zh-TW')}｜客戶：${quotation.customerName}｜電話：${quotation.customerPhone}｜業務：${quotation.salespersonName || '未填寫'}`; const table = document.createElement('table'); const hasDiscount = quotation.lines.some(line => line.discount > 0); table.innerHTML = `<thead><tr><th>品項</th><th>單價</th><th>數量</th><th>材料小計</th>${hasDiscount ? '<th>組合折扣</th>' : ''}<th>安裝</th><th>工時</th><th>時薪</th><th>工資</th></tr></thead>`; const body = document.createElement('tbody'); quotation.lines.forEach((line) => { const row = document.createElement('tr'); [line.itemName, formatNumber(line.unitPrice), formatNumber(line.quantity), formatNumber(line.subtotal), ...(hasDiscount ? [line.discount ? `−${formatNumber(line.discount)}` : '—'] : []), line.installationRequired ? '需安裝' : '免安裝', line.installationRequired ? formatNumber(line.laborHours) : '—', line.installationRequired ? formatNumber(line.hourlyRate) : '—', formatNumber(line.laborAmount ?? 0)].forEach((value) => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); body.append(row); }); table.append(body); const total = document.createElement('p'); total.textContent = `合計：${formatNumber(quotation.total)}`; const promotions = document.createElement('p'); promotions.hidden = !quotation.promotions?.length; promotions.textContent = `特惠組合：${(quotation.promotions ?? []).map(entry => `${entry.name} ×${entry.times}（−${formatNumber(entry.discount)}）`).join('、')}`; content.append(heading, info, table, promotions, total); }
 
 $('quotation-installation-required')?.addEventListener('change', () => { const installed = $('quotation-installation-required').value === 'yes'; $('quotation-labor-hours-wrap').hidden = !installed; $('quotation-labor-hours').required = installed; if (!installed) $('quotation-labor-hours').value = ''; });
 $('quotation-add-line')?.addEventListener('click', () => { const item = state.items.find((candidate) => candidate.id === $('quotation-item').value); const quantity = Number($('quotation-quantity').value); if (!item || !Number.isInteger(quantity) || quantity <= 0) return showFormError('quotation-form', '請選擇品項並輸入大於零的整數數量。'); const installationRequired = $('quotation-installation-required').value === 'yes'; const hoursText = $('quotation-labor-hours').value.trim(); if (installationRequired && (!/^\d+(\.\d{1,2})?$/.test(hoursText) || Number(hoursText) <= 0 || hourlyRate <= 0)) return showFormError('quotation-form', '需安裝時請輸入大於零的工時，並請店長設定工時費率。'); const laborHours = installationRequired ? Number(hoursText) : 0; const laborAmount = installationRequired ? Math.round(Math.round(laborHours * 100) * Math.round(hourlyRate * 100) / 100) / 100 : 0; quotationLines.push({ itemId: item.id, itemName: item.name, stock: item.stock, unitPrice: item.price, quantity, subtotal: item.price * quantity, installationRequired, laborHours, hourlyRate: installationRequired ? hourlyRate : 0, laborAmount }); clearFormError('quotation-form'); renderQuotationBuilder(); });
 $('quotation-lines')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-remove-line]'); if (!button) return; quotationLines.splice(Number(button.dataset.removeLine), 1); renderQuotationBuilder(); });
-if ($('quotation-form')) $('quotation-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const next = createQuotation(state, { customerId: $('quotation-customer').value, salespersonId: $('quotation-salesperson').value, lines: quotationLines, hourlyRate, note: $('quotation-note').value }); if (!await saveState(next)) return; quotationLines = []; $('quotation-form').reset(); $('quotation-labor-hours-wrap').hidden = true; $('quotation-labor-hours').required = false; clearFormError('quotation-form'); render(); setStatus('報價單已建立。'); } catch (error) { showFormError('quotation-form', error.message); } });
+if ($('quotation-form')) $('quotation-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const next = createQuotation(state, { customerId: $('quotation-customer').value, salespersonId: $('quotation-salesperson').value, lines: quotationLines, hourlyRate, note: $('quotation-note').value, promotions: window.PromotionUI?.quotation?.selected() ?? [] }); if (!await saveState(next)) return; quotationLines = []; window.PromotionUI?.quotation?.reset(); $('quotation-form').reset(); $('quotation-labor-hours-wrap').hidden = true; $('quotation-labor-hours').required = false; clearFormError('quotation-form'); render(); setStatus('報價單已建立。'); } catch (error) { showFormError('quotation-form', error.message); } });
 $('shop-rate-form')?.addEventListener('submit', async (event) => { event.preventDefault(); if (document.body.dataset.role !== 'admin') return showFormError('shop-rate-form', '只有店長可維護工時費率。'); try { hourlyRate = await window.AppData.setHourlyRate($('shop-hourly-rate').value); quotationLines = quotationLines.map(line => ({ ...line, hourlyRate: line.installationRequired ? hourlyRate : 0, laborAmount: line.installationRequired ? Math.round(Math.round(line.laborHours * 100) * Math.round(hourlyRate * 100) / 100) / 100 : 0 })); clearFormError('shop-rate-form'); renderQuotationBuilder(); setStatus('工時費率已更新；舊報價不變。'); } catch (error) { showFormError('shop-rate-form', error.message); } });
 $('quotation-search')?.addEventListener('input', renderQuotations);
 $('quotation-list')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-quotation-id]'); const quotation = state.quotations.find((candidate) => candidate.id === button?.dataset.quotationId); if (quotation) showQuotation(quotation); });
@@ -1834,6 +1856,7 @@ async function resetAppSession() {
   window.BonusUI?.instance?.clear();
   window.PromotionUI?.instance?.clear();
   window.PromotionUI?.checkout?.clear();
+  window.PromotionUI?.quotation?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
   renderMonthlySales.assignmentMonth = '';
