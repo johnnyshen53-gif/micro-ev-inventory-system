@@ -351,3 +351,10 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
   .hero-brand { gap: .75rem; }
   .hero-brand > div { padding-left: .75rem; }
 }
+
+/* ===== 售價加成 ===== */
+.price-lock { margin: -.25rem 0 .25rem; }
+.price-hint { display: block; min-height: 1.2em; margin-bottom: .75rem; color: var(--muted); font-size: .85rem; }
+.markup-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .75rem; }
+.markup-grid input { max-width: 9rem; }
+@media (max-width: 900px) { .markup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

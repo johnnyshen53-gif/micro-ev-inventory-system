@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -94,7 +94,7 @@
           </div>
           <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
           <div class="field"><label for="item-barcode">品項識別碼（選填，13 碼數字可列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
-          <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required></div></div>
+          <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required aria-describedby="item-price-hint"></div></div><label class="check-item price-lock"><input id="item-price-locked" type="checkbox"> 固定售價（進貨收貨時不自動重算，例如特價品）</label><small id="item-price-hint" class="price-hint" aria-live="polite"></small>
           <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
           <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>車身、電池每件一個序號；初始庫存為 0 可留空。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
@@ -283,6 +283,7 @@
         </article>
       </div>
       <article id="shop-rate-panel" class="panel"><h3>全店工時費率</h3><form id="shop-rate-form"><div class="field"><label for="shop-hourly-rate">每小時工資（元）</label><input id="shop-hourly-rate" type="number" min="0" step="0.01" required><small>只有店長可修改；新報價使用此費率，舊報價不變。</small></div><p id="shop-rate-form-error" class="form-error" role="alert" hidden></p><button type="submit">儲存費率</button></form></article>
+      <article id="price-markup-panel" class="panel"><h3>售價加成（依分類）</h3><form id="price-markup-form"><p class="hint">進貨收貨時，售價＝進貨單價 ×（1＋加成%），<strong>無條件進位到 10 元</strong>。例：成本 873 元、加成 35% → 1,178.55 → 售價 1,180 元。空白＝該分類不自動定價；品項勾「固定售價」者不會被改。新增品項輸入成本時也會自動帶入。</p><div class="markup-grid"><div class="field"><label for="markup-0">車身（%）</label><input id="markup-0" data-category="車身" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-1">電池（%）</label><input id="markup-1" data-category="電池" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-2">電控元件（%）</label><input id="markup-2" data-category="電控元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-3">機構元件（%）</label><input id="markup-3" data-category="機構元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-4">外觀元件（%）</label><input id="markup-4" data-category="外觀元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div></div><button type="submit">儲存售價加成</button></form></article>
       <article class="panel bonus-report">
         <div class="section-heading"><h3>月份分紅報表</h3><label class="field"><span>月份</span><input id="bonus-month" type="month"></label></div>
         <div class="table-wrap"><table><thead><tr><th>對象</th><th>類別</th><th>筆數</th><th>分紅合計</th></tr></thead><tbody id="bonus-summary"></tbody></table></div>
@@ -323,12 +324,12 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=26"></script>
+  <script src="inventory.js?v=27"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=22"></script>
+  <script src="cloud-data.js?v=23"></script>
   <script src="repair-ui.js?v=12"></script>
-  <script src="bonus-ui.js?v=4"></script>
+  <script src="bonus-ui.js?v=5"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=53"></script>
+  <script src="app.js?v=54"></script>
 </body>
 </html>
