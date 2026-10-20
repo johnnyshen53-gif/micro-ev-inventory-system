@@ -85,6 +85,7 @@ function showPage(page) {
   if (page === 'monthly-sales') renderMonthlySales(true);
   if (page === 'repairs') window.RepairUI?.instance?.load();
   if (page === 'bonus') window.BonusUI?.instance?.load();
+  if (page === 'promotions') window.PromotionUI?.instance?.load();
   if (page === 'manage') loadPriceMarkups();
 }
 
@@ -125,6 +126,8 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
 });
 // 分紅管理（店長專用）：業務員與品項名單取自目前狀態，金額設定與紀錄另由店長專用 RPC 讀取。
 if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
+// 特惠組合頁有自己的狀態列，不再重複顯示在頁首。
+if (window.PromotionUI) window.PromotionUI.instance = window.PromotionUI.mount({ getState: () => state });
 
 async function saveState(nextState) {
   if (window.AppAuthUI.isActive?.() === false) return false;
@@ -1805,6 +1808,7 @@ async function resetAppSession() {
   appSessionEpoch++;
   window.RepairUI?.instance?.clear();
   window.BonusUI?.instance?.clear();
+  window.PromotionUI?.instance?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
   renderMonthlySales.assignmentMonth = '';

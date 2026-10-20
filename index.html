@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=22">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -45,6 +45,7 @@
 
     <nav class="page-nav" aria-label="主要功能">
       <button class="page-tab" type="button" data-page-target="sales">銷售管理</button>
+      <button class="page-tab" type="button" data-page-target="promotions" data-role="admin">特惠組合</button>
       <button class="page-tab" type="button" data-page-target="list" aria-current="page">庫存清單</button>
       <button class="page-tab" type="button" data-page-target="manage" data-role="admin">庫存管理</button>
       <button class="page-tab" type="button" data-page-target="suppliers" data-role="admin">供應商管理</button>
@@ -235,6 +236,32 @@
         </aside>
       </form>
     </section>
+    <section class="app-page promotions-page" data-page="promotions" aria-label="特惠組合" data-role="admin" hidden>
+      <div class="section-heading"><h2>特惠組合</h2></div>
+      <p class="hint">設定每月的特惠組合：期間含開始與結束當天。原價合計依目前品項售價計算，組合價須低於原價合計。銷售結帳與報價單套用組合價將於下一步上線。</p>
+      <p id="promo-status" class="status" role="status" aria-live="polite"></p>
+      <article class="panel promo-form-panel"><h3 id="promo-form-title">新增組合</h3>
+        <form id="promo-form">
+          <div class="promo-head-fields">
+            <div class="field"><label for="promo-name">組合名稱</label><input id="promo-name" maxlength="100" required placeholder="例：10 月換電池保養組"></div>
+            <div class="field"><label for="promo-starts">開始日</label><input id="promo-starts" type="date" required></div>
+            <div class="field"><label for="promo-ends">結束日</label><input id="promo-ends" type="date" required></div>
+            <div class="field"><label for="promo-price">組合價（NT$）</label><input id="promo-price" type="number" min="0" step="0.01" inputmode="decimal" required></div>
+          </div>
+          <fieldset class="promo-items"><legend>組合內容</legend>
+            <div class="promo-item-entry"><div class="field"><label for="promo-item">品項</label><select id="promo-item"></select></div><div class="field"><label for="promo-qty">數量</label><input id="promo-qty" type="number" min="1" max="999" step="1" value="1"></div><button id="promo-add" type="button" class="secondary">加入</button></div>
+            <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>數量</th><th>原價小計</th><th>操作</th></tr></thead><tbody id="promo-lines"></tbody></table></div>
+            <p id="promo-summary" class="promo-summary" aria-live="polite"></p>
+          </fieldset>
+          <label class="check-item"><input id="promo-active" type="checkbox" checked> 啟用（取消勾選＝停用，期間內也不會出現）</label>
+          <p id="promo-form-error" class="form-error" role="alert" hidden></p>
+          <div class="form-actions"><button type="submit">儲存組合</button><button id="promo-cancel" type="button" class="secondary" hidden>取消編輯</button></div>
+        </form>
+      </article>
+      <article class="panel"><h3>組合清單</h3>
+        <div class="table-wrap"><table class="promo-table"><thead><tr><th>名稱</th><th>期間</th><th>狀態</th><th>內容</th><th>原價合計</th><th>組合價</th><th>折扣率</th><th>操作</th></tr></thead><tbody id="promo-list"></tbody></table></div>
+      </article>
+    </section>
     <section class="app-page repair-page" data-page="repairs" aria-label="維修單管理" hidden>
       <div class="section-heading"><h2>維修單</h2><button id="repair-new" type="button" class="secondary">新增接修</button></div>
       <p id="repair-status" role="status" aria-live="polite"></p>
@@ -326,10 +353,11 @@
   <script src="staff-ui.js?v=2"></script>
   <script src="inventory.js?v=27"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=23"></script>
+  <script src="cloud-data.js?v=24"></script>
   <script src="repair-ui.js?v=12"></script>
   <script src="bonus-ui.js?v=5"></script>
+  <script src="promotions-ui.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=54"></script>
+  <script src="app.js?v=55"></script>
 </body>
 </html>
