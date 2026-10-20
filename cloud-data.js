@@ -20,7 +20,7 @@
     saleLines.forEach(line => linesBySale.set(line.sale_id, [...(linesBySale.get(line.sale_id) ?? []), line]));
     return window.Inventory.validateState({
       ...empty(),
-      items: items.map(row => ({ id: row.id, name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost: costByItem.get(row.id) ?? 0, price: Number(row.price), stock: Number(row.stock), minimumStock: Number(row.minimum_stock), warrantyMonths: Number(row.warranty_months ?? 0), notes: row.notes, supplierId: admin ? row.supplier_id ?? '' : '' })),
+      items: items.map(row => ({ id: row.id, name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost: costByItem.get(row.id) ?? 0, price: Number(row.price), stock: Number(row.stock), minimumStock: Number(row.minimum_stock), warrantyMonths: Number(row.warranty_months ?? 0), notes: row.notes, supplierId: admin ? row.supplier_id ?? '' : '', priceLocked: row.price_locked === true })),
       transactions: transactions.map(row => ({ id: row.id, itemId: row.item_id, type: transactionType(row.type, row.warranty_id), quantity: Number(row.quantity), note: row.note, purchaseId: admin ? row.purchase_id ?? '' : '', repairOrderId: row.repair_order_id ?? '', warrantyId: row.warranty_id ?? '', customerId: row.customer_id ?? '', customerName: customerById.get(row.customer_id)?.name ?? '', itemName: row.item_name ?? '', expiresAt: row.expires_at ?? '', unitCostSnapshot: row.unit_cost_snapshot == null ? undefined : Number(row.unit_cost_snapshot), createdBy: row.created_by ?? '', createdByAccount: '', serialIds: row.serial_ids ?? [], serialNumbers: row.serial_numbers ?? [], createdAt: row.created_at })),
       customers: customers.map(row => ({ id: row.id, memberNumber: row.member_number, name: row.name, phone: row.phone, plateNumbers: row.plate_numbers ?? [], address: row.address, note: row.note, active: row.active, createdAt: row.created_at, updatedAt: row.updated_at })),
       salespeople: salespeople.map(row => ({ id: row.id, name: row.name, active: row.active, isSales: row.is_sales !== false, isTechnician: row.is_technician === true, createdAt: row.created_at, updatedAt: row.updated_at })),
@@ -67,7 +67,7 @@
 
   // 雲端快照的每張表；key 對應 snapshotFromRows 的參數名稱。
   const SNAPSHOT_TABLES = [
-    { key: 'items', table: 'items', fields: 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id', adminOnly: false },
+    { key: 'items', table: 'items', fields: 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id,price_locked', adminOnly: false },
     { key: 'costs', table: 'item_costs', fields: 'item_id,cost', adminOnly: true },
     { key: 'transactions', table: 'inventory_transactions', fields: 'id,item_id,type,quantity,note,purchase_id,repair_order_id,warranty_id,customer_id,item_name,expires_at,unit_cost_snapshot,serial_ids,serial_numbers,created_by,created_at', adminOnly: false },
     { key: 'customers', table: 'customers', fields: 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at', adminOnly: false },
@@ -168,7 +168,7 @@
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const rows = (state, key) => state[key] ?? [];
   const byId = values => new Map(values.map(value => [value.id, value]));
-  const itemRow = item => ({ id: item.id, name: item.name, category: item.category, sku: item.sku, barcode: item.barcode, price: item.price, ...(item.stock === undefined ? {} : { stock: item.stock }), minimum_stock: item.minimumStock, warranty_months: item.warrantyMonths ?? 0, notes: item.notes, supplier_id: item.supplierId || null });
+  const itemRow = item => ({ id: item.id, name: item.name, category: item.category, sku: item.sku, barcode: item.barcode, price: item.price, ...(item.stock === undefined ? {} : { stock: item.stock }), minimum_stock: item.minimumStock, warranty_months: item.warrantyMonths ?? 0, notes: item.notes, supplier_id: item.supplierId || null, price_locked: item.priceLocked === true });
   const customerRow = customer => ({ id: customer.id, member_number: customer.memberNumber, name: customer.name, phone: customer.phone, plate_numbers: customer.plateNumbers ?? [], address: customer.address, note: customer.note, active: customer.active });
   async function mutate(client, table, method, value) {
     const request = client.from(table)[method](value);
@@ -419,6 +419,12 @@
   const saveBonusSettings = ({ motorcycleBonusAmount, repairBonusPercent, recipientIds, motorcycleItemIds }) =>
     bonusRpc('save_bonus_settings', { p_motorcycle_amount: motorcycleBonusAmount, p_repair_percent: repairBonusPercent,
       p_recipient_ids: recipientIds, p_motorcycle_item_ids: motorcycleItemIds });
+  // 售價加成（店長專用）：{ 分類: 百分比 }；沒列出的分類＝不自動定價。
+  async function loadPriceMarkups() {
+    const data = await bonusRpc('get_price_markups', {}) ?? {};
+    return Object.fromEntries(Object.entries(data).map(([category, percent]) => [category, Number(percent)]));
+  }
+  const savePriceMarkups = markups => bonusRpc('save_price_markups', { p_markups: markups });
   const setItemCostsConfirmed = (itemIds, confirmed) => bonusRpc('set_item_costs_confirmed', { p_item_ids: itemIds, p_confirmed: confirmed });
   async function loadMonthlyBonusReport(month) {
     const data = await bonusRpc('get_monthly_bonus_report', { p_month: month });
@@ -484,5 +490,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();

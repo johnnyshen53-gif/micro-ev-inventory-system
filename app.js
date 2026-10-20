@@ -31,6 +31,8 @@ const {
   validateState,
   warrantiesForFilter,
 } = window.Inventory;
+// 售價加成 { 分類: 百分比 }（店長進入庫存管理時從雲端讀取）。放在開頭宣告，避免其他函式提早使用時尚未初始化。
+let priceMarkups = {};
 
 const { InventoryStorage } = window;
 const $ = (id) => document.getElementById(id);
@@ -83,6 +85,7 @@ function showPage(page) {
   if (page === 'monthly-sales') renderMonthlySales(true);
   if (page === 'repairs') window.RepairUI?.instance?.load();
   if (page === 'bonus') window.BonusUI?.instance?.load();
+  if (page === 'manage') loadPriceMarkups();
 }
 
 function currentPage() {
@@ -307,6 +310,7 @@ function itemFields() {
     minimumStock: $('item-minimum-stock').value,
     warrantyMonths: $('item-warranty-months').value,
     notes: $('item-notes').value,
+    priceLocked: Boolean($('item-price-locked')?.checked),
     serialNumbers: serialNumbersFromInput($('item-serial-numbers')?.value || ''),
     createdBy: currentUser?.id,
   };
@@ -323,6 +327,8 @@ function resetItemForm() {
   $('item-stock').value = '0';
   $('item-minimum-stock').value = '0';
   $('item-warranty-months').value = '0';
+  if ($('item-price-locked')) $('item-price-locked').checked = false;
+  updateSuggestedPrice(false);
   $('item-form-title').textContent = '新增品項';
   $('item-cancel').hidden = true;
   updateItemPrintButton();
@@ -342,8 +348,10 @@ function startEditing(item) {
     const input = $(`item-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`);
     if (input) input.value = value;
   });
+  if ($('item-price-locked')) $('item-price-locked').checked = item.priceLocked === true;
   $('item-form-title').textContent = `編輯：${item.name}`;
   updateBatteryFields();
+  updateSuggestedPrice(false);
   $('item-cancel').hidden = false;
   updateItemPrintButton();
   $('item-name').focus();
@@ -374,6 +382,43 @@ function updateBatteryFields() {
   $('item-stock').readOnly = Boolean($('item-id').value) && requiresSerial(state.items.find(item => item.id === $('item-id').value));
 }
 $('item-category').addEventListener('change', updateBatteryFields);
+
+// 售價加成：在「分紅管理」設定各分類的加成 %。輸入成本或換分類時自動帶入售價（無條件進位到 10 元）；
+// 手動改過售價就自動勾「固定售價」，之後進貨收貨也不會被重算。（priceMarkups 宣告在檔案開頭）
+async function loadPriceMarkups() {
+  if (document.body.dataset.role !== 'admin' || !window.AppData?.loadPriceMarkups) return;
+  try { priceMarkups = await window.AppData.loadPriceMarkups() ?? {}; } catch { priceMarkups = {}; }
+  updateSuggestedPrice(false);
+}
+function currentSuggestedPrice() {
+  const percent = priceMarkups[$('item-category')?.value];
+  return percent === undefined ? null : window.Inventory.suggestedPrice($('item-cost').value, percent);
+}
+function updateSuggestedPrice(apply = true) {
+  const hint = $('item-price-hint');
+  if (!hint) return;
+  const category = $('item-category').value, percent = priceMarkups[category];
+  if (percent === undefined) { hint.textContent = `「${category}」未設定售價加成（可在「分紅管理」設定）。`; return; }
+  const suggested = currentSuggestedPrice();
+  if ($('item-price-locked').checked) {
+    hint.textContent = `固定售價：不會自動重算${suggested === null ? '' : `（依加成 ${percent}% 建議 NT$ ${formatNumber(suggested)}）`}。`;
+    return;
+  }
+  if (apply && suggested !== null) $('item-price').value = String(suggested);
+  hint.textContent = `售價依「${category}」加成 ${percent}% 自動計算（無條件進位到 10 元）；進貨收貨時也會重算。`;
+}
+if ($('item-price-hint')) {
+  $('item-category').addEventListener('change', () => updateSuggestedPrice(true));
+  $('item-cost').addEventListener('input', () => updateSuggestedPrice(true));
+  $('item-price').addEventListener('input', () => {
+    const suggested = currentSuggestedPrice();
+    if (suggested === null || $('item-price-locked').checked || Number($('item-price').value) === suggested) return;
+    $('item-price-locked').checked = true;
+    updateSuggestedPrice(false);
+    $('item-price-hint').textContent = '已手動修改售價，已自動勾選「固定售價」；取消勾選即可恢復自動計算。';
+  });
+  $('item-price-locked').addEventListener('change', () => updateSuggestedPrice(!$('item-price-locked').checked));
+}
 function parseUnitQr(value) {
   const raw = String(value || '').trim();
   const [barcode, serialNumber, extra] = raw.split('|');

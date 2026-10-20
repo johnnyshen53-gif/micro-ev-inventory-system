@@ -108,8 +108,25 @@
         const tr = element('tr'), cell = element('td', '本月沒有分紅紀錄'); cell.colSpan = body === summary ? 4 : 6; tr.append(cell); body.append(tr);
       }
     }
+    // 售價加成：五個分類各一格，空白＝不自動定價。
+    const markupInputs = () => Array.from(document.querySelectorAll?.('#price-markup-form input[data-category]') ?? []);
+    function renderMarkups(markups) {
+      for (const input of markupInputs()) input.value = markups[input.dataset.category] ?? '';
+    }
+    function parseMarkups() {
+      const markups = {};
+      for (const input of markupInputs()) {
+        const text = String(input.value ?? '').trim();
+        if (text === '') continue;
+        const value = Number(text);
+        if (!Number.isFinite(value) || value < 0 || value > 1000) throw new Error(`「${input.dataset.category}」的加成須為 0～1000 的數字。`);
+        markups[input.dataset.category] = value;
+      }
+      return markups;
+    }
     async function refresh() {
       admin = await window.AppData.loadBonusAdminState();
+      if ($('price-markup-form') && window.AppData.loadPriceMarkups) renderMarkups(await window.AppData.loadPriceMarkups());
       renderSettings(); renderCosts();
       await renderReport();
     }
@@ -130,6 +147,12 @@
           recipientIds: checkedIds($('bonus-recipients')), motorcycleItemIds: checkedIds($('bonus-items')) };
       } catch (error) { message(error.message, true); return; }
       run(() => window.AppData.saveBonusSettings(settings), '分紅設定已儲存；只影響之後的結帳與完工。');
+    });
+    $('price-markup-form')?.addEventListener('submit', event => {
+      event.preventDefault();
+      let markups;
+      try { markups = parseMarkups(); } catch (error) { message(error.message, true); return; }
+      run(() => window.AppData.savePriceMarkups(markups), '售價加成已儲存；之後收貨與新增品項會依新比例帶入售價。');
     });
     $('bonus-costs').addEventListener('click', event => {
       const button = event.target.closest('button[data-cost-item-id]');

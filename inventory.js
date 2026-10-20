@@ -159,6 +159,8 @@ function normalizedItem(value, fallbackId) {
     minimumStock: number(value.minimumStock, '最低庫存'),
     warrantyMonths: nonnegativeInteger(value.warrantyMonths ?? 0, '保固月數'),
     notes: text(value.notes),
+    // 固定售價：勾選後，進貨收貨時不會依加成自動重算售價。
+    priceLocked: value.priceLocked === true,
   };
 }
 
@@ -1048,4 +1050,13 @@ function dashboardSummary(state, month, options = {}) {
   };
 }
 
-window.Inventory = { requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+// 售價加成：成本 ×（1＋加成%），無條件進位到 10 元。
+// 以「分」為單位做整數運算，避免 100 × 1.1 ＝ 110.00000000000001 這類浮點誤差被進位成 120。
+function suggestedPrice(cost, percent) {
+  if (cost === '' || cost === null || cost === undefined || percent === null || percent === undefined) return null;
+  const costCents = Math.round(Number(cost) * 100), percentHundredths = Math.round(Number(percent) * 100);
+  if (!Number.isFinite(costCents) || costCents < 0 || !Number.isFinite(percentHundredths) || percentHundredths < 0) return null;
+  return Math.ceil(costCents * (10000 + percentHundredths) / 10000000) * 10;
+}
+
+window.Inventory = { suggestedPrice, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
