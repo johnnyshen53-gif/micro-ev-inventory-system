@@ -75,7 +75,7 @@ test('checkout stores net subtotals, the discount and the applied combos on each
 test('checkout sends combos to the database and the sales page has the combo area', async () => {
   const [cloud, html, app, ui] = await Promise.all(['cloud-data.js', 'index.html', 'app.js', 'promotions-ui.js']
     .map(file => readFile(new URL(`./${file}`, import.meta.url), 'utf8')));
-  assert.match(cloud, /p_checkout_id: checkoutId, p_promotions: addedSales\[0\]\.promotions \?\? \[\] \}/);
+  assert.match(cloud, /p_checkout_id: checkoutId, p_promotions: addedSales\[0\]\.promotions \?\? \[\], p_coupon_code: addedSales\[0\]\.couponCode \|\| null \}/);
   assert.match(cloud, /unit_price,discount,subtotal/);
   assert.match(cloud, /sale_promotions\(times,discount\)/);
   for (const id of ['sale-promo-panel', 'sale-promo-suggestions', 'sale-promo-applied', 'sale-promo-select', 'sale-promo-add', 'sale-promo-hint', 'sale-cart-breakdown', 'sale-cart-gross', 'sale-cart-discount']) {

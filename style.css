@@ -386,11 +386,20 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .sale-promo-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: end; }
 .sale-promo-picker .field { margin-bottom: 0; }
 .promo-hint:empty { display: none; }
+/* 優惠代碼設定 */
+.coupon-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; align-items: start; }
+.coupon-fields small { color: var(--muted); font-size: .8rem; }
+#coupon-list td.coupon-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
+#coupon-list td:nth-child(3), #coupon-list td:nth-child(4), #coupon-list td:nth-child(6), #coupon-list td:nth-child(7) { white-space: nowrap; }
+#coupon-list .empty { padding: 1rem .8rem; color: var(--muted); text-align: center; }
+@media (min-width: 701px) { table:has(#coupon-list) :is(th, td):nth-child(7) { text-align: right; font-variant-numeric: tabular-nums; } }
+@media (max-width: 900px) { .coupon-fields { grid-template-columns: 1fr 1fr; } }
+#sale-promo-coupon-code { text-transform: uppercase; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .promo-hint.error { color: var(--danger); }
 .sale-breakdown { display: grid; gap: .25rem; margin: 0; color: var(--sale-muted, var(--muted)); font-variant-numeric: tabular-nums; }
 .sale-breakdown div { display: flex; justify-content: space-between; }
 .sale-breakdown dd { margin: 0; }
-.sale-breakdown div:last-child dd { color: #15803d; font-weight: 700; }
+.sale-breakdown div:not(:first-child) dd { color: #15803d; font-weight: 700; }
 .sale-line-discount { display: block; color: #15803d; font-size: .8rem; font-weight: 600; white-space: nowrap; }
 @media (max-width: 700px) { .sale-promo-picker { grid-template-columns: 1fr; } .sale-promo-suggestion, .sale-promo-applied-item { flex-wrap: wrap; } }
 @media (min-width: 701px) {

@@ -220,7 +220,7 @@
       // 同一次結帳的所有明細共用一個 checkout id；雲端以它當銷售單 ID，重送同一個 id 不會重複扣庫存。
       const checkoutId = addedSales[0].checkoutId || addedSales[0].id;
       if (addedSales.some(value => (value.checkoutId || addedSales[0].id) !== checkoutId)) throw new Error('一次只能送出一張銷售單，請重新整理後再試。');
-      const { error } = await client.rpc('create_sale_with_serials', { p_lines: addedSales.map(value => ({ item_id: value.itemId, quantity: value.quantity, serial_ids: value.serialIds ?? [] })), p_customer_id: customerId, p_salesperson_id: salespersonId, p_checkout_id: checkoutId, p_promotions: addedSales[0].promotions ?? [] });
+      const { error } = await client.rpc('create_sale_with_serials', { p_lines: addedSales.map(value => ({ item_id: value.itemId, quantity: value.quantity, serial_ids: value.serialIds ?? [] })), p_customer_id: customerId, p_salesperson_id: salespersonId, p_checkout_id: checkoutId, p_promotions: addedSales[0].promotions ?? [], p_coupon_code: addedSales[0].couponCode || null });
       if (error) throw error;
     }
     for (const entry of addedTransactions.filter(value => !saleItemIds.has(value.itemId) && !value.purchaseId)) {
@@ -434,6 +434,20 @@
   }
   const savePromotion = promotion => bonusRpc('save_promotion', { p_promotion: promotion });
   const deletePromotion = id => bonusRpc('delete_promotion', { p_id: id });
+  // 優惠代碼：店長管理用 get/save/delete；店員結帳時只能檢查自己輸入的代碼（看不到代碼清單）。
+  async function loadCoupons() {
+    const rows = await bonusRpc('get_coupons', {});
+    return (rows ?? []).map(row => ({ ...row, value: Number(row.value), usageLimit: row.usageLimit === null ? null : Number(row.usageLimit),
+      usedCount: Number(row.usedCount ?? 0), usedDiscount: Number(row.usedDiscount ?? 0) }));
+  }
+  const saveCoupon = coupon => bonusRpc('save_coupon', { p_coupon: coupon });
+  const deleteCoupon = id => bonusRpc('delete_coupon', { p_id: id });
+  async function checkCoupon(code) {
+    await window.AppAuth.requireActiveUser();
+    const { data, error } = await window.AppAuth.client.rpc('check_coupon', { p_code: code });
+    if (error) throw error;
+    return { code: data.code, description: data.description ?? '', kind: data.kind, value: Number(data.value) };
+  }
   // 售價加成（店長專用）：{ 分類: 百分比 }；沒列出的分類＝不自動定價。
   async function loadPriceMarkups() {
     const data = await bonusRpc('get_price_markups', {}) ?? {};
@@ -505,5 +519,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadPromotions, savePromotion, deletePromotion, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadPromotions, savePromotion, deletePromotion, loadCoupons, saveCoupon, deleteCoupon, checkCoupon, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();

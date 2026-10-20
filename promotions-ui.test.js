@@ -43,9 +43,9 @@ test('copying to next month moves the period and the month in the name', () => {
 
 test('promotions page is admin-only and loaded with the app', async () => {
   const [html, app] = await Promise.all([readFile(new URL('./index.html', import.meta.url), 'utf8'), readFile(new URL('./app.js', import.meta.url), 'utf8')]);
-  assert.match(html, /<button class="page-tab" type="button" data-page-target="promotions" data-role="admin">特惠組合<\/button>/);
-  assert.match(html, /<section class="app-page promotions-page" data-page="promotions" aria-label="特惠組合" data-role="admin" hidden>/);
+  assert.match(html, /<button class="page-tab" type="button" data-page-target="promotions" data-role="admin">優惠設定<\/button>/);
+  assert.match(html, /<section class="app-page promotions-page" data-page="promotions" aria-label="優惠設定" data-role="admin" hidden>/);
   assert.match(html, /<script src="promotions-ui\.js\?v=\d+"><\/script>/);
-  assert.match(app, /if \(page === 'promotions'\) window\.PromotionUI\?\.instance\?\.load\(\);/);
+  assert.match(app, /if \(page === 'promotions'\) \{ window\.PromotionUI\?\.instance\?\.load\(\); window\.CouponUI\?\.instance\?\.load\(\); \}/);
   assert.match(app, /window\.PromotionUI\?\.instance\?\.clear\(\);/);
 });
