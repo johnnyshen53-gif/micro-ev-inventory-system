@@ -86,6 +86,7 @@ function showPage(page) {
   if (page === 'repairs') window.RepairUI?.instance?.load();
   if (page === 'bonus') window.BonusUI?.instance?.load();
   if (page === 'promotions') window.PromotionUI?.instance?.load();
+  if (page === 'sales') window.PromotionUI?.checkout?.load();
   if (page === 'manage') loadPriceMarkups();
 }
 
@@ -128,6 +129,14 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
 if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
 // 特惠組合頁有自己的狀態列，不再重複顯示在頁首。
 if (window.PromotionUI) window.PromotionUI.instance = window.PromotionUI.mount({ getState: () => state });
+// 銷售結帳的特惠組合：自動偵測、由組合加入、套用／取消。套用內容一變，結帳識別碼就重新產生（送出的內容不同了）。
+if (window.PromotionUI) window.PromotionUI.checkout = window.PromotionUI.mountCheckout({
+  getState: () => state,
+  getCart: () => saleCart,
+  addItem: (item, quantity) => addSaleItem(item, quantity),
+  onChange: () => { saleCheckoutId = ''; renderSaleCart(); },
+  requiresSerial,
+});
 
 async function saveState(nextState) {
   if (window.AppAuthUI.isActive?.() === false) return false;
@@ -1505,6 +1514,10 @@ function showSaleItem(item) { const info = $('sale-item-info'); info.textContent
 function renderSaleCart() {
   const list = $('sale-cart'); if (!list) return; list.replaceChildren();
   if (!saleCart.length) { const row = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 5; cell.className = 'empty'; cell.textContent = '購物車目前沒有品項。請掃描或輸入 QR Code 後加入。'; row.append(cell); list.append(row); }
+  // 特惠組合：先依購物車調整套用的組數，再取得各品項分到的折扣（分）。
+  const promotions = globalThis.PromotionUI?.checkout;
+  if (promotions?.sync()) saleCheckoutId = '';
+  const { discount, byItem } = promotions?.summary() ?? { discount: 0, byItem: new Map() };
   saleCart.forEach((line, index) => {
     const row = document.createElement('tr');
     // 品名一行；有序號時在下一行用小字列出，避免和品名擠在一起。
@@ -1512,9 +1525,17 @@ function renderSaleCart() {
     if (line.serialNumbers?.length) { const serials = document.createElement('small'); serials.className = 'sale-serials'; serials.textContent = `序號：${line.serialNumbers.join('、')}`; nameCell.append(serials); }
     row.append(nameCell);
     [`NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), `NT$ ${formatNumber(line.subtotal)}`].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    const lineDiscount = (byItem.get(line.itemId) ?? 0) / 100;
+    if (lineDiscount) { const note = document.createElement('small'); note.className = 'sale-line-discount'; note.textContent = `組合折 −NT$ ${formatNumber(lineDiscount)}`; row.lastChild.append(note); }
     const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.saleRemove = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); list.append(row);
   });
-  $('sale-cart-total').textContent = formatNumber(saleCart.reduce((sum, line) => sum + line.subtotal, 0));
+  const gross = saleCart.reduce((sum, line) => sum + line.subtotal, 0);
+  if ($('sale-cart-breakdown')) {
+    $('sale-cart-breakdown').hidden = !discount;
+    $('sale-cart-gross').textContent = formatNumber(gross);
+    $('sale-cart-discount').textContent = formatNumber(discount);
+  }
+  $('sale-cart-total').textContent = formatNumber(Math.round((gross - discount) * 100) / 100);
 }
 function selectSaleSerial(serialNumber) {
   const select = $('sale-serial-ids');
@@ -1566,6 +1587,7 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
   if (pendingSave) return;
   const finishSale = (message) => {
     saleCart = []; saleCheckoutId = ''; saleSerialItemId = ''; saleSerialQuantity = 1;
+    window.PromotionUI?.checkout?.reset();
     $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1';
     $('sale-serial-panel').hidden = true; $('sale-serial-ids').replaceChildren(); $('sale-item-info').hidden = true;
     clearFormError('sale-form'); renderSaleCart(); render(); setStatus(message);
@@ -1575,7 +1597,7 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
     saleCheckoutId ||= crypto.randomUUID();
     // 上一次送出其實已在雲端完成（畫面已重新讀取到這張單）：直接收尾，不再送一次。
     if (committed()) { finishSale('此筆銷售先前已完成，未重複扣庫存。'); return; }
-    const next = recordSaleBatch(state, { lines: saleCart, checkoutId: saleCheckoutId, customerId: $('sale-customer').value, salespersonId: $('sale-salesperson').value, createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id });
+    const next = recordSaleBatch(state, { lines: saleCart, checkoutId: saleCheckoutId, customerId: $('sale-customer').value, salespersonId: $('sale-salesperson').value, promotions: window.PromotionUI?.checkout?.selected() ?? [], createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id });
     if (!await saveState(next)) {
       if (committed()) finishSale('連線中斷，但雲端已確認此筆銷售完成，未重複扣庫存。');
       return;
@@ -1604,6 +1626,8 @@ function renderMonthlySales(refreshPerformance = false) {
     [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, `NT$ ${formatNumber(sale.unitPrice)}`, formatNumber(sale.quantity), `NT$ ${formatNumber(sale.subtotal)}`, ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
       const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['日期', '品項', '條碼', '單價', '數量', '小計', '結帳人'][index]; row.append(cell);
     });
+    // 小計是折扣後實收；有特惠組合折扣時在下方註明。
+    if (sale.discount > 0) { const note = document.createElement('small'); note.className = 'sale-line-discount'; note.textContent = `組合折 −NT$ ${formatNumber(sale.discount)}`; row.children[5].append(note); }
     if (isAdmin) {
       const cell = document.createElement('td');
       cell.dataset.label = '業務員歸屬';
@@ -1809,6 +1833,7 @@ async function resetAppSession() {
   window.RepairUI?.instance?.clear();
   window.BonusUI?.instance?.clear();
   window.PromotionUI?.instance?.clear();
+  window.PromotionUI?.checkout?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
   renderMonthlySales.assignmentMonth = '';
