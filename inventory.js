@@ -965,7 +965,15 @@ function recordSaleBatch(state, fields) {
   const createdAt = new Date().toISOString();
   const saleNumber = `S${createdAt.slice(0, 10).replaceAll('-', '')}-${String(current.sales.length + 1).padStart(4, '0')}`;
   const purchasedAt = taipeiDate(createdAt);
-  const sales = requested.map((line) => { const item = line.item; return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, subtotal: item.price * line.quantity, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) }; });
+  // 特惠組合：折扣算法與資料庫相同；雲端會再算一次，以資料庫結果為準。
+  const appliedPromotions = Array.isArray(fields?.promotions) ? fields.promotions : [];
+  const promotion = appliedPromotions.length ? promotionDiscounts(requested.map(line => ({ itemId: line.item.id, unitPrice: line.item.price, quantity: line.quantity })), appliedPromotions) : null;
+  const promotionRefs = appliedPromotions.map(entry => ({ promotionId: entry.promotion.id, times: entry.times }));
+  const sales = requested.map((line) => {
+    const item = line.item, discountCents = promotion?.byItem.get(item.id) ?? 0;
+    const subtotal = discountCents ? (toCents(item.price) * line.quantity - discountCents) / 100 : item.price * line.quantity;
+    return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, discount: discountCents / 100, subtotal, promotions: promotionRefs, createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) };
+  });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
     return sale ? { ...serial, status: 'sold', saleId: sale.id, customerId: customer.id, soldAt: createdAt } : serial;
@@ -1059,4 +1067,70 @@ function suggestedPrice(cost, percent) {
   return Math.ceil(costCents * (10000 + percentHundredths) / 10000000) * 10;
 }
 
-window.Inventory = { suggestedPrice, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+// ── 特惠組合結帳 ──
+// 金額一律換成「分」的整數計算；規則與資料庫 app_private.apply_sale_promotions 相同，畫面金額才會和存檔結果一致。
+const toCents = value => Math.round(Number(value) * 100);
+function promotionInPeriod(promotion, today) {
+  return Boolean(promotion) && promotion.active !== false && today >= promotion.startsOn && today <= promotion.endsOn;
+}
+// 把一個組合的折扣攤到組合內各商品：parts＝[{ itemId, grossCents }]（原價小計，分）。
+// 金額最大的那一項以外都依占比「無條件捨去到元」，差額給最大項；最大項放不下時依序補給其他項（每項最多扣到 0）。
+function allocatePromotionDiscount(parts, discountCents) {
+  const sorted = [...parts].sort((a, b) => b.grossCents - a.grossCents || (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0));
+  const total = sorted.reduce((sum, part) => sum + part.grossCents, 0);
+  const shares = sorted.map(() => 0);
+  let rest = discountCents;
+  for (let index = 1; index < sorted.length; index++) {
+    // BigInt：金額很大時相乘會超過一般數字的精確範圍。
+    shares[index] = Number(BigInt(discountCents) * BigInt(sorted[index].grossCents) / BigInt(total) / 100n) * 100;
+    rest -= shares[index];
+  }
+  shares[0] = Math.min(rest, sorted[0].grossCents);
+  rest -= shares[0];
+  for (let index = 1; rest > 0 && index < sorted.length; index++) {
+    const move = Math.min(rest, sorted[index].grossCents - shares[index]);
+    shares[index] += move; rest -= move;
+  }
+  if (rest > 0) throw new Error('折扣分配失敗');
+  return new Map(sorted.map((part, index) => [part.itemId, shares[index]]));
+}
+// lines＝購物車 [{ itemId, unitPrice, quantity }]；applied＝[{ promotion, times }]。
+// 回傳 byItem（各品項折扣，分）、entries（每個組合的原價與折扣，元）與 total（總折扣，元）；不符合規則時丟出錯誤。
+function promotionDiscounts(lines, applied) {
+  const byLine = new Map();
+  for (const line of lines) {
+    if (byLine.has(line.itemId) && applied.some(entry => entry.promotion?.items.some(part => part.itemId === line.itemId))) throw new Error('組合內的商品請在購物車合併成一列');
+    if (!byLine.has(line.itemId)) byLine.set(line.itemId, line);
+  }
+  if (new Set(applied.map(entry => entry.promotion?.id)).size !== applied.length) throw new Error('同一個組合請用組數表示，不要重複加入');
+  const needs = new Map(), byItem = new Map(), entries = [];
+  let totalCents = 0;
+  for (const { promotion, times } of applied) {
+    if (!promotion) throw new Error('特惠組合不存在，請重新整理後再試');
+    if (!Number.isInteger(times) || times < 1 || times > 99) throw new Error('組合組數須為 1～99');
+    const parts = promotion.items.map(part => {
+      const line = byLine.get(part.itemId);
+      if (!line) throw new Error(`購物車缺少「${promotion.name}」的商品`);
+      needs.set(part.itemId, (needs.get(part.itemId) ?? 0) + part.quantity * times);
+      return { itemId: part.itemId, grossCents: toCents(line.unitPrice) * part.quantity * times };
+    });
+    const listCents = parts.reduce((sum, part) => sum + part.grossCents, 0);
+    const discountCents = listCents - toCents(promotion.comboPrice) * times;
+    if (discountCents <= 0) throw new Error(`「${promotion.name}」目前原價合計已不高於組合價，無法套用`);
+    for (const [itemId, share] of allocatePromotionDiscount(parts, discountCents)) byItem.set(itemId, (byItem.get(itemId) ?? 0) + share);
+    totalCents += discountCents;
+    entries.push({ promotionId: promotion.id, name: promotion.name, times, listTotal: listCents / 100, discount: discountCents / 100 });
+  }
+  for (const [itemId, need] of needs) if (byLine.get(itemId).quantity < need) throw new Error('購物車數量不足以套用所選組合，請確認組數');
+  return { byItem, entries, total: totalCents / 100 };
+}
+// 扣掉已套用組合用掉的數量後，購物車還能再套幾組這個組合（0＝不夠）。
+function promotionFitTimes(lines, applied, promotion) {
+  if (!promotion?.items?.length) return 0;
+  const quantities = new Map(), used = new Map();
+  lines.forEach(line => quantities.set(line.itemId, (quantities.get(line.itemId) ?? 0) + line.quantity));
+  applied.forEach(({ promotion: other, times }) => other?.items.forEach(part => used.set(part.itemId, (used.get(part.itemId) ?? 0) + part.quantity * times)));
+  return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
+}
+
+window.Inventory = { suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

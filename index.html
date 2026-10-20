@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -230,9 +230,15 @@
         <aside class="sale-summary panel" aria-label="本次訂單">
           <h3 class="sale-step"><span class="sale-step-number">2</span>確認訂單</h3>
           <div class="table-wrap sale-cart-wrap"><table><thead><tr><th>品項</th><th class="num">單價</th><th class="num">數量</th><th class="num">小計</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="sale-cart"></tbody></table></div>
+          <section id="sale-promo-panel" class="sale-promos" aria-label="特惠組合" hidden>
+            <ul id="sale-promo-suggestions" class="sale-promo-suggestions" aria-live="polite" hidden></ul>
+            <ul id="sale-promo-applied" class="sale-promo-applied" aria-label="已套用的組合" hidden></ul>
+            <div class="sale-promo-picker"><div class="field"><label for="sale-promo-select">特惠組合</label><select id="sale-promo-select"><option value="">選擇本期組合</option></select></div><button id="sale-promo-add" type="button" class="secondary" disabled>加入組合</button></div>
+            <p id="sale-promo-hint" class="sale-hint" aria-live="polite"></p>
+          </section>
           <div class="field sale-customer"><label for="sale-customer">客戶</label><select id="sale-customer"><option value="">不指定客戶</option></select><small>車身／電池必選；有保固月數時會自動建立保固。</small></div>
           <div class="field"><label for="sale-salesperson">業務員（必選）</label><select id="sale-salesperson" required><option value="">請選擇業務員</option></select></div>
-          <div class="sale-checkout"><div class="sale-total"><span>合計</span><strong>NT$ <span id="sale-cart-total">0</span></strong></div><button type="submit">確認結帳</button></div>
+          <div class="sale-checkout"><dl id="sale-cart-breakdown" class="sale-breakdown" hidden><div><dt>原價合計</dt><dd>NT$ <span id="sale-cart-gross">0</span></dd></div><div><dt>組合折扣</dt><dd>−NT$ <span id="sale-cart-discount">0</span></dd></div></dl><div class="sale-total"><span>合計</span><strong>NT$ <span id="sale-cart-total">0</span></strong></div><button type="submit">確認結帳</button></div>
         </aside>
       </form>
     </section>
@@ -259,7 +265,7 @@
         </form>
       </article>
       <article class="panel"><h3>組合清單</h3>
-        <div class="table-wrap"><table class="promo-table"><thead><tr><th>名稱</th><th>期間</th><th>狀態</th><th>內容</th><th>原價合計</th><th>組合價</th><th>折扣率</th><th>操作</th></tr></thead><tbody id="promo-list"></tbody></table></div>
+        <div class="table-wrap"><table class="promo-table"><thead><tr><th>名稱</th><th>期間</th><th>狀態</th><th>內容</th><th>原價合計</th><th>組合價</th><th>折扣率</th><th>已售組數</th><th>操作</th></tr></thead><tbody id="promo-list"></tbody></table></div>
       </article>
     </section>
     <section class="app-page repair-page" data-page="repairs" aria-label="維修單管理" hidden>
@@ -351,13 +357,13 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=27"></script>
+  <script src="inventory.js?v=28"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=24"></script>
+  <script src="cloud-data.js?v=25"></script>
   <script src="repair-ui.js?v=12"></script>
   <script src="bonus-ui.js?v=5"></script>
-  <script src="promotions-ui.js?v=1"></script>
+  <script src="promotions-ui.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=55"></script>
+  <script src="app.js?v=56"></script>
 </body>
 </html>

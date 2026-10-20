@@ -28,7 +28,7 @@
       purchases: purchases.map(row => ({ id: row.id, number: row.purchase_number, supplierId: row.supplier_id, supplierSnapshot: row.supplier_snapshot, status: row.status, paymentStatus: row.payment_status, lines: (linesByPurchase.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, sku: line.item_sku, barcode: line.item_barcode, quantity: Number(line.quantity), unitCost: Number(line.unit_cost), subtotal: Number(line.subtotal) })), total: Number(row.total), note: row.note, createdAt: row.created_at, updatedAt: row.updated_at, receivedAt: row.received_at ?? '', paidAt: row.paid_at ?? '', createdBy: row.created_by, receivedBy: row.received_by ?? '', paidBy: row.paid_by ?? '', createdByAccount: '', receivedByAccount: '', paidByAccount: '' })),
       serials: serials.map(row => ({ id: row.id, itemId: row.item_id, serialNumber: row.serial_number, status: row.status, purchaseId: admin ? row.purchase_id ?? '' : '', saleId: row.sale_line_id ?? '', customerId: row.customer_id ?? '', warrantyId: row.warranty_id ?? '', repairOrderId: row.repair_order_id ?? '', repairLineId: row.repair_line_id ?? '', repairUsedAt: row.repair_used_at ?? '', createdBy: row.created_by, createdAt: row.created_at, soldAt: row.sold_at ?? '', removedAt: row.removed_at ?? '', removedBy: row.removed_by ?? '', removalReason: row.removal_reason ?? '' })),
       quotations: quotations.map(row => ({ id: row.id, number: row.quote_number, customerId: row.customer_id, customerName: customerById.get(row.customer_id)?.name ?? '', customerPhone: customerById.get(row.customer_id)?.phone ?? '', salespersonId: row.salesperson_id ?? '', salespersonName: row.salesperson_id ? salespersonById.get(row.salesperson_id)?.name ?? '' : '', lines: (linesByQuotation.get(row.id) ?? []).map(line => ({ itemId: line.item_id, itemName: line.item_name, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal), installationRequired: line.installation_required ?? false, laborHours: Number(line.labor_hours ?? 0), hourlyRate: Number(line.hourly_rate ?? 0), laborAmount: Number(line.labor_amount ?? 0) })), total: Number(row.total), note: row.note, createdAt: row.created_at })),
-      sales: sales.flatMap(sale => (linesBySale.get(sale.id) ?? []).map(line => ({ id: line.id, checkoutId: sale.id, saleNumber: sale.sale_number, customerId: sale.customer_id ?? '', itemId: line.item_id, itemName: line.item_name, barcode: line.barcode, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), subtotal: Number(line.subtotal), createdAt: sale.created_at, createdBy: sale.created_by, createdByAccount: '', serialIds: (serialsBySaleLine.get(line.id) ?? []).map(serial => serial.id), serialNumbers: (serialsBySaleLine.get(line.id) ?? []).map(serial => serial.serial_number) }))),
+      sales: sales.flatMap(sale => (linesBySale.get(sale.id) ?? []).map(line => ({ id: line.id, checkoutId: sale.id, saleNumber: sale.sale_number, customerId: sale.customer_id ?? '', itemId: line.item_id, itemName: line.item_name, barcode: line.barcode, quantity: Number(line.quantity), unitPrice: Number(line.unit_price), discount: Number(line.discount ?? 0), subtotal: Number(line.subtotal), createdAt: sale.created_at, createdBy: sale.created_by, createdByAccount: '', serialIds: (serialsBySaleLine.get(line.id) ?? []).map(serial => serial.id), serialNumbers: (serialsBySaleLine.get(line.id) ?? []).map(serial => serial.serial_number) }))),
       warranties: warranties.map(row => ({ id: row.id, customerId: row.customer_id, customerName: row.customer_name, itemId: row.item_id, itemName: row.item_name, barcode: row.barcode, source: row.source, saleId: row.sale_line_id ?? '', saleNumber: row.sale_number, repairOrderId: row.repair_order_id ?? '', serialId: row.serial_id ?? '', serialNumber: row.serial_number ?? '', purchasedAt: row.purchased_at, expiresAt: row.expires_at, note: row.note, createdBy: row.created_by, createdAt: row.created_at })),
       warrantyCases: warrantyCases.map(row => ({ id: row.id, warrantyId: row.warranty_id, issue: row.issue, status: row.status, handledAt: row.handled_at ?? '', resolutionNote: row.resolution_note, itemName: row.item_name, purchasedAt: row.purchased_at, expiresAt: row.expires_at, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at })),
     });
@@ -73,7 +73,7 @@
     { key: 'customers', table: 'customers', fields: 'id,member_number,name,phone,plate_numbers,address,note,active,created_at,updated_at', adminOnly: false },
     { key: 'salespeople', table: 'salespeople', fields: 'id,name,active,is_sales,is_technician,created_at,updated_at', adminOnly: false },
     { key: 'sales', table: 'sales', fields: 'id,sale_number,customer_id,created_by,created_at', adminOnly: false },
-    { key: 'saleLines', table: 'sale_lines', fields: 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,subtotal', adminOnly: false },
+    { key: 'saleLines', table: 'sale_lines', fields: 'id,sale_id,item_id,item_name,barcode,quantity,unit_price,discount,subtotal', adminOnly: false },
     { key: 'suppliers', table: 'suppliers', fields: 'id,name,contact,phone,address,tax_id,note,active,created_at,updated_at', adminOnly: true },
     { key: 'quotations', table: 'quotations', fields: 'id,quote_number,customer_id,salesperson_id,total,note,created_at', adminOnly: false },
     { key: 'quotationLines', table: 'quotation_lines', fields: 'quotation_id,item_id,item_name,quantity,unit_price,subtotal,installation_required,labor_hours,hourly_rate,labor_amount', adminOnly: false },
@@ -220,7 +220,7 @@
       // 同一次結帳的所有明細共用一個 checkout id；雲端以它當銷售單 ID，重送同一個 id 不會重複扣庫存。
       const checkoutId = addedSales[0].checkoutId || addedSales[0].id;
       if (addedSales.some(value => (value.checkoutId || addedSales[0].id) !== checkoutId)) throw new Error('一次只能送出一張銷售單，請重新整理後再試。');
-      const { error } = await client.rpc('create_sale_with_serials', { p_lines: addedSales.map(value => ({ item_id: value.itemId, quantity: value.quantity, serial_ids: value.serialIds ?? [] })), p_customer_id: customerId, p_salesperson_id: salespersonId, p_checkout_id: checkoutId });
+      const { error } = await client.rpc('create_sale_with_serials', { p_lines: addedSales.map(value => ({ item_id: value.itemId, quantity: value.quantity, serial_ids: value.serialIds ?? [] })), p_customer_id: customerId, p_salesperson_id: salespersonId, p_checkout_id: checkoutId, p_promotions: addedSales[0].promotions ?? [] });
       if (error) throw error;
     }
     for (const entry of addedTransactions.filter(value => !saleItemIds.has(value.itemId) && !value.purchaseId)) {
@@ -422,11 +422,14 @@
   // 特惠組合：所有在職店員都能讀（結帳要列出）；新增／修改／刪除只有店長（資料庫函式會再檢查）。
   async function loadPromotions() {
     await window.AppAuth.requireActiveUser();
-    const rows = await query(window.AppAuth.client, 'promotions', 'id,name,starts_on,ends_on,combo_price,active,created_at,updated_at,promotion_items(item_id,quantity)');
+    const rows = await query(window.AppAuth.client, 'promotions', 'id,name,starts_on,ends_on,combo_price,active,created_at,updated_at,promotion_items(item_id,quantity),sale_promotions(times,discount)');
     return rows.map(row => ({
       id: row.id, name: row.name, startsOn: row.starts_on, endsOn: row.ends_on, comboPrice: Number(row.combo_price), active: row.active === true,
       createdAt: row.created_at, updatedAt: row.updated_at,
       items: (row.promotion_items ?? []).map(item => ({ itemId: item.item_id, quantity: Number(item.quantity) })),
+      // 已售組數與總讓利：由銷售紀錄加總（套用一次 3 組算 3 組）。
+      soldTimes: (row.sale_promotions ?? []).reduce((sum, sale) => sum + Number(sale.times), 0),
+      soldDiscount: (row.sale_promotions ?? []).reduce((sum, sale) => sum + Number(sale.discount), 0),
     })).sort((a, b) => String(b.startsOn).localeCompare(String(a.startsOn)) || a.name.localeCompare(b.name, 'zh-Hant'));
   }
   const savePromotion = promotion => bonusRpc('save_promotion', { p_promotion: promotion });
