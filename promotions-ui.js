@@ -199,10 +199,11 @@
   // ── 銷售結帳：偵測、挑選、套用組合 ──
   // getCart()：目前購物車（app.js 的 saleCart）；addItem(item, quantity)：加入購物車（失敗會自己顯示錯誤並回傳 false）；
   // onChange()：套用／取消組合後通知結帳畫面重畫（並讓結帳識別碼重新產生，因為送出的內容變了）。
-  function mountCheckout({ getState, getCart, addItem, onChange = () => {}, requiresSerial = () => false, prefix = 'sale-promo', noun = '購物車', checkStock = true }) {
+  function mountCheckout({ getState, getCart, addItem, onChange = () => {}, requiresSerial = () => false, prefix = 'sale-promo', noun = '購物車', checkStock = true, coupons = false }) {
     const el = name => $(`${prefix}-${name}`);
     if (!el('panel')) return null;
-    let promotions = [], applied = [], generation = 0, loaded = false;
+    // coupon：已套用的優惠代碼 { code, description, kind, value }（一張單限一組）。
+    let promotions = [], applied = [], generation = 0, loaded = false, coupon = null, couponBusy = false;
     const inventory = () => window.Inventory;
     // 同一品項可能分好幾列（報價單），先合併數量再計算。
     const cartLines = () => [...getCart().reduce((merged, line) => {
@@ -219,6 +220,12 @@
     function compute(list = applied) {
       try { return inventory().promotionDiscounts(cartLines(), resolve(list)); }
       catch (error) { return { error: error.message, byItem: new Map(), entries: [], total: 0 }; }
+    }
+    // 優惠代碼在組合折扣之後計算：以各品項扣掉組合折扣後的金額為基準。
+    function couponResult(result = compute()) {
+      if (!coupon) return { byItem: new Map(), total: 0 };
+      return inventory().couponDiscounts(cartLines().map(line => ({ itemId: line.itemId,
+        netCents: Math.round(Number(line.unitPrice) * 100) * line.quantity - (result.byItem.get(line.itemId) ?? 0) })), coupon);
     }
     const hint = (text, error = false) => { el('hint').textContent = text; el('hint').classList.toggle('error', error); };
 
@@ -252,7 +259,8 @@
     }
     function render() {
       const list = available();
-      el('panel').hidden = !list.length && !applied.length;
+      el('panel').hidden = !coupons && !list.length && !applied.length;
+      if (el('picker')) el('picker').hidden = !list.length;
       const select = el('select'), selected = select.value;
       select.replaceChildren(new Option(list.length ? '選擇本期組合' : '目前沒有進行中的組合', ''));
       for (const promotion of list) select.append(new Option(`${promotion.name}｜組合價 ${money(promotion.comboPrice)}`, promotion.id));
@@ -277,6 +285,14 @@
         const amount = element('strong', `−${money(entry.discount)}`);
         const button = element('button', '取消', 'secondary'); button.type = 'button'; button.dataset.promoCancel = entry.promotionId;
         button.setAttribute('aria-label', `取消套用 ${entry.name}`);
+        item.append(label, amount, button); appliedList.append(item);
+      }
+      if (coupon) {
+        const item = element('li', '', 'sale-promo-applied-item');
+        const label = element('span', `優惠代碼 ${coupon.code}（${inventory().couponLabel(coupon)}${coupon.description ? `｜${coupon.description}` : ''}）`);
+        const amount = element('strong', `−${money(couponResult(result).total)}`);
+        const button = element('button', '取消', 'secondary'); button.type = 'button'; button.dataset.couponCancel = coupon.code;
+        button.setAttribute('aria-label', `取消優惠代碼 ${coupon.code}`);
         item.append(label, amount, button); appliedList.append(item);
       }
       appliedList.hidden = !appliedList.children.length;
@@ -309,10 +325,30 @@
       setTimes(button.dataset.promoApply, Number(button.dataset.times), promotion ? `已套用「${promotion.name}」。` : '');
     });
     el('applied').addEventListener('click', event => {
+      if (event.target.closest('button[data-coupon-cancel]')) { coupon = null; hint('已取消優惠代碼。'); onChange(); return; }
       const button = event.target.closest('button[data-promo-cancel]');
       if (!button) return;
       setTimes(button.dataset.promoCancel, 0, `已取消套用組合，商品仍留在${noun}。`);
     });
+    // 優惠代碼：先請資料庫檢查（期間、啟用、使用上限），結帳時資料庫會再檢查一次。
+    async function applyCoupon() {
+      const code = el('coupon-code').value.trim().toUpperCase();
+      if (!code) return hint('請輸入優惠代碼。', true);
+      if (couponBusy) return;
+      couponBusy = true; el('coupon-apply').disabled = true;
+      try {
+        const checked = await window.AppData.checkCoupon(code);
+        coupon = checked; el('coupon-code').value = '';
+        hint(`已套用優惠代碼 ${checked.code}。`);
+        onChange();
+      } catch (error) { hint(error.message, true); }
+      finally { couponBusy = false; el('coupon-apply').disabled = false; }
+    }
+    if (coupons && el('coupon-apply')) {
+      el('coupon-apply').addEventListener('click', applyCoupon);
+      // 在代碼欄按 Enter：套用代碼，不要送出整張結帳單。
+      el('coupon-code').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); applyCoupon(); } });
+    }
 
     return {
       async load() {
@@ -333,11 +369,19 @@
         render();
         return changed;
       },
-      summary() { const result = compute(); return { discount: result.total, byItem: result.byItem }; },
+      // discount＝組合＋代碼的總折扣；byItem＝各品項折扣（分），兩種合計。
+      summary() {
+        const result = compute(), couponPart = couponResult(result);
+        const byItem = new Map(result.byItem);
+        couponPart.byItem.forEach((cents, itemId) => byItem.set(itemId, (byItem.get(itemId) ?? 0) + cents));
+        return { discount: Math.round((result.total + couponPart.total) * 100) / 100, comboDiscount: result.total, couponDiscount: couponPart.total, byItem };
+      },
       // 結帳送出用：[{ promotion, times }]
       selected() { return resolve().filter(entry => entry.promotion); },
-      reset() { applied = []; hint(''); render(); },
-      clear() { generation++; promotions = []; applied = []; loaded = false; hint(''); render(); },
+      // 結帳送出用：{ code, kind, value } 或 null
+      coupon() { return coupon; },
+      reset() { applied = []; coupon = null; if (el('coupon-code')) el('coupon-code').value = ''; hint(''); render(); },
+      clear() { generation++; promotions = []; applied = []; coupon = null; loaded = false; if (el('coupon-code')) el('coupon-code').value = ''; hint(''); render(); },
     };
   }
 
