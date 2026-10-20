@@ -10,7 +10,7 @@ const { addItem, addCustomer, addSalesperson, addWarrantyCase, createQuotation, 
 
 const item = {
   name: '前煞車皮',
-  category: '零件',
+  category: '電控元件',
   sku: 'BRK-001',
   barcode: '4710000000012',
   cost: 180,
@@ -67,7 +67,7 @@ test('checkout keeps one checkout id on every line so the cloud can de-duplicate
 
 test('cart can select distinct products without barcodes and mix scanning', () => {
   let state = addItem(emptyState(), { ...item, barcode: '' });
-  state = addItem(state, { ...item, sku: 'SECOND', name: '用品', barcode: '', price: 90 });
+  state = addItem(state, { ...item, sku: 'SECOND', name: '機構元件', barcode: '', price: 90 });
   state = withSalesperson(addItem(state, { ...item, sku: 'SCAN' }));
   const next = recordSaleBatch(state, { salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1 }, { itemId: state.items[1].id, quantity: 2 }, { barcode: item.barcode, quantity: 1 }] });
   assert.deepEqual(Array.from(next.items, product => product.stock), [1, 0, 1]);
@@ -292,7 +292,7 @@ test('battery names include current specifications once without renaming stored 
 test('generates category-date-sequence SKUs and preserves existing SKUs on edit', () => {
   const date = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Taipei' }).format(new Date()).replaceAll('-', '');
   let state = emptyState();
-  for (const [category, prefix] of [['機車', '11'], ['零件', '22'], ['用品', '33'], ['電池', '88']]) {
+  for (const [category, prefix] of [['車身', '11'], ['電控元件', '22'], ['機構元件', '33'], ['外觀元件', '44'], ['電池', '88']]) {
     state = addItem(state, { ...item, category, stock: 0, sku: '', barcode: '', voltage: 12, capacity: 7 });
     assert.equal(state.items.at(-1).sku, category === '電池' ? `88${date.slice(0, 4)}1207001` : `${prefix}${date}001`);
   }
@@ -792,4 +792,16 @@ test('staff roles: at least one role, legacy staff count as salespeople, technic
   const lines = [{ itemId: state.items[0].id, quantity: 1 }];
   assert.throws(() => recordSaleBatch(state, { lines, salespersonId: techOnly.id }), /未勾選業務員身分/);
   assert.equal(recordSaleBatch(state, { lines, salespersonId: both.id }).sales[0].salespersonId, both.id);
+});
+
+// 2026-10 改分類：舊快取或舊備份裡的「機車／零件／用品」要能讀進來，自動換成新分類。
+test('legacy item categories from old caches or backups map to the new categories', () => {
+  const legacy = { ...emptyState(), items: [
+    { ...item, id: '11111111-1111-4111-8111-111111111111', name: '整車', category: '機車', sku: 'L1', barcode: 'L1', stock: 0 },
+    { ...item, id: '22222222-2222-4222-8222-222222222222', name: '輪胎', category: '零件', sku: 'L2', barcode: 'L2' },
+    { ...item, id: '33333333-3333-4333-8333-333333333333', name: '後照鏡', category: '用品', sku: 'L3', barcode: 'L3' },
+  ] };
+  const state = validateState(legacy);
+  assert.deepEqual(state.items.map(entry => entry.category), ['車身', '機構元件', '外觀元件']);
+  assert.throws(() => addItem(emptyState(), { ...item, category: '不存在的分類' }), /品項分類無效/);
 });

@@ -20,7 +20,7 @@ async function ui() {
     currentUser: { id: 'manager', role: 'admin' }, pendingSave: null, receiptSerialNumbersByItem: {}, receiptPurchaseId: 'purchase', formatNumber: String, setStatus() {}, render() {},
     showFormError(id, message) { $(id + '-error').textContent = message; }, clearFormError(id) { $(id + '-error').textContent = ''; },
   });
-  context.state = context.addItem(context.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 0, cost: 1, price: 2, minimumStock: 0 });
+  context.state = context.addItem(context.emptyState(), { category: '車身', name: '車身', sku: 'M', barcode: 'motor', stock: 0, cost: 1, price: 2, minimumStock: 0 });
   context.state.items[0].stock = 2;
   context.saveState = async next => { context.state = next; return true; };
   vm.runInContext(app.slice(app.indexOf('function serialNumbersFromInput('), app.indexOf('function supplierName(')), context);
@@ -34,7 +34,7 @@ test('serial registration filters products by category and clears stale product 
   assert.deepEqual(Array.from($('serial-item').children, option => option.value), ['', 'battery']);
   assert.equal($('serial-overview').children.length, 1);
   $('serial-item').value = 'battery'; $('serial-numbers').value = 'old draft';
-  $('serial-category').value = '機車'; $('serial-category').listeners.change();
+  $('serial-category').value = '車身'; $('serial-category').listeners.change();
   assert.equal($('serial-item').value, ''); assert.equal($('serial-numbers').value, '');
   assert.deepEqual(Array.from($('serial-item').children, option => option.value), ['', c.state.items[0].id]);
   $('serial-category').value = ''; c.renderSerialInventory();
@@ -65,7 +65,7 @@ test('receipt input uses saved quantities and text safely without submitting on 
 });
 test('manual warranty selects sold unit and shows its fixed customer and serial', async () => {
   const c = await ui();
-  let state = c.addItem(c.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 1, serialNumbers: ['000A'], cost: 1, price: 2, minimumStock: 0 });
+  let state = c.addItem(c.emptyState(), { category: '車身', name: '車身', sku: 'M', barcode: 'motor', stock: 1, serialNumbers: ['000A'], cost: 1, price: 2, minimumStock: 0 });
   state = c.addCustomer(state, { name: '客戶', phone: '0912345678' });
   state = c.addSalesperson(state, { name: '測試業務' });
   c.state = c.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
@@ -113,7 +113,7 @@ async function fullUi(initial) {
 }
 test('real app serial receipt preserves inputs on write failure and prevents duplicate receipt', async () => {
   const setup = await ui(); let state = setup.addSupplier(setup.emptyState(), { name: '供應商' });
-  state = setup.addItem(state, { category: '機車', name: '機車', sku: 'M', barcode: 'motor', supplierId: state.suppliers[0].id, stock: 0, cost: 1, price: 2, minimumStock: 0 });
+  state = setup.addItem(state, { category: '車身', name: '車身', sku: 'M', barcode: 'motor', supplierId: state.suppliers[0].id, stock: 0, cost: 1, price: 2, minimumStock: 0 });
   state = setup.createPurchase(state, { supplierId: state.suppliers[0].id, lines: [{ itemId: state.items[0].id, quantity: 2, unitCost: 3 }] });
   const c = await fullUi(state), pid = state.purchases[0].id;
   await c.click('purchase-list', { id: pid, purchaseAction: 'receive' });
@@ -131,7 +131,7 @@ test('real app serial receipt preserves inputs on write failure and prevents dup
 });
 test('real app serial cart checkout preserves failure then creates per-unit warranty', async () => {
   const setup = await ui();
-  let state = setup.addItem(setup.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 2, cost: 1, price: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
+  let state = setup.addItem(setup.emptyState(), { category: '車身', name: '車身', sku: 'M', barcode: 'motor', stock: 2, cost: 1, price: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
   state = setup.addCustomer(state, { name: '客戶', phone: '0912345678' });
   state = setup.addSalesperson(state, { name: '測試業務' });
   const c = await fullUi(state), item = c.api.getState().items[0];
@@ -150,7 +150,7 @@ test('real app serial cart checkout preserves failure then creates per-unit warr
 });
 test('real app stock movement records signed-in manager and clerk cannot submit it', async () => {
   const c = await fullUi();
-  const initial = c.I.addItem(c.I.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 1, serialNumbers: ['000A'], cost: 1, price: 2, minimumStock: 0 });
+  const initial = c.I.addItem(c.I.emptyState(), { category: '車身', name: '車身', sku: 'M', barcode: 'motor', stock: 1, serialNumbers: ['000A'], cost: 1, price: 2, minimumStock: 0 });
   // Reuse storage load boundary rather than mutating the app's internal state.
   c.context.window.InventoryStorage.loadState = async () => ({ state: initial });
   await c.api.bootstrap({ id: 'manager', role: 'admin' });
@@ -165,7 +165,7 @@ test('real app stock movement records signed-in manager and clerk cannot submit 
 });
 test('real app warranty issue selects original customer retains failed input and records replacement on original warranty', async () => {
   const setup = await ui();
-  let state = setup.addItem(setup.emptyState(), { category: '機車', name: '機車', sku: 'M', barcode: 'motor', stock: 2, cost: 1, price: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
+  let state = setup.addItem(setup.emptyState(), { category: '車身', name: '車身', sku: 'M', barcode: 'motor', stock: 2, cost: 1, price: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
   state = setup.addCustomer(state, { name: '保固客戶', phone: '0912345678' });
   state = setup.addSalesperson(state, { name: '測試業務' });
   state = setup.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
@@ -216,13 +216,13 @@ test('serial overview lists products and opens a per-product serial dialog with 
   // 總覽：每個品項一列，顯示各狀態數量，不直接列出序號。
   assert.equal($('serial-overview').children.length, 2);
   const motorRow = $('serial-overview').children[0];
-  assert.deepEqual(motorRow.children.slice(0, 4).map(cell => cell.textContent), ['機車', '機車', '30', '15']);
+  assert.deepEqual(motorRow.children.slice(0, 4).map(cell => cell.textContent), ['車身', '車身', '30', '15']);
   assert.equal($('serial-list').children.length, 0);
 
   // 點「查看序號」→ 視窗列出該品項最新 20 筆，可再顯示更多。
   const open = id => $('serial-overview').listeners.click({ target: { closest: () => ({ dataset: { action: 'open-serial-dialog', id } }) } });
   open(itemId);
-  assert.equal($('serial-dialog-title').textContent, '機車 的原廠序號');
+  assert.equal($('serial-dialog-title').textContent, '車身 的原廠序號');
   assert.equal($('serial-list').children.length, 20);
   assert.equal($('serial-list').children[0].children[0].textContent, 'SN044');
   assert.equal($('serial-list-count').textContent, '顯示 20／共 45 筆');

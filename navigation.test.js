@@ -51,7 +51,7 @@ test('customer form stores multiple optional plates and shows them on edit', asy
 
 test('quotation builder prices installation hours and prints saved labor while only manager changes shop rate', async () => {
   const { context, $, inventory: I } = await purchasingUi();
-  context.state = I.addSalesperson(I.addCustomer(I.addItem(context.state, { name: '煞車皮', category: '零件', price: 350, cost: 100, stock: 2, minimumStock: 0 }), { name: '甲', phone: '0911' }), { name: '乙' });
+  context.state = I.addSalesperson(I.addCustomer(I.addItem(context.state, { name: '煞車皮', category: '電控元件', price: 350, cost: 100, stock: 2, minimumStock: 0 }), { name: '甲', phone: '0911' }), { name: '乙' });
   context.quotationLines = [];
   context.hourlyRate = 800;
   context.window = { AppData: { setHourlyRate: async rate => Number(rate) } };
@@ -117,7 +117,7 @@ test('item supplier selector keeps active selection and shows only its existing 
   $('item-supplier').value = a.id;
   context.renderItemSuppliers();
   assert.equal($('item-supplier').value, a.id);
-  context.state = inventory.addItem(context.state, { name: '產品', category: '零件', supplierId: b.id, cost: 1, price: 2, stock: 0, minimumStock: 0 });
+  context.state = inventory.addItem(context.state, { name: '產品', category: '電控元件', supplierId: b.id, cost: 1, price: 2, stock: 0, minimumStock: 0 });
   context.state = inventory.deactivateSupplier(context.state, b.id);
   $('item-id').value = context.state.items[0].id;
   $('item-supplier').value = b.id;
@@ -136,7 +136,7 @@ async function stockedPurchasingUi() {
   context.state = I.addSupplier(context.state, { name: 'B' });
   const [a, b] = context.state.suppliers;
   for (const [name, barcode] of [['一號', '1111111111111'], ['二號', '2222222222222']]) {
-    context.state = I.addItem(context.state, { name, barcode, category: '零件', supplierId: a.id, cost: 1.234, price: 5, stock: 0, minimumStock: 0 });
+    context.state = I.addItem(context.state, { name, barcode, category: '電控元件', supplierId: a.id, cost: 1.234, price: 5, stock: 0, minimumStock: 0 });
   }
   assert.equal(typeof context.resetPurchaseForm, 'function', 'purchase UI is implemented');
   context.resetPurchaseForm();
@@ -482,7 +482,7 @@ test('serial category selector offers valid motorcycle and battery options', asy
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   const select = html.match(/<select id="serial-category">([\s\S]*?)<\/select>/)?.[1] ?? '';
 
-  assert.match(select, /<option value="機車">機車<\/option>/);
+  assert.match(select, /<option value="車身">車身<\/option>/);
   assert.match(select, /<option value="電池">電池<\/option>/);
   assert.doesNotMatch(select, /<\/option\s+value=/);
 });
@@ -494,7 +494,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=22"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=52"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=53"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -933,7 +933,7 @@ async function warrantyCaseUi() {
   const inventoryContext = { crypto: webcrypto, window: {} };
   vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), inventoryContext);
   const inventory = inventoryContext.window.Inventory;
-  let state = inventory.addItem(inventory.emptyState(), { name: '煞車皮', category: '零件', barcode: '4710000000012', cost: 100, price: 200, stock: 2, minimumStock: 0 });
+  let state = inventory.addItem(inventory.emptyState(), { name: '煞車皮', category: '電控元件', barcode: '4710000000012', cost: 100, price: 200, stock: 2, minimumStock: 0 });
   state = inventory.addCustomer(state, { name: '王先生', phone: '0912345678' });
   for (const note of ['A', 'B']) state = inventory.createWarranty(state, { customerId: state.customers[0].id, itemId: state.items[0].id, purchasedAt: '2026-01-01', expiresAt: '2027-01-01', note });
   const [warrantyA, warrantyB] = state.warranties;

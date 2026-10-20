@@ -7,7 +7,7 @@ import vm from 'node:vm';
 const inventoryContext = { crypto: webcrypto, window: {} };
 vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), inventoryContext);
 const I = inventoryContext.window.Inventory;
-const item = { name: '前煞車皮', category: '零件', sku: 'BRK-001', barcode: '4710000000012', cost: 180, price: 350, stock: 50, minimumStock: 1, notes: '' };
+const item = { name: '前煞車皮', category: '電控元件', sku: 'BRK-001', barcode: '4710000000012', cost: 180, price: 350, stock: 50, minimumStock: 1, notes: '' };
 const oil = { ...item, name: '機油', sku: 'OIL-001', barcode: '4710000000029', price: 120 };
 
 // 依指定時間建立銷售；每筆一張銷售單，方便驗證筆數與金額。
@@ -112,7 +112,7 @@ test('dashboard summary ranks motorcycles by units and lists every month with sa
     { at: '2026-10-02T02:00:00Z', quantity: 2 },
   ]);
   // 把兩個品項分別標成不同車型的機車，驗證只依分類挑出並依台數排序。
-  const motorState = { ...state, items: state.items.map(entry => ({ ...entry, category: entry.name === '機油' ? '機車' : '零件' })) };
+  const motorState = { ...state, items: state.items.map(entry => ({ ...entry, category: entry.name === '機油' ? '車身' : '電控元件' })) };
   const summary = I.dashboardSummary(motorState, '2026-10');
   assert.deepEqual(Array.from(summary.motorcycles, entry => [entry.name, entry.quantity]), [['機油', 3]]);
   assert.deepEqual(Array.from(summary.months, entry => [entry.month, entry.total, entry.count]), [['2026-10', 1060, 2], ['2026-09', 350, 1]]);
@@ -146,7 +146,7 @@ test('staff keep the direct monthly detail without the month list or motorcycle 
 
 test('manager motorcycle chart draws bars relative to the top seller', async () => {
   const { context, $ } = await overviewUi();
-  context.state = { ...context.state, items: context.state.items.map(entry => ({ ...entry, category: '機車' })) };
+  context.state = { ...context.state, items: context.state.items.map(entry => ({ ...entry, category: '車身' })) };
   context.renderMonthlyOverview('2026-10', true);
   const row = $('monthly-motorcycle-chart').children[0];
   assert.equal(row.children[0].textContent, '1. 前煞車皮');

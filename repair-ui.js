@@ -51,7 +51,7 @@
     const selectedOrder = () => orders.find(order => order.id === selectedId);
     const state = () => getState();
     const message = (text, error = false) => { $('repair-status').textContent = text; $('repair-status').classList.toggle('error', error); notify(text, error); };
-    const repairItems = () => state().items.filter(item => ['零件', '用品', '電池'].includes(item.category));
+    const repairItems = () => state().items.filter(item => ['電池', '電控元件', '機構元件', '外觀元件'].includes(item.category));
     function renderPlateChoices(autoFill = false) {
       const plates = state().customers.find(value => value.id === $('repair-customer').value)?.plateNumbers ?? [];
       const choice = $('repair-plate-choice');

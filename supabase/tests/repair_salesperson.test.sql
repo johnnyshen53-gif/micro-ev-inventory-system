@@ -13,7 +13,7 @@ insert into public.salespeople(id, name, active, created_by) values
 -- 維修人員＝勾選「維修員」身分的店員（完工必須指定）。
 insert into public.salespeople(id, name, active, is_sales, is_technician) values ('71000000-0000-4000-8000-000000000061', '維修甲', true, false, true);
 insert into public.items(id, name, category, sku, price, stock, created_by) values
-  ('71000000-0000-4000-8000-000000000031', '煞車片', '零件', 'RS-PART', 100, 10, '71000000-0000-4000-8000-000000000001');
+  ('71000000-0000-4000-8000-000000000031', '煞車片', '電控元件', 'RS-PART', 100, 10, '71000000-0000-4000-8000-000000000001');
 
 -- 店員：沒有業務員也能建立、報價；完工只要有維修人員。
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000002', true);

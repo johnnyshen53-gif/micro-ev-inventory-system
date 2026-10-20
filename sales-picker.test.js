@@ -10,7 +10,7 @@ function fixture() {
   const nodes = new Map();
   const node = () => ({ value: '', children: [], dataset: {}, listeners: {}, replaceChildren() { this.children = []; this.value = ''; }, append(child) { this.children.push(child); }, addEventListener(type, fn) { this.listeners[type] = fn; }, focus() {} });
   const $ = id => { if (!nodes.has(id)) { const element = node(); Object.defineProperty(element, 'options', { get() { return this.children; } }); Object.defineProperty(element, 'selectedOptions', { get() { return this.children.filter(option => option.selected); } }); nodes.set(id, element); } return nodes.get(id); };
-  const context = { $, document: { createElement: node }, formatNumber: String, showFormError: (_, message) => { context.error = message; }, clearFormError() {}, state: { items: [{ id: 'a', category: '零件', name: '煞車皮', price: 350, cost: 180, stock: 2, barcode: '123' }, { id: 'b', category: '用品', name: '安全帽', price: 900, stock: 0, barcode: '' }] }, saleCart: [] };
+  const context = { $, document: { createElement: node }, formatNumber: String, showFormError: (_, message) => { context.error = message; }, clearFormError() {}, state: { items: [{ id: 'a', category: '電控元件', name: '煞車皮', price: 350, cost: 180, stock: 2, barcode: '123' }, { id: 'b', category: '機構元件', name: '安全帽', price: 900, stock: 0, barcode: '' }] }, saleCart: [] };
   vm.createContext(context);
   context.requiresSerial = inventoryContext.window.Inventory.requiresSerial;
   context.state.serials = [];
@@ -21,12 +21,12 @@ function fixture() {
 }
 test('category picker filters products, clears stale selections and disables missing stock', () => {
   const c = fixture();
-  c.$('sale-category').value = '零件'; c.renderSalePicker();
+  c.$('sale-category').value = '電控元件'; c.renderSalePicker();
   assert.equal(c.$('sale-item').children.length, 2);
   assert.match(c.$('sale-item').children[1].textContent, /煞車皮.*350.*2/);
   c.$('sale-item').value = 'a'; c.renderSalePicker();
   assert.equal(c.$('sale-pick-add').disabled, false);
-  c.$('sale-category').value = '用品'; c.renderSalePicker();
+  c.$('sale-category').value = '機構元件'; c.renderSalePicker();
   assert.equal(c.$('sale-item').value, '');
   assert.equal(c.$('sale-item').children[1].disabled, true);
   assert.equal(c.$('sale-pick-add').disabled, true);
@@ -35,7 +35,7 @@ test('category picker filters products, clears stale selections and disables mis
 });
 test('selected and scanned products share a cart with stock and quantity validation', () => {
   const c = fixture();
-  c.$('sale-category').value = '零件'; c.$('sale-item').value = 'a'; c.$('sale-pick-quantity').value = '1';
+  c.$('sale-category').value = '電控元件'; c.$('sale-item').value = 'a'; c.$('sale-pick-quantity').value = '1';
   c.$('sale-pick-add').listeners.click();
   c.$('sale-barcode').value = '123'; c.$('sale-quantity').value = '1'; c.addSaleLine();
   assert.equal(c.saleCart.length, 1); assert.equal(c.saleCart[0].quantity, 2);

@@ -32,7 +32,7 @@ begin
   insert into public.items (id, name, category, stock, warranty_months, price, created_by)
     values (v_item, '測試電池', '電池', 1, 12, 100, v_actor),
            (v_other, '其他測試電池', '電池', 1, 0, 50, v_actor),
-           (v_part, '測試零件', '零件', 0, 0, 20, v_actor);
+           (v_part, '測試零件', '電控元件', 0, 0, 20, v_actor);
   insert into public.inventory_serials (id, item_id, serial_number, status, created_by)
     values (v_serial, v_item, 'WARRANTY-TEST-SN-1', 'in_stock', v_actor),
            (v_other_serial, v_other, 'WARRANTY-TEST-SN-2', 'in_stock', v_actor);

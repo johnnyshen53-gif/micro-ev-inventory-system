@@ -14,7 +14,7 @@ insert into public.salespeople(id, name, active, is_sales, is_technician) values
   ('73000000-0000-4000-8000-000000000052', '純業務', true, true, false),
   ('73000000-0000-4000-8000-000000000053', '純維修', true, false, true);
 insert into public.items(id, name, category, sku, price, stock) values
-  ('73000000-0000-4000-8000-000000000031', '獎金車款', '零件', 'R-MOTO', 1000, 20);
+  ('73000000-0000-4000-8000-000000000031', '獎金車款', '電控元件', 'R-MOTO', 1000, 20);
 create function pg_temp.sale_bonus() returns setof app_private.sale_bonus_records
   language sql security definer as $$ select * from app_private.sale_bonus_records $$;
 create function pg_temp.repair_bonus() returns setof app_private.repair_bonus_records
