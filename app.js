@@ -130,6 +130,13 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
 if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
 // 特惠組合頁有自己的狀態列，不再重複顯示在頁首。
 if (window.PromotionUI) window.PromotionUI.instance = window.PromotionUI.mount({ getState: () => state });
+// 批次匯入品項（CSV）：預覽全部正確後，用和「新增品項」相同的儲存流程一次寫入。
+if (window.ItemImport) window.ItemImport.instance = window.ItemImport.mount({
+  getState: () => state,
+  getMarkups: () => priceMarkups,
+  saveState: async next => { const saved = await saveState(next); if (saved) render(); return saved; },
+  notify: setStatus,
+});
 // 優惠代碼設定（店長專用，在「優惠設定」頁）。
 if (window.CouponUI) window.CouponUI.instance = window.CouponUI.mount();
 // 銷售結帳的特惠組合：自動偵測、由組合加入、套用／取消。套用內容一變，結帳識別碼就重新產生（送出的內容不同了）。
@@ -413,6 +420,7 @@ async function loadPriceMarkups() {
   if (document.body.dataset.role !== 'admin' || !window.AppData?.loadPriceMarkups) return;
   try { priceMarkups = await window.AppData.loadPriceMarkups() ?? {}; } catch { priceMarkups = {}; }
   updateSuggestedPrice(false);
+  window.ItemImport?.instance?.refresh();
 }
 function currentSuggestedPrice() {
   const percent = priceMarkups[$('item-category')?.value];
@@ -1863,6 +1871,7 @@ async function resetAppSession() {
   window.PromotionUI?.instance?.clear();
   window.PromotionUI?.checkout?.clear();
   window.CouponUI?.instance?.clear();
+  window.ItemImport?.instance?.clear();
   window.PromotionUI?.quotation?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';

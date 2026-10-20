@@ -407,3 +407,16 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
   table:has(#promo-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7), :nth-child(8)) { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @media (max-width: 900px) { .promo-head-fields { grid-template-columns: 1fr 1fr; } }
+/* 批次匯入品項（CSV） */
+.item-import-panel { grid-column: 1 / -1; }
+.import-guide { margin: .5rem 0 1rem; color: var(--muted); }
+.import-guide summary { cursor: pointer; font-weight: 700; color: var(--brand); }
+.import-guide ul { margin: .5rem 0 0; padding-left: 1.25rem; line-height: 1.7; }
+.import-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.import-file { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; }
+.import-file input { width: auto; }
+#item-import-rows tr.import-error { background: #fef2f2; }
+#item-import-rows .import-state-error { color: var(--danger); font-weight: 700; }
+#item-import-rows .import-state-ok { color: #15803d; font-weight: 700; }
+@media (min-width: 701px) { table:has(#item-import-rows) :is(th, td):is(:nth-child(1), :nth-child(5), :nth-child(6), :nth-child(7)) { text-align: right; font-variant-numeric: tabular-nums; } }
+#item-import-preview .form-actions { margin-top: 1rem; }

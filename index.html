@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -122,6 +122,27 @@
       <article class="panel serial-panel"><h2>實物序號管理</h2><p>車身與電池每件一個原廠序號；舊庫存補登不增加數量。出貨前須補齊。</p><form id="serial-form">
         <div class="field"><label for="serial-category">分類</label><select id="serial-category"><option value="">全部分類</option><option value="車身">車身</option><option value="電池">電池</option></select></div>
         <div class="field"><label for="serial-item">車身／電池品項</label><select id="serial-item"></select></div><p id="serial-summary" aria-live="polite"></p><div class="field"><label for="serial-numbers">補登原廠序號（每行一個，可逐件掃描）</label><textarea id="serial-numbers" rows="4" autocomplete="off"></textarea></div><p id="serial-form-error" class="form-error" role="alert" hidden></p><button type="submit">補登現有庫存序號</button></form><h3 class="serial-overview-title">各品項序號總覽</h3><div class="field"><label for="serial-search">搜尋原廠序號（找出含此序號的品項）</label><input id="serial-search" type="search" autocomplete="off"></div><div class="table-wrap"><table class="serial-overview-table"><thead><tr><th>品項</th><th>分類</th><th class="num">在庫</th><th class="num">已售</th><th class="num">已出保固</th><th class="num">已移出／維修</th><th>操作</th></tr></thead><tbody id="serial-overview"></tbody></table></div><dialog id="serial-dialog" class="serial-dialog" aria-labelledby="serial-dialog-title"><div class="serial-dialog-head"><h2 id="serial-dialog-title">原廠序號</h2><button id="serial-dialog-close" type="button" class="secondary">關閉</button></div><div class="field"><label for="serial-dialog-search">搜尋此品項的序號</label><input id="serial-dialog-search" type="search" autocomplete="off"></div><div class="table-wrap serial-dialog-table"><table><thead><tr><th>原廠序號</th><th>狀態</th><th>客戶</th><th>售出／出保固日期</th><th>操作</th></tr></thead><tbody id="serial-list"></tbody></table></div><div class="serial-list-footer"><span id="serial-list-count" aria-live="polite"></span><button id="serial-show-more" type="button" class="secondary" hidden>顯示更多</button></div></dialog></article>
+      <article class="panel item-import-panel">
+        <h2>批次匯入品項（CSV）</h2>
+        <p>一次新增多個料號：先下載範本，用 Excel 或 Google 試算表填寫後另存成 CSV，再選擇檔案預覽。全部列都正確才能匯入；只會新增，不會修改既有品項。</p>
+        <details class="import-guide"><summary>欄位說明</summary>
+          <ul>
+            <li><b>品項名稱*、分類*</b>：分類填 車身、電池、電控元件、機構元件、外觀元件。</li>
+            <li><b>料號、條碼</b>：留空會自動編碼（條碼同料號）；已存在的料號或條碼不會匯入。</li>
+            <li><b>成本、售價</b>：售價留空時依「分紅管理」的分類加成自動計算（進位到 10 元）；該分類沒設定加成就必填。</li>
+            <li><b>固定售價</b>：填「是」＝進貨收貨時不自動重算售價；留空時，手填售價與加成結果不同就視為固定。</li>
+            <li><b>目前庫存、最低庫存、保固月數</b>：整數，留空＝0。車身、電池需要逐件序號，庫存必須是 0，之後用進貨收貨登錄。</li>
+            <li><b>電壓、容量</b>：電池必填（1～99 整數），名稱會自動加上「48V 24Ah」這類規格。</li>
+            <li><b>供應商</b>：填供應商管理裡的名稱（完全相同），可留空。</li>
+          </ul>
+        </details>
+        <div class="import-actions"><button id="item-import-template" type="button" class="secondary">下載範本</button><label class="import-file"><span>選擇 CSV 檔</span><input id="item-import-file" type="file" accept=".csv,text/csv"></label></div>
+        <p id="item-import-status" class="status" role="status" aria-live="polite"></p>
+        <div id="item-import-preview" hidden>
+          <div class="table-wrap"><table><thead><tr><th>列</th><th>品項名稱</th><th>分類</th><th>料號</th><th>成本</th><th>售價</th><th>庫存</th><th>檢查結果</th></tr></thead><tbody id="item-import-rows"></tbody></table></div>
+          <div class="form-actions"><button id="item-import-confirm" type="button" disabled>確認匯入</button><button id="item-import-cancel" type="button" class="secondary">取消</button></div>
+        </div>
+      </article>
     </section>
     <section class="app-page grid forms" data-page="suppliers" aria-label="供應商管理" data-role="admin" hidden>
       <article class="panel">
@@ -385,7 +406,8 @@
   <script src="bonus-ui.js?v=5"></script>
   <script src="promotions-ui.js?v=4"></script>
   <script src="coupons-ui.js?v=1"></script>
+  <script src="item-import.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=58"></script>
+  <script src="app.js?v=59"></script>
 </body>
 </html>
