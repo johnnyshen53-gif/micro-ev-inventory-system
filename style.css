@@ -358,3 +358,24 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .markup-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .75rem; }
 .markup-grid input { max-width: 9rem; }
 @media (max-width: 900px) { .markup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ===== 特惠組合 ===== */
+.promotions-page .panel + .panel { margin-top: 1rem; }
+.promo-head-fields { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.promo-items { margin: .5rem 0 1rem; padding: .75rem 1rem 1rem; border: 1px solid var(--line); border-radius: .6rem; }
+.promo-item-entry { display: grid; grid-template-columns: minmax(0, 1fr) 7rem auto; gap: .75rem; align-items: end; margin-bottom: .75rem; }
+.promo-item-entry .field { margin-bottom: 0; }
+.promo-summary { margin: .75rem 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.promo-summary.warning { color: var(--alert); }
+#promo-lines .empty, #promo-list .empty { padding: 1rem .8rem; color: var(--muted); text-align: center; }
+.promo-state { font-weight: 700; white-space: nowrap; }
+.promo-state-active { color: #15803d; }
+.promo-state-upcoming { color: var(--brand); }
+.promo-state-expired, .promo-state-inactive { color: var(--muted); }
+#promo-list td:nth-child(2), #promo-list td:nth-child(n+5):nth-child(-n+7) { white-space: nowrap; }
+#promo-list td:first-child { min-width: 9rem; }
+@media (min-width: 701px) {
+  table:has(#promo-lines) :is(th, td):is(:nth-child(3), :nth-child(4)),
+  table:has(#promo-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7)) { text-align: right; font-variant-numeric: tabular-nums; }
+}
+@media (max-width: 900px) { .promo-head-fields { grid-template-columns: 1fr 1fr; } }

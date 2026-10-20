@@ -419,6 +419,18 @@
   const saveBonusSettings = ({ motorcycleBonusAmount, repairBonusPercent, recipientIds, motorcycleItemIds }) =>
     bonusRpc('save_bonus_settings', { p_motorcycle_amount: motorcycleBonusAmount, p_repair_percent: repairBonusPercent,
       p_recipient_ids: recipientIds, p_motorcycle_item_ids: motorcycleItemIds });
+  // 特惠組合：所有在職店員都能讀（結帳要列出）；新增／修改／刪除只有店長（資料庫函式會再檢查）。
+  async function loadPromotions() {
+    await window.AppAuth.requireActiveUser();
+    const rows = await query(window.AppAuth.client, 'promotions', 'id,name,starts_on,ends_on,combo_price,active,created_at,updated_at,promotion_items(item_id,quantity)');
+    return rows.map(row => ({
+      id: row.id, name: row.name, startsOn: row.starts_on, endsOn: row.ends_on, comboPrice: Number(row.combo_price), active: row.active === true,
+      createdAt: row.created_at, updatedAt: row.updated_at,
+      items: (row.promotion_items ?? []).map(item => ({ itemId: item.item_id, quantity: Number(item.quantity) })),
+    })).sort((a, b) => String(b.startsOn).localeCompare(String(a.startsOn)) || a.name.localeCompare(b.name, 'zh-Hant'));
+  }
+  const savePromotion = promotion => bonusRpc('save_promotion', { p_promotion: promotion });
+  const deletePromotion = id => bonusRpc('delete_promotion', { p_id: id });
   // 售價加成（店長專用）：{ 分類: 百分比 }；沒列出的分類＝不自動定價。
   async function loadPriceMarkups() {
     const data = await bonusRpc('get_price_markups', {}) ?? {};
@@ -490,5 +502,5 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadPromotions, savePromotion, deletePromotion, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();
