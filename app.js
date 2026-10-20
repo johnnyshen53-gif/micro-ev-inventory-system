@@ -187,8 +187,8 @@ function renderSummary() {
   });
 }
 
-// 品項庫存依分類檢視：上方分類按鈕（全部／機車／零件／用品／電池），顯示各分類品項數與低庫存數。
-const ITEM_CATEGORIES = ['機車', '零件', '用品', '電池'];
+// 品項庫存依分類檢視：上方分類按鈕（全部／車身／電池／電控元件／機構元件／外觀元件），顯示各分類品項數與低庫存數。
+const ITEM_CATEGORIES = ['車身', '電池', '電控元件', '機構元件', '外觀元件'];
 let itemCategoryFilter = '';
 function renderItemCategoryTabs() {
   const tabs = $('item-category-tabs'); if (!tabs) return;
@@ -316,7 +316,7 @@ function resetItemForm() {
   $('item-form').reset();
   $('item-id').value = '';
   renderItemSuppliers();
-  $('item-category').value = '零件';
+  $('item-category').value = '電控元件';
   updateBatteryFields();
   $('item-cost').value = '0';
   $('item-price').value = '0';
@@ -641,7 +641,7 @@ function renderSerialInventory() {
   const select = $('serial-item'), selected = select.value;
   const category = $('serial-category').value;
   const items = state.items.filter(item => requiresSerial(item) && (!category || item.category === category));
-  select.replaceChildren(new Option('請選擇機車或電池', ''));
+  select.replaceChildren(new Option('請選擇車身或電池', ''));
   items.forEach(item => select.append(new Option(item.name, item.id)));
   select.value = items.some(item => item.id === selected) ? selected : '';
   const item = state.items.find(item => item.id === select.value);
@@ -661,7 +661,7 @@ function renderSerialInventory() {
     button.dataset.action = 'open-serial-dialog'; button.dataset.id = product.id;
     actions.append(button); row.append(actions); overview.append(row);
   });
-  if (!overview.children.length) appendEmpty(overview, query ? '沒有品項含有這個序號。' : '目前沒有機車或電池品項。');
+  if (!overview.children.length) appendEmpty(overview, query ? '沒有品項含有這個序號。' : '目前沒有車身或電池品項。');
   renderSerialDialog();
 }
 function renderSerialDialog() {
@@ -710,7 +710,7 @@ function renderTransactionSerials() {
   const type = $('transaction-type').value;
   $('transaction-serial-numbers').parentElement.hidden = type === 'out' || type === 'warranty_out';
   select.parentElement.hidden = type === 'in';
-  $('transaction-serial-hint').textContent = type === 'warranty_out' ? '出保固：請選換出實物的在庫序號，數量必須相符；原故障品不會自動入庫。' : '機車／電池：入庫填新增序號；移出選在庫序號並填原因；盤點數量為目標庫存。實際銷售請用銷售管理。';
+  $('transaction-serial-hint').textContent = type === 'warranty_out' ? '出保固：請選換出實物的在庫序號，數量必須相符；原故障品不會自動入庫。' : '車身／電池：入庫填新增序號；移出選在庫序號並填原因；盤點數量為目標庫存。實際銷售請用銷售管理。';
 }
 function renderTransactionWarranty() {
   const active = $('transaction-type').value === 'warranty_out';
@@ -1200,7 +1200,7 @@ function renderWarrantySelectors() {
 
 function renderWarrantySerials() {
   const select = $('warranty-serial'), selected = select.value, editing = Boolean($('warranty-id').value);
-  select.replaceChildren(new Option('請選擇已售序號（機車／電池必選）', ''));
+  select.replaceChildren(new Option('請選擇已售序號（車身／電池必選）', ''));
   state.serials.filter(s => s.status === 'sold' && !state.warranties.some(w => w.serialId === s.id && w.id !== $('warranty-id').value)).forEach(serial => {
     const item = state.items.find(item => item.id === serial.itemId), customer = state.customers.find(c => c.id === serial.customerId);
     select.append(new Option(`${item.name}｜${serial.serialNumber}｜${customer.name}`, serial.id));

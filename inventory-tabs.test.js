@@ -24,17 +24,17 @@ function harness(items) {
 const item = (name, category, stock, minimumStock = 1) => ({ id: name, name, category, sku: '', barcode: '', price: 1, stock, minimumStock, supplierId: '' });
 
 test('inventory list can be viewed by category with counts and low-stock badges', () => {
-  const { $, context, click } = harness([item('EV-200', '機車', 3), item('煞車皮', '零件', 0), item('機油', '零件', 9), item('安全帽', '用品', 5)]);
+  const { $, context, click } = harness([item('EV-200', '車身', 3), item('煞車皮', '電控元件', 0), item('機油', '電控元件', 9), item('安全帽', '機構元件', 5)]);
   context.renderItems();
   const tabs = $('item-category-tabs').children;
-  assert.deepEqual(tabs.map(t => t.textContent), ['全部（4）', '機車（1）', '零件（2）', '用品（1）', '電池（0）']);
+  assert.deepEqual(tabs.map(t => t.textContent), ['全部（4）', '車身（1）', '電池（0）', '電控元件（2）', '機構元件（1）', '外觀元件（0）']);
   assert.equal(tabs[0].attributes['aria-pressed'], 'true');
-  assert.equal(tabs[2].children[0].textContent, '低庫存 1');
+  assert.equal(tabs[3].children[0].textContent, '低庫存 1');
   assert.equal($('item-list').children.length, 4);
 
-  click('零件');
+  click('電控元件');
   assert.deepEqual($('item-list').children.map(row => row.children[0].textContent), ['煞車皮', '機油']);
-  assert.equal($('item-category-tabs').children[2].attributes['aria-pressed'], 'true');
+  assert.equal($('item-category-tabs').children[3].attributes['aria-pressed'], 'true');
 
   // 搜尋只在目前分類內進行。
   $('item-search').value = '機油'; context.renderItems();

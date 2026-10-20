@@ -139,7 +139,7 @@ test('staff can intake, quote, complete and mark full payment through repair RPC
     listeners: {}, addEventListener(type, listener) { this.listeners[type] = listener; }, append(...values) { this.children.push(...values); },
     replaceChildren(...values) { this.children = values; }, reset() {}, reportValidity: () => true }; }
   const get = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
-  let state = { customers: [], salespeople: [{ id: 'sp-1', name: '甲業務', active: true }], items: [{ id: 'part-1', name: '煞車片', category: '零件', price: 120, stock: 5 }], serials: [] };
+  let state = { customers: [], salespeople: [{ id: 'sp-1', name: '甲業務', active: true }], items: [{ id: 'part-1', name: '煞車片', category: '電控元件', price: 120, stock: 5 }], serials: [] };
   let orders = [];
   let failCompletion = true;
   const browser = { print() {}, confirm: () => true, addEventListener() {}, AppAuthUI: { isActive: () => true }, AppData: {

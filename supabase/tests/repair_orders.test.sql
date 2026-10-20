@@ -17,7 +17,7 @@ do $$ begin
     raise exception 'customer plate list did not persist'; end if;
 end $$;
 insert into public.items(id, name, category, sku, price, stock, created_by) values
-  ('70000000-0000-4000-8000-000000000031', '煞車片', '零件', 'PART-1', 120, 5, '70000000-0000-4000-8000-000000000001');
+  ('70000000-0000-4000-8000-000000000031', '煞車片', '電控元件', 'PART-1', 120, 5, '70000000-0000-4000-8000-000000000001');
 insert into public.items(id, name, category, sku, price, stock, warranty_months, created_by) values
   ('70000000-0000-4000-8000-000000000032', '電池甲', '電池', 'BAT-1', 2000, 2, 12, '70000000-0000-4000-8000-000000000001'),
   ('70000000-0000-4000-8000-000000000033', '無保固電池', '電池', 'BAT-0', 1800, 1, 0, '70000000-0000-4000-8000-000000000001');

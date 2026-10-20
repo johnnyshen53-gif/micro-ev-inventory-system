@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const context = { crypto: webcrypto, window: {} };
 vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), context);
 const I = context.window.Inventory;
-const motor = { name: '機車', category: '機車', sku: 'MOTOR', barcode: 'motor', price: 1000, cost: 600, stock: 0, minimumStock: 0, warrantyMonths: 12 };
+const motor = { name: '車身', category: '車身', sku: 'MOTOR', barcode: 'motor', price: 1000, cost: 600, stock: 0, minimumStock: 0, warrantyMonths: 12 };
 function legacy(stock = 2) {
   const state = I.addItem(I.emptyState(), motor);
   state.items[0].stock = stock;
@@ -71,7 +71,7 @@ test('serialized movements require physical units and editing cannot bypass trac
   state = I.recordTransaction(state, { itemId, type: 'adjust', quantity: 2, serialNumbers: ['C'], createdBy: 'm' });
   assert.equal(state.serials.length, 3);
   assert.throws(() => I.updateItem(state, itemId, { ...state.items[0], stock: 3 }));
-  assert.throws(() => I.updateItem(state, itemId, { ...state.items[0], category: '用品' }));
+  assert.throws(() => I.updateItem(state, itemId, { ...state.items[0], category: '機構元件' }));
   assert.throws(() => I.deleteItem(state, itemId));
   assert.throws(() => I.registerSerials({ ...state, items: [{ ...state.items[0], stock: 3 }] }, { itemId, serialNumbers: ['A'] }));
 });
@@ -87,7 +87,7 @@ test('legacy unidentified and fractional stock can be reconciled without invente
 });
 function saleFixture(warrantyMonths = 0) {
   let state = I.addItem(I.emptyState(), { ...motor, warrantyMonths, stock: 3, serialNumbers: ['000A', 'B', 'C'] });
-  state = I.addItem(state, { ...motor, category: '用品', sku: 'OTHER', barcode: 'other', stock: 2, warrantyMonths: 0 });
+  state = I.addItem(state, { ...motor, category: '機構元件', sku: 'OTHER', barcode: 'other', stock: 2, warrantyMonths: 0 });
   state = I.addCustomer(state, { name: '客戶', phone: '0912345678' });
   return I.addSalesperson(state, { name: '測試業務' });
 }

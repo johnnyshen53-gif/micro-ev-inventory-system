@@ -67,8 +67,8 @@
         .map(person => ({ id: person.id, label: person.active && person.isSales !== false ? person.name
           : `${person.name}（${person.active ? '未勾選業務員身分' : '已停用'}，不會受領）` }));
       checkList($('bonus-recipients'), people, admin.recipientIds, 'bonus-recipient');
-      // 適用品項預設列出「機車」分類，另外保留已勾選的其他品項。
-      const items = (state.items ?? []).filter(item => item.category === '機車' || admin.motorcycleItemIds.includes(item.id))
+      // 適用品項預設列出「車身」分類（整台車），另外保留已勾選的其他品項。
+      const items = (state.items ?? []).filter(item => item.category === '車身' || admin.motorcycleItemIds.includes(item.id))
         .map(item => ({ id: item.id, label: `${item.name}（${item.category}）` }));
       checkList($('bonus-items'), items, admin.motorcycleItemIds, 'bonus-item');
     }

@@ -55,7 +55,7 @@ test('cloud quotation reload keeps installation labor snapshots and current shop
   const tables = {
     shop_settings: [{ id: 1, hourly_rate: 900 }],
     customers: [{ id: 'customer-1', name: '甲', phone: '0911' }],
-    items: [{ id: 'item-1', name: '煞車皮', category: '零件', sku: 'P1', price: 350, stock: 2, minimum_stock: 0 }],
+    items: [{ id: 'item-1', name: '煞車皮', category: '電控元件', sku: 'P1', price: 350, stock: 2, minimum_stock: 0 }],
     quotations: [{ id: 'quote-1', quote_number: 'Q-1', customer_id: 'customer-1', total: 1550, note: '', created_at: '2026-10-16T00:00:00Z' }],
     quotation_lines: [{ quotation_id: 'quote-1', item_id: 'item-1', item_name: '煞車皮', quantity: 1, unit_price: 350, subtotal: 350,
       installation_required: true, labor_hours: 1.5, hourly_rate: 800, labor_amount: 1200 }],
@@ -146,7 +146,7 @@ test('imported operational rows reload through the real inventory validator', as
   vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), context);
   const now = '2026-10-15T00:00:00Z';
   const tables = {
-    items: [{ id: 'item-1', name: '測試零件', category: '零件', sku: '', barcode: '', price: 20, stock: 0, minimum_stock: 0, warranty_months: 0, notes: '', supplier_id: 'supplier-1' }],
+    items: [{ id: 'item-1', name: '測試零件', category: '電控元件', sku: '', barcode: '', price: 20, stock: 0, minimum_stock: 0, warranty_months: 0, notes: '', supplier_id: 'supplier-1' }],
     item_costs: [{ item_id: 'item-1', cost: 10 }],
     customers: [{ id: 'customer-1', member_number: 'M000001', name: '客戶', phone: '0912345678', address: '', note: '', active: true, created_at: now, updated_at: now }],
     suppliers: [{ id: 'supplier-1', name: '供應商', contact: '', phone: '', address: '', tax_id: '', note: '', active: true, created_at: now, updated_at: now }],
@@ -217,7 +217,7 @@ test('successful import with failed cloud reload reports committed state for a s
 });
 
 test('cloud inventory adjustment does not upsert the stale stock value after the RPC', async () => {
-  const item = { id: 'item-1', name: '測試品項', category: '零件', sku: 'SKU-1', barcode: 'BC-1', cost: 10, price: 20, stock: 1, minimumStock: 0, warrantyMonths: 0, notes: '' };
+  const item = { id: 'item-1', name: '測試品項', category: '電控元件', sku: 'SKU-1', barcode: 'BC-1', cost: 10, price: 20, stock: 1, minimumStock: 0, warrantyMonths: 0, notes: '' };
   const transaction = { id: 'tx-1', itemId: item.id, type: 'in', quantity: 2, note: '', createdAt: '2026-10-13T06:28:17.070Z' };
   const upserts = [];
   const emptyRows = { items: [], costs: [], transactions: [], customers: [], salespeople: [], sales: [], saleLines: [] };
@@ -319,14 +319,14 @@ test('salesperson RLS denial never caches the rejected change', async () => {
 test('cloud reload retains supplier and quotation details', async () => {
   const now = '2026-10-15T00:00:00Z';
   const tables = {
-    items: [{ id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 20, stock: 1, minimum_stock: 0, warranty_months: 0, notes: '', supplier_id: 'supplier-1' }],
+    items: [{ id: 'item-1', name: '電控元件', category: '電控元件', sku: 'P1', barcode: 'P1', price: 20, stock: 1, minimum_stock: 0, warranty_months: 0, notes: '', supplier_id: 'supplier-1' }],
     item_costs: [], inventory_transactions: [],
     customers: [{ id: 'customer-1', member_number: 'C1', name: '客戶', phone: '123', address: '', plate_numbers: ['ABC-1234', 'DEF-5678'], note: '', active: true, created_at: now, updated_at: now }],
     salespeople: [{ id: 'salesperson-1', name: '業務', active: true, created_at: now, updated_at: now }],
     sales: [], sale_lines: [],
     suppliers: [{ id: 'supplier-1', name: '供應商', contact: '王先生', phone: '456', address: '台北', tax_id: '12345678', note: '備註', active: true, created_at: now, updated_at: now }],
     quotations: [{ id: 'quote-1', quote_number: 'Q1', customer_id: 'customer-1', salesperson_id: 'salesperson-1', total: 40, note: '交期', created_at: now }],
-    quotation_lines: [{ quotation_id: 'quote-1', item_id: 'item-1', item_name: '零件', quantity: 2, unit_price: 20, subtotal: 40 }],
+    quotation_lines: [{ quotation_id: 'quote-1', item_id: 'item-1', item_name: '電控元件', quantity: 2, unit_price: 20, subtotal: 40 }],
   };
   const appData = await loadCloudData({
     client: { from: table => ({ select: async () => ({ data: tables[table] ?? [], error: null }) }) },
@@ -401,7 +401,7 @@ test('purchase receipt uses one RPC and never replays its stock transaction', as
 
 test('new serialized item uses one cloud write for item, cost, and initial serials', async () => {
   const calls = [];
-  const item = { id: 'item-new', name: '機車', category: '機車', sku: '11001', barcode: '11001', stock: 1, cost: 10, price: 20, minimumStock: 0 };
+  const item = { id: 'item-new', name: '車身', category: '車身', sku: '11001', barcode: '11001', stock: 1, cost: 10, price: 20, minimumStock: 0 };
   const serial = { id: 'serial-new', itemId: item.id, serialNumber: 'FACTORY-1', status: 'in_stock' };
   const old = { items: [], serials: [] };
   const next = { ...old, items: [item], serials: [serial] };
@@ -605,7 +605,7 @@ test('checkout rejects lines from different checkouts before writing', async () 
 
 test('editing an item never writes its possibly stale stock back to the cloud', async () => {
   // 畫面上庫存是 5，但另一台裝置可能已賣掉一個；只改品名時不可把 5 寫回去。
-  const original = { id: 'item-1', name: '舊名', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 5, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 1 };
+  const original = { id: 'item-1', name: '舊名', category: '電控元件', sku: 'P1', barcode: 'P1', price: 10, stock: 5, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 1 };
   const old = { items: [original], customers: [], transactions: [], sales: [] };
   const client = recordingClient();
   const appData = await loadCloudData({
@@ -622,7 +622,7 @@ test('editing an item never writes its possibly stale stock back to the cloud', 
 });
 
 test('a deliberate stock edit is sent as a relative inventory adjustment', async () => {
-  const original = { id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 5, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 1 };
+  const original = { id: 'item-1', name: '電控元件', category: '電控元件', sku: 'P1', barcode: 'P1', price: 10, stock: 5, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 1 };
   const old = { items: [original], customers: [], transactions: [], sales: [] };
   for (const [stock, type, quantity] of [[8, 'in', 3], [2, 'out', 3]]) {
     const client = recordingClient();
@@ -645,7 +645,7 @@ test('new items are inserted with their initial stock without overwriting an exi
     client, cache: { loadState: async () => ({ state: null }), saveState: async () => {} },
     inventory: { emptyState: () => old, validateState: value => value },
   });
-  await appData.saveSnapshot(old, { ...old, items: [{ id: 'new-1', name: '新品', category: '零件', sku: 'N1', barcode: 'N1', price: 1, stock: 4, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 0 }] });
+  await appData.saveSnapshot(old, { ...old, items: [{ id: 'new-1', name: '新品', category: '電控元件', sku: 'N1', barcode: 'N1', price: 1, stock: 4, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 0 }] });
   const upsert = client.calls.find(call => call.kind === 'upsert' && call.table === 'items');
   assert.equal(upsert.rows[0].stock, 4);
   assert.equal(upsert.options.ignoreDuplicates, true);
@@ -653,12 +653,12 @@ test('new items are inserted with their initial stock without overwriting an exi
 
 test('a failure after the sale committed reloads the cloud state for the screen', async () => {
   const now = '2026-10-17T00:00:00Z';
-  const original = { id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 2, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 0 };
+  const original = { id: 'item-1', name: '電控元件', category: '電控元件', sku: 'P1', barcode: 'P1', price: 10, stock: 2, minimumStock: 0, warrantyMonths: 0, notes: '', supplierId: '', cost: 0 };
   const old = { items: [original], customers: [], transactions: [], sales: [] };
   const tables = {
-    items: [{ id: 'item-1', name: '零件', category: '零件', sku: 'P1', barcode: 'P1', price: 10, stock: 1, minimum_stock: 0, warranty_months: 0, notes: '' }],
+    items: [{ id: 'item-1', name: '電控元件', category: '電控元件', sku: 'P1', barcode: 'P1', price: 10, stock: 1, minimum_stock: 0, warranty_months: 0, notes: '' }],
     sales: [{ id: 'checkout-1', sale_number: 'S1', customer_id: null, created_by: 'admin', created_at: now }],
-    sale_lines: [{ id: 'cloud-line-1', sale_id: 'checkout-1', item_id: 'item-1', item_name: '零件', barcode: 'P1', quantity: 1, unit_price: 10, subtotal: 10 }],
+    sale_lines: [{ id: 'cloud-line-1', sale_id: 'checkout-1', item_id: 'item-1', item_name: '電控元件', barcode: 'P1', quantity: 1, unit_price: 10, subtotal: 10 }],
   };
   const client = recordingClient({ tables, fail: { update: () => new Error('network lost') } });
   const appData = await loadCloudData({
@@ -850,7 +850,7 @@ test('bonus admin calls map to the manager-only RPCs and keep "not set" separate
   const calls = [];
   const responses = {
     get_bonus_admin_state: { motorcycleBonusAmount: null, repairBonusPercent: 0, recipientIds: ['sp-1'], motorcycleItemIds: ['moto-1'],
-      partCosts: [{ itemId: 'part-1', name: '煞車片', category: '零件', cost: 30, confirmed: false }] },
+      partCosts: [{ itemId: 'part-1', name: '煞車片', category: '電控元件', cost: 30, confirmed: false }] },
     get_monthly_bonus_report: [{ kind: 'repair', person_id: 'tech-1', person_name: '維修甲', source_number: 'R-1', occurred_at: '2026-10-17T01:00:00Z', base_amount: '340.00', bonus_amount: '34.00' }],
   };
   const appData = await loadCloudData({

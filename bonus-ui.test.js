@@ -57,7 +57,7 @@ test('staff never load bonus data; manager saves the checked recipients and item
     const context = { window: { AppData }, document };
     vm.runInNewContext(source, context);
     // 純維修（isSales: false）不會出現在機車獎金受領名單。
-    const state = { salespeople: [{ id: 'sp-1', name: '甲業務', active: true }, { id: 'tech-1', name: '純維修', active: true, isSales: false, isTechnician: true }], items: [{ id: 'moto-1', name: '電動機車', category: '機車' }, { id: 'part-1', name: '煞車片', category: '零件' }] };
+    const state = { salespeople: [{ id: 'sp-1', name: '甲業務', active: true }, { id: 'tech-1', name: '純維修', active: true, isSales: false, isTechnician: true }], items: [{ id: 'moto-1', name: '電動機車', category: '車身' }, { id: 'part-1', name: '煞車片', category: '電控元件' }] };
     const ui = context.window.BonusUI.mount({ getState: () => state });
     await ui.load();
     if (role === 'clerk') { assert.deepEqual(calls, []); continue; }

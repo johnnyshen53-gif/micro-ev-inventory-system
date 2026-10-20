@@ -10,7 +10,7 @@ insert into auth.sessions(id,user_id) values
 insert into public.customers(id,member_number,name,phone,created_by) values
   ('72000000-0000-4000-8000-000000000021','M720001','測試客','0911000000','72000000-0000-4000-8000-000000000001');
 insert into public.items(id,name,category,sku,price,stock,created_by) values
-  ('72000000-0000-4000-8000-000000000031','煞車皮','零件','Q-LABOR',350,5,'72000000-0000-4000-8000-000000000001');
+  ('72000000-0000-4000-8000-000000000031','煞車皮','電控元件','Q-LABOR',350,5,'72000000-0000-4000-8000-000000000001');
 
 do $$ begin
   if to_regclass('public.shop_settings') is null then raise exception 'shop rate settings missing'; end if;

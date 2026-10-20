@@ -74,7 +74,7 @@ test('migrates valid legacy localStorage data once without deleting it', async (
 
 test('serial checkout and warranty persist together and write failures preserve all original units', async () => {
   const { storage, indexedDB, inventory: I } = await createStorage();
-  let state = I.addItem(I.emptyState(), { name: '機車', category: '機車', sku: 'M', barcode: 'motor', cost: 1, price: 2, stock: 3, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B', 'C'] });
+  let state = I.addItem(I.emptyState(), { name: '車身', category: '車身', sku: 'M', barcode: 'motor', cost: 1, price: 2, stock: 3, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B', 'C'] });
   state = I.addCustomer(state, { name: '客戶', phone: '0912345678' });
   state = I.addSalesperson(state, { name: '測試業務' });
   state = I.recordTransaction(state, { itemId: state.items[0].id, type: 'out', quantity: 1, serialIds: [state.serials[2].id], note: '報廢', createdBy: 'manager' });
@@ -98,7 +98,7 @@ test('prefers existing IndexedDB data over localStorage', async () => {
 
 test('warranty replacement stock serial linkage and cost snapshot persist atomically', async () => {
   const { storage, indexedDB, inventory: I } = await createStorage();
-  let state = I.addItem(I.emptyState(), { name: '機車', category: '機車', sku: 'M', cost: 600, price: 1000, stock: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
+  let state = I.addItem(I.emptyState(), { name: '車身', category: '車身', sku: 'M', cost: 600, price: 1000, stock: 2, minimumStock: 0, warrantyMonths: 12, serialNumbers: ['000A', 'B'] });
   state = I.addCustomer(state, { name: '客戶', phone: '0912345678' });
   state = I.addSalesperson(state, { name: '測試業務' });
   state = I.recordSaleBatch(state, { customerId: state.customers[0].id, salespersonId: state.salespeople[0].id, lines: [{ itemId: state.items[0].id, quantity: 1, serialIds: [state.serials[0].id] }] });
@@ -147,7 +147,7 @@ test('keeps the stored state when an import write fails', async () => {
 
 function stateWithItem() {
   return {
-    items: [{ id: 'item-1', name: '機油', category: '零件', sku: '', barcode: '', cost: 100, price: 200, stock: 2, minimumStock: 1, notes: '' }],
+    items: [{ id: 'item-1', name: '機油', category: '電控元件', sku: '', barcode: '', cost: 100, price: 200, stock: 2, minimumStock: 1, notes: '' }],
     transactions: [], customers: [], salespeople: [], quotations: [], sales: [],
   };
 }

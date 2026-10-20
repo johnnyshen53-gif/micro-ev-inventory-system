@@ -1,4 +1,6 @@
-const categories = new Set(['機車', '零件', '用品', '電池']);
+const categories = new Set(['車身', '電池', '電控元件', '機構元件', '外觀元件']);
+// 舊分類（2026-10 改分類前）對應到新分類：只用在讀取舊快取或舊備份檔，避免整頁讀取失敗。
+const LEGACY_CATEGORIES = { 機車: '車身', 零件: '機構元件', 用品: '外觀元件' };
 const transactionTypes = new Set(['in', 'out', 'adjust', 'warranty_out']);
 const EXPIRED_WARRANTY_MARK = '[過期保固放行]';
 const warrantyCaseStatuses = new Set(['pending', 'in_progress', 'completed', 'not_covered']);
@@ -7,7 +9,7 @@ function emptyState() {
   return { items: [], transactions: [], customers: [], salespeople: [], quotations: [], sales: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [] };
 }
 
-function requiresSerial(item) { return item?.category === '機車' || item?.category === '電池'; }
+function requiresSerial(item) { return item?.category === '車身' || item?.category === '電池'; }
 function serialStock(stock) {
   if (!Number.isSafeInteger(stock) || stock < 0) throw new Error('序號商品庫存須為安全非負整數，請先盤點更正。');
   return stock;
@@ -31,7 +33,7 @@ function newSerials(state, item, serialNumbers = [], createdBy, purchaseId = '')
 function registerSerials(state, fields) {
   const current = validateState(state);
   const item = current.items.find(item => item.id === fields?.itemId);
-  if (!item || !requiresSerial(item)) throw new Error('請選擇機車或電池品項');
+  if (!item || !requiresSerial(item)) throw new Error('請選擇車身或電池品項');
   serialStock(item.stock);
   const added = newSerials(current, item, fields?.serialNumbers, fields?.createdBy);
   if (!added.length) throw new Error('請輸入原廠序號');
@@ -140,11 +142,12 @@ function id(value, label) {
 function normalizedItem(value, fallbackId) {
   const name = text(value?.name);
   if (!name) throw new Error('品項名稱不可空白');
-  if (!categories.has(value?.category)) throw new Error('品項分類無效');
+  const category = LEGACY_CATEGORIES[value?.category] ?? value?.category;
+  if (!categories.has(category)) throw new Error('品項分類無效');
   return {
     id: id(value?.id ?? fallbackId, '品項 ID'),
     name,
-    category: value.category,
+    category,
     supplierId: text(value.supplierId),
     voltage: value.category === '電池' && value.voltage != null && value.voltage !== '' ? number(value.voltage, '電壓') : null,
     capacity: value.category === '電池' && value.capacity != null && value.capacity !== '' ? number(value.capacity, '容量') : null,
@@ -433,7 +436,7 @@ function addItem(state, fields) {
     const date = taipeiDate(new Date()).replaceAll('-', '');
     const prefix = nextItem.category === '電池'
       ? '88' + date.slice(0, 4) + String(nextItem.voltage).padStart(2, '0') + String(nextItem.capacity).padStart(2, '0')
-      : { 機車: '11', 零件: '22', 用品: '33' }[nextItem.category] + date;
+      : { 車身: '11', 電控元件: '22', 機構元件: '33', 外觀元件: '44' }[nextItem.category] + date;
     const sequence = current.items.reduce((largest, item) => {
       return item.sku.startsWith(prefix) && /^\d{13}$/.test(item.sku) ? Math.max(largest, Number(item.sku.slice(-3))) : largest;
     }, 0) + 1;
@@ -1032,9 +1035,9 @@ function dashboardSummary(state, month, options = {}) {
   }
   // 依銷售金額排序，金額相同再比件數，最後依品名固定順序。
   const topItems = [...items.values()].sort((a, b) => b.total - a.total || b.quantity - a.quantity || a.name.localeCompare(b.name, 'zh-TW')).slice(0, topLimit);
-  // 機車銷售排名：依品項分類「機車」計算當月台數，台數相同再比金額。品項已刪除者無法判斷分類，不列入。
+  // 機車銷售排名：依品項分類「車身」（整台車）計算當月台數，台數相同再比金額。品項已刪除者無法判斷分類，不列入。
   const categories = new Map(current.items.map(item => [item.id, item.category]));
-  const motorcycles = [...items.values()].filter(entry => categories.get(entry.itemId) === '機車')
+  const motorcycles = [...items.values()].filter(entry => categories.get(entry.itemId) === '車身')
     .sort((a, b) => b.quantity - a.quantity || b.total - a.total || a.name.localeCompare(b.name, 'zh-TW'));
   // 月份清單：所有有銷售的月份，由新到舊。
   const months = [...byMonth.keys()].sort().reverse().map(key => ({ month: key, ...monthTotals(byMonth.get(key)) }));
