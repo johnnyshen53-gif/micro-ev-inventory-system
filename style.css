@@ -338,3 +338,16 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
   .dashboard-bar-value { font-size: 0; white-space: nowrap; }
   .dashboard-bar-value::after { content: attr(data-short); font-size: .75rem; }
 }
+
+/* ===== 2026-10 品牌：電小二 Volt Buddy ===== */
+/* 頁首：深色底用白字版標誌，右邊接系統名稱；中間一條細線分隔。 */
+.hero-brand { display: flex; align-items: center; gap: 1rem; }
+.hero-logo { display: block; width: auto; height: 3.25rem; flex: none; }
+.hero-brand > div { padding-left: 1rem; border-left: 1px solid #334155; }
+/* 登入頁：淺色底用深色字版標誌。 */
+.auth-logo { display: block; width: auto; height: 4.5rem; margin-bottom: .75rem; }
+@media (max-width: 700px) {
+  .hero-logo { height: 2.5rem; }
+  .hero-brand { gap: .75rem; }
+  .hero-brand > div { padding-left: .75rem; }
+}
