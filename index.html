@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -142,6 +142,27 @@
           <div class="table-wrap"><table><thead><tr><th>列</th><th>品項名稱</th><th>分類</th><th>料號</th><th>成本</th><th>售價</th><th>庫存</th><th>檢查結果</th></tr></thead><tbody id="item-import-rows"></tbody></table></div>
           <div class="form-actions"><button id="item-import-confirm" type="button" disabled>確認匯入</button><button id="item-import-cancel" type="button" class="secondary">取消</button></div>
         </div>
+      </article>
+      <article class="panel website-items-panel">
+        <h2>官網商品</h2>
+        <p>勾選要顯示在官網 <a href="https://voltbuddys.com/models.html" target="_blank" rel="noopener">voltbuddys.com 車款頁</a>的車身與電池，填規格、簡介並上傳照片，儲存後官網自動更新。官網不顯示價格（寫「歡迎洽詢」）。</p>
+        <p id="web-item-status" class="status" role="status" aria-live="polite"></p>
+        <form id="web-item-form" class="web-item-form" hidden>
+          <h3 id="web-item-form-title">官網設定</h3>
+          <p id="web-item-category-note" class="hint"></p>
+          <label class="check-item"><input id="web-item-visible" type="checkbox"> 顯示在官網</label>
+          <div class="web-item-fields">
+            <div class="field"><label for="web-item-range">續航（公里）</label><input id="web-item-range" type="number" min="1" max="999" step="1" inputmode="numeric" placeholder="留空＝不顯示"></div>
+            <div class="field"><label for="web-item-speed">最高時速（公里）</label><input id="web-item-speed" type="number" min="1" max="99" step="1" inputmode="numeric" placeholder="例：25"></div>
+            <div class="field"><label for="web-item-battery">電池規格</label><input id="web-item-battery" maxlength="60" placeholder="例：48V 24Ah 鋰電池"></div>
+          </div>
+          <div class="field"><label for="web-item-summary">簡介</label><textarea id="web-item-summary" rows="3" maxlength="300" placeholder="例：輕巧好停，通勤、接送、買菜都適合。"></textarea><small id="web-item-summary-count" aria-live="polite">0／300</small></div>
+          <div class="field"><label for="web-item-photo">照片（JPG／PNG，會自動縮小）</label><input id="web-item-photo" type="file" accept="image/jpeg,image/png,image/webp"></div>
+          <div class="web-item-photo-box"><img id="web-item-photo-preview" alt="官網照片預覽" hidden><button id="web-item-photo-remove" type="button" class="secondary" hidden>移除照片</button></div>
+          <p id="web-item-form-error" class="form-error" role="alert" hidden></p>
+          <div class="form-actions"><button id="web-item-save" type="submit">儲存官網設定</button><button id="web-item-cancel" type="button" class="secondary">取消</button></div>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>官網</th><th>照片</th><th>操作</th></tr></thead><tbody id="web-item-list"></tbody></table></div>
       </article>
     </section>
     <section class="app-page grid forms" data-page="suppliers" aria-label="供應商管理" data-role="admin" hidden>
@@ -401,13 +422,14 @@
   <script src="staff-ui.js?v=2"></script>
   <script src="inventory.js?v=30"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=27"></script>
+  <script src="cloud-data.js?v=28"></script>
   <script src="repair-ui.js?v=12"></script>
   <script src="bonus-ui.js?v=5"></script>
   <script src="promotions-ui.js?v=4"></script>
   <script src="coupons-ui.js?v=1"></script>
   <script src="item-import.js?v=1"></script>
+  <script src="website-items-ui.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=59"></script>
+  <script src="app.js?v=60"></script>
 </body>
 </html>
