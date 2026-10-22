@@ -36,7 +36,7 @@
 
   // Supabase 每次查詢預設最多回 1000 列；超過時要分頁抓完，否則畫面會悄悄少資料。
   const PAGE_SIZE = 1000;
-  const keyColumn = table => table === 'item_costs' ? 'item_id' : 'id';
+  const keyColumn = table => table === 'item_costs' || table === 'item_web' ? 'item_id' : 'id';
   async function query(client, table, fields) {
     const key = keyColumn(table);
     const rows = new Map();
@@ -519,5 +519,28 @@
     }
   }
 
-  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadPromotions, savePromotion, deletePromotion, loadCoupons, saveCoupon, deleteCoupon, checkCoupon, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
+  // ── 官網商品（店長專用）：哪些車身／電池顯示在官網 voltbuddys.com、規格與照片。
+  // 照片放在公開的 website-photos 空間；設定存在 item_web，官網透過 get_public_items() 讀取。
+  const WEBSITE_PHOTO_BUCKET = 'website-photos';
+  async function loadWebsiteItems() {
+    const user = await window.AppAuth.requireActiveUser();
+    if (user.role !== 'admin') throw new Error('只有店長可以設定官網商品。');
+    const rows = await query(window.AppAuth.client, 'item_web', 'item_id,visible,range_km,top_speed,battery_spec,summary,photo_path,updated_at');
+    return rows.map(row => ({ itemId: row.item_id, visible: row.visible === true, rangeKm: row.range_km, topSpeed: row.top_speed,
+      batterySpec: row.battery_spec ?? '', summary: row.summary ?? '', photoPath: row.photo_path ?? '', updatedAt: row.updated_at }));
+  }
+  const saveItemWeb = web => bonusRpc('save_item_web', { p_web: web });
+  async function uploadWebsitePhoto(path, blob) {
+    await window.AppAuth.requireActiveUser();
+    const { error } = await window.AppAuth.client.storage.from(WEBSITE_PHOTO_BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '31536000', upsert: false });
+    if (error) throw new Error(`照片上傳失敗：${error.message}`);
+  }
+  async function deleteWebsitePhoto(path) {
+    if (!path) return;
+    const { error } = await window.AppAuth.client.storage.from(WEBSITE_PHOTO_BUCKET).remove([path]);
+    if (error) throw new Error(`舊照片刪除失敗：${error.message}`);
+  }
+  const websitePhotoUrl = path => path ? window.AppAuth.client.storage.from(WEBSITE_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl : '';
+
+  window.AppData = { loadSnapshot, saveSnapshot, setHourlyRate, loadRepairOrders, loadBonusAdminState, saveBonusSettings, setItemCostsConfirmed, loadPriceMarkups, savePriceMarkups, loadPromotions, savePromotion, deletePromotion, loadCoupons, saveCoupon, deleteCoupon, checkCoupon, loadWebsiteItems, saveItemWeb, uploadWebsitePhoto, deleteWebsitePhoto, websitePhotoUrl, loadMonthlyBonusReport, saveRepairOrder, cancelRepairOrder, deleteRepairOrder, completeRepairOrder, markRepairPaid, loadMonthlySalespersonPerformance, loadMonthlySaleAssignments, assignSaleSalesperson, migrateLocalStateToCloud };
 })();

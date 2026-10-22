@@ -88,7 +88,7 @@ function showPage(page) {
   if (page === 'promotions') { window.PromotionUI?.instance?.load(); window.CouponUI?.instance?.load(); }
   if (page === 'sales') window.PromotionUI?.checkout?.load();
   if (page === 'quotations') window.PromotionUI?.quotation?.load();
-  if (page === 'manage') loadPriceMarkups();
+  if (page === 'manage') { loadPriceMarkups(); window.WebsiteItemsUI?.instance?.load(); }
 }
 
 function currentPage() {
@@ -130,6 +130,8 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
 if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
 // 特惠組合頁有自己的狀態列，不再重複顯示在頁首。
 if (window.PromotionUI) window.PromotionUI.instance = window.PromotionUI.mount({ getState: () => state });
+// 官網商品（店長專用）：勾選車身／電池顯示在官網車款頁；品項名單取自目前狀態。
+if (window.WebsiteItemsUI) window.WebsiteItemsUI.instance = window.WebsiteItemsUI.mount({ getState: () => state, notify: setStatus });
 // 批次匯入品項（CSV）：預覽全部正確後，用和「新增品項」相同的儲存流程一次寫入。
 if (window.ItemImport) window.ItemImport.instance = window.ItemImport.mount({
   getState: () => state,
@@ -311,6 +313,7 @@ function render() {
   if ($('purchase-list')) { renderPurchaseBuilder(); renderPurchases(); renderPurchaseDetail(); }
   if ($('item-count')) renderSummary();
   if ($('item-list')) renderItems();
+  window.WebsiteItemsUI?.instance?.refresh();
   if ($('transaction-item')) renderTransactionItems();
   if ($('customer-list')) renderCustomers();
   if ($('salesperson-list')) renderSalespeople();
@@ -1872,6 +1875,7 @@ async function resetAppSession() {
   window.PromotionUI?.checkout?.clear();
   window.CouponUI?.instance?.clear();
   window.ItemImport?.instance?.clear();
+  window.WebsiteItemsUI?.instance?.clear();
   window.PromotionUI?.quotation?.clear();
   renderMonthlySales.requestId = (renderMonthlySales.requestId ?? 0) + 1;
   renderMonthlySales.loadedMonth = '';
