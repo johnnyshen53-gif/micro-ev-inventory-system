@@ -417,15 +417,6 @@
     </section>
     <section id="repair-print" class="print-document repair-print" hidden></section>
     <section id="qr-label" class="print-document barcode-label" hidden><div id="qr-label-content"></div></section>
-    <dialog id="manage-auth-dialog" aria-labelledby="manage-auth-title">
-      <form id="manage-auth-form">
-        <h2 id="manage-auth-title">進入庫存管理</h2>
-        <p>請重新輸入目前帳號的密碼。</p>
-        <div class="field"><label for="manage-auth-password">密碼</label><input id="manage-auth-password" type="password" autocomplete="current-password" required></div>
-        <p id="manage-auth-error" class="form-error" role="alert" hidden></p>
-        <div class="form-actions"><button id="manage-auth-submit" type="submit">確認進入</button><button id="manage-auth-cancel" class="secondary" type="button">取消</button></div>
-      </form>
-    </dialog>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js?v=3"></script>
@@ -444,6 +435,6 @@
   <script src="website-items-ui.js?v=1"></script>
   <script src="label-image.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=62"></script>
+  <script src="app.js?v=63"></script>
 </body>
 </html>
