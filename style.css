@@ -432,6 +432,12 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .inventory-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
 .label-mode { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--muted); }
 .label-mode select { min-height: 40px; }
+/* 藍牙標籤機位置設定（只在選「藍牙標籤機直接列印」時出現）。 */
+.label-printer-settings { margin: .25rem 0 .75rem; padding: .5rem .9rem; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.label-printer-settings summary { cursor: pointer; font-weight: 700; color: var(--brand); }
+.label-printer-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .5rem 1rem; margin-top: .6rem; align-items: end; }
+.label-printer-fields label { display: grid; gap: .25rem; font-size: .88rem; font-weight: 700; }
+.label-printer-settings .hint { margin: .5rem 0 0; color: var(--muted); font-size: .85rem; }
 /* 官網商品 */
 .website-items-panel { grid-column: 1 / -1; }
 .web-item-form { border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; margin: 0 0 1rem; }

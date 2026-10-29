@@ -49,3 +49,45 @@ test('print mode defaults to the browser and is remembered per device', () => {
   first.setMode('anything-else');
   assert.equal(load(store).mode(), 'print');
 });
+
+test('printing mode remembers the bluetooth option and printer offsets per device', () => {
+  const storage = new Map();
+  const L2 = load(storage);
+  assert.equal(L2.mode(), 'print');
+  L2.setMode('ble'); assert.equal(L2.mode(), 'ble');
+  L2.setMode('nonsense'); assert.equal(L2.mode(), 'print');
+  // 預設值：L58B 實測的左右 32、方向 1
+  assert.deepEqual(plain(L2.printerSettings()), { x: 32, y: 0, direction: 1 });
+  assert.deepEqual(plain(L2.savePrinterSettings({ x: 24, direction: 0 })), { x: 24, y: 0, direction: 0 });
+  assert.deepEqual(plain(load(storage).printerSettings()), { x: 24, y: 0, direction: 0 });
+  // 超出範圍或格式錯誤時回到預設
+  storage.set('label-printer-settings-v1', JSON.stringify({ x: 500, y: 'a', direction: 7 }));
+  assert.deepEqual(plain(load(storage).printerSettings()), { x: 32, y: 0, direction: 1 });
+  storage.set('label-printer-settings-v1', '{壞掉');
+  assert.deepEqual(plain(load(storage).printerSettings()), { x: 32, y: 0, direction: 1 });
+});
+
+test('direct printing connects once, reuses the connection and sends one TSPL job per label', async () => {
+  const sent = [];
+  let picks = 0, connected = true;
+  const fakePrinter = { name: 'L58B', device: {}, isConnected: () => connected, send: async bytes => { sent.push(bytes); } };
+  const LabelPrinter = {
+    connectBluetooth: async () => { picks++; return fakePrinter; },
+    openBluetooth: async () => { connected = true; return fakePrinter; },
+    buildBitmapJob: (data, w, h, options) => ({ w, h, options }),
+  };
+  const ctx = { window: { LabelPrinter }, localStorage: { getItem: () => null, setItem() {} }, document: { getElementById: () => null } };
+  vm.runInNewContext(source, ctx);
+  const L3 = ctx.window.LabelImage;
+  // 畫標籤需要瀏覽器的 canvas；這裡用 QR Code 與 canvas 的替身，只驗證連線與送出流程。
+  ctx.window.qrcode = () => ({ addData() {}, make() {}, getModuleCount: () => 21, isDark: () => false });
+  ctx.document.createElement = () => ({ width: 0, height: 0, getContext: () => ({ fillRect() {}, fillText() {}, measureText: t => ({ width: t.length * 10 }), getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {}, set fillStyle(v) {}, set font(v) {}, set textBaseline(v) {} }) });
+  assert.equal(await L3.printDirect({ name: '煞車皮', sku: '3320261020001', barcode: '3320261020001' }), 'L58B');
+  await L3.printDirect({ name: '後照鏡', sku: '4420261029001', barcode: '4420261029001' });
+  assert.equal(picks, 1, '同一頁面只選一次標籤機');
+  connected = false; // 標籤機關機再開：自動重連，不再跳出清單
+  await L3.printDirect({ name: '手套', sku: '4420261029002', barcode: '4420261029002' });
+  assert.equal(picks, 1);
+  assert.equal(sent.length, 3);
+  assert.deepEqual(plain(sent[0].options), { x: 32, y: 0, direction: 1 });
+});
