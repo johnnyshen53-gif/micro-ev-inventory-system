@@ -69,8 +69,8 @@
         <article class="card warning"><span>低庫存品項</span><strong id="low-stock-count">0</strong><small>庫存等於或低於最低值</small></article>
       </div>
       <div class="grid two-columns">
-        <article class="panel"><h3>低庫存提示</h3><ul id="low-stock-list" class="plain-list"></ul></article>
-        <article class="panel"><h3>最近異動</h3><ul id="recent-transactions" class="plain-list"></ul></article>
+        <article class="panel"><h3>低庫存提示</h3><div id="low-stock-tabs" class="category-tabs low-stock-tabs" aria-label="依分類查看低庫存"></div><p id="low-stock-hint" class="hint"></p><ul id="low-stock-list" class="plain-list" hidden></ul></article>
+        <article class="panel"><h3>最近異動（最新 5 筆）</h3><ul id="recent-transactions" class="plain-list"></ul></article>
       </div>
       </section>
 
@@ -429,6 +429,6 @@
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=67"></script>
+  <script src="app.js?v=68"></script>
 </body>
 </html>

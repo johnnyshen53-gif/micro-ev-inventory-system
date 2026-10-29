@@ -198,19 +198,13 @@ function renderSummary() {
   $('low-stock-count').textContent = String(lowStock.length);
   $('inventory-cost').textContent = `NT$ ${formatNumber(inventoryCost(state))}`;
 
-  const lowList = $('low-stock-list');
-  lowList.replaceChildren();
-  if (!lowStock.length) appendEmpty(lowList, '目前沒有低庫存品項。');
-  lowStock.forEach((item) => {
-    const entry = document.createElement('li');
-    entry.textContent = `${item.name}：剩 ${formatNumber(item.stock)}（最低 ${formatNumber(item.minimumStock)}）`;
-    lowList.append(entry);
-  });
+  renderLowStock(lowStock);
 
   const recent = $('recent-transactions');
   recent.replaceChildren();
   const typeLabel = { in: '進貨', out: '售出', adjust: '盤點調整', warranty_out: '出保固' };
-  const transactions = [...state.transactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 10);
+  // 只列最新 5 筆；完整紀錄請看各品項或報表。
+  const transactions = [...state.transactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5);
   if (!transactions.length) appendEmpty(recent, '尚未有庫存異動。');
   transactions.forEach((transaction) => {
     const entry = document.createElement('li');
@@ -218,6 +212,38 @@ function renderSummary() {
     recent.append(entry);
   });
 }
+
+// 低庫存提示：先依分類列出按鈕（只列有低庫存的分類與筆數），點分類才展開該分類的品項；再點一次收合。
+let lowStockCategory = '';
+function renderLowStock(lowStock) {
+  const tabs = $('low-stock-tabs'), list = $('low-stock-list'), hint = $('low-stock-hint');
+  if (!tabs || !list) return;
+  const groups = ITEM_CATEGORIES.map(category => [category, lowStock.filter(item => item.category === category)]).filter(([, items]) => items.length);
+  if (!groups.some(([category]) => category === lowStockCategory)) lowStockCategory = '';
+  tabs.replaceChildren();
+  groups.forEach(([category, items]) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'category-tab'; button.dataset.lowCategory = category;
+    button.setAttribute('aria-pressed', String(category === lowStockCategory));
+    button.setAttribute('aria-controls', 'low-stock-list');
+    button.textContent = `${category}（${items.length}）`;
+    tabs.append(button);
+  });
+  if (hint) hint.textContent = !groups.length ? '目前沒有低庫存品項。' : lowStockCategory ? '' : '點分類查看低庫存品項。';
+  list.replaceChildren();
+  list.hidden = !lowStockCategory;
+  for (const item of groups.find(([category]) => category === lowStockCategory)?.[1] ?? []) {
+    const entry = document.createElement('li');
+    entry.textContent = `${item.name}：剩 ${formatNumber(item.stock)}（最低 ${formatNumber(item.minimumStock)}）`;
+    list.append(entry);
+  }
+}
+$('low-stock-tabs')?.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-low-category]');
+  if (!button) return;
+  lowStockCategory = lowStockCategory === button.dataset.lowCategory ? '' : button.dataset.lowCategory;
+  renderLowStock(state.items.filter((item) => item.stock <= item.minimumStock));
+});
 
 // 品項庫存依分類檢視：上方分類按鈕（全部／車身／電池／電控元件／機構元件／外觀元件），顯示各分類品項數與低庫存數。
 const ITEM_CATEGORIES = ['車身', '電池', '電控元件', '機構元件', '外觀元件'];
