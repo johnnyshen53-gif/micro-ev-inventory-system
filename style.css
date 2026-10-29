@@ -329,6 +329,23 @@ th { white-space: nowrap; }
 /* 加了車種欄後，品項名稱與車種不要被擠成一字一行。 */
 #item-list td:first-child { min-width: 7em; }
 #item-list td:nth-child(3) { min-width: 5.5em; }
+/* 手機版庫存清單只供查詢與印標籤：編輯要到庫存管理頁（手機不開放），刪除也只在電腦上做。 */
+@media (max-width: 700px) {
+  #item-list button:is([data-action="edit"], [data-action="delete"]) { display: none; }
+  /* 手機版庫存清單：每個品項排成一張卡片（左欄名、右數值），不用左右滑表格。 */
+  table:has(#item-list) { min-width: 0; }
+  table:has(#item-list) thead { display: none; }
+  table:has(#item-list), #item-list, #item-list tr, #item-list td { display: block; width: 100%; }
+  #item-list tr { padding: .7rem .9rem; border-bottom: 1px solid var(--line); }
+  #item-list td { display: flex; justify-content: flex-end; align-items: baseline; gap: 1rem; min-width: 0; padding: .2rem 0; border: 0; text-align: right; white-space: normal; }
+  #item-list td::before { content: attr(data-label); flex: none; margin-right: auto; color: #64748b; font-size: .8rem; font-weight: 700; text-align: left; }
+  #item-list td:first-child { justify-content: flex-start; font-size: 1.05rem; font-weight: 700; text-align: left; }
+  #item-list td:first-child::before, #item-list td.actions::before, #item-list td.empty::before { content: none; }
+  #item-list td.low { align-items: center; }
+  #item-list td.low .low-badge { margin: 0 0 0 .4rem; display: inline-block; }
+  #item-list td.actions { justify-content: flex-end; padding-top: .5rem; }
+  #item-list td.empty { justify-content: center; }
+}
 /* 區塊間距：統計卡片與下方提示、建立帳號按鈕與帳號表格不再貼在一起。 */
 .app-page[data-page="list"] .cards + .grid { margin-top: 1rem; }
 form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { margin-top: 1.25rem; }
@@ -337,8 +354,7 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 /* 空表格提示置中、淡色。 */
 #quotation-lines .empty, #repair-lines .empty { padding: 1rem .8rem; color: var(--muted); text-align: center; }
 @media (max-width: 700px) {
-  /* 手機只開放營運總覽，單一分頁按鈕看起來像能按卻沒作用，所以隱藏。 */
-  .page-nav { display: none; }
+  /* 手機開放「營運總覽」與「庫存清單」兩個分頁，其餘分頁按鈕在上方規則隱藏。 */
   /* 長條圖數值改顯示短格式（12.7萬）。 */
   .dashboard-bar-value { font-size: 0; white-space: nowrap; }
   .dashboard-bar-value::after { content: attr(data-short); font-size: .75rem; }

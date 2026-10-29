@@ -415,16 +415,19 @@ test('places sales management first in the main navigation', async () => {
   assert.match(nav, /^\s*<nav[^>]*>\s*<button[^>]*data-page-target="sales"/);
 });
 
-test('limits mobile navigation to monthly sales only', async () => {
+test('limits mobile navigation to monthly sales and the inventory list', async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL('./index.html', import.meta.url), 'utf8'),
     readFile(new URL('./app.js', import.meta.url), 'utf8'),
     readFile(new URL('./style.css', import.meta.url), 'utf8'),
   ]);
   assert.match(html, /data-page-target="monthly-sales"[^>]*data-mobile-page/);
-  for (const page of ['list', 'manage']) assert.doesNotMatch(html, new RegExp(`data-page-target="${page}"[^>]*data-mobile-page`));
+  assert.match(html, /data-page-target="list"[^>]*data-mobile-page/);
+  for (const page of ['manage', 'sales']) assert.doesNotMatch(html, new RegExp(`data-page-target="${page}"[^>]*data-mobile-page`));
   assert.match(css, /\.page-tab:not\(\[data-mobile-page\]\) \{ display: none; \}/);
-  assert.match(app, /const mobileAllowedPages = new Set\(\['monthly-sales'\]\)/);
+  assert.match(app, /const mobileAllowedPages = new Set\(\['monthly-sales', 'list'\]\)/);
+  // 手機版庫存清單不顯示編輯／刪除（編輯要到庫存管理頁，手機不開放）。
+  assert.match(css, /#item-list button:is\(\[data-action="edit"\], \[data-action="delete"\]\) \{ display: none; \}/);
   assert.match(app, /isMobileView\(\) && !mobileAllowedPages\.has\(page\)/);
   assert.match(app, /page = 'monthly-sales'/);
 });
@@ -473,6 +476,12 @@ test('opens cloud operations on desktop while retaining mobile and clerk access 
   context.showPage('quotations');
   assert.equal(sections.get('quotations').hidden, true);
   assert.equal(sections.get('monthly-sales').hidden, false);
+  // 庫存清單（<div class="app-page" data-page="list">）在手機上可以進入。
+  const list = { dataset: { page: 'list', role: '' }, hidden: true };
+  sections.set('list', list);
+  context.showPage('list');
+  assert.equal(list.hidden, false);
+  assert.equal(sections.get('monthly-sales').hidden, true);
   context.showPage('repairs');
   assert.equal(sections.get('repairs').hidden, true);
   assert.equal(sections.get('monthly-sales').hidden, false);
@@ -494,7 +503,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=29"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=64"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=65"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
