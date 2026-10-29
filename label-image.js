@@ -101,17 +101,27 @@
     nameLines.forEach((line, i) => ctx.fillText(line, pad, pad + i * 28));
     const top = pad + Math.max(1, nameLines.length) * 28 + 4;
 
-    // 左下：QR Code，每個點對齊整數像素，熱感列印才清楚
+    // 左下：QR Code，每個點對齊整數像素，熱感列印才清楚；下方留一行給料號。
+    const codeText = item.sku || item.barcode || '';
+    const textRow = codeText ? 24 : 0;
     const qr = window.qrcode(0, 'M');
     qr.addData(qrPayload(item));
     qr.make();
     const count = qr.getModuleCount();
-    const box = Math.min(H - top - pad, 150);
+    const box = Math.min(H - top - pad - textRow, 150);
     const cell = Math.max(1, Math.floor(box / count));
     const size = cell * count;
     for (let r = 0; r < count; r++) for (let c = 0; c < count; c++) if (qr.isDark(r, c)) ctx.fillRect(pad + c * cell, top + r * cell, cell, cell);
 
-    // 右下：料號、原廠序號、條碼數字
+    // QR Code 正下方：料號（沒有料號時印條碼數字）。太長時縮小字體，最多可以比 QR Code 寬 40 點。
+    if (codeText) {
+      let fontSize = 18;
+      ctx.font = font(fontSize);
+      while (fontSize > 12 && ctx.measureText(codeText).width > size + 40) { fontSize -= 1; ctx.font = font(fontSize); }
+      ctx.fillText(codeText, pad, top + size + 4);
+    }
+
+    // 右下：原廠序號
     const x = pad + size + 10, colW = W - x - pad;
     let y = top;
     const block = (label, value, size) => {
@@ -121,9 +131,7 @@
       for (const line of wrapText(value, colW, 2, t => ctx.measureText(t).width)) { ctx.fillText(line, x, y); y += size + 4; }
       y += 4;
     };
-    block('料號', item.sku, 17);
     block('原廠序號', item.serialNumber, 17);
-    if (!item.sku && item.barcode) block('條碼', item.barcode, 17);
     // 轉成純黑白：熱感標籤機只能印黑點，灰色的字邊會被印成破碎的點，先在這裡統一處理比較清楚。
     const image = ctx.getImageData(0, 0, W, H), px = image.data;
     for (let i = 0; i < px.length; i += 4) {

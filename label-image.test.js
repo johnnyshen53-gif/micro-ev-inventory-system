@@ -91,3 +91,24 @@ test('direct printing connects once, reuses the connection and sends one TSPL jo
   assert.equal(sent.length, 3);
   assert.deepEqual(plain(sent[0].options), { x: 32, y: 0, direction: 1 });
 });
+
+test('the SKU is printed right under the QR code, the serial stays on the right', () => {
+  const rects = [], texts = [];
+  const ctx2d = { fillRect: (x, y, w, h) => rects.push([x, y, w, h]), fillText: (t, x, y) => texts.push([t, x, y]), measureText: t => ({ width: t.length * 10 }),
+    getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} };
+  const ctx = { window: { qrcode: () => ({ addData() {}, make() {}, getModuleCount: () => 25, isDark: () => true }) }, localStorage: { getItem: () => null, setItem() {} },
+    document: { getElementById: () => null, createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }) } };
+  vm.runInNewContext(source, ctx);
+  ctx.window.LabelImage.drawLabel({ name: '電池', sku: '8820264824001', barcode: '8820264824001', serialNumber: 'LB24A0012345' });
+  const qrCells = rects.filter(([x, y, w, h]) => w === h && w > 1 && h < 20);
+  const qrBottom = Math.max(...qrCells.map(([, y, , h]) => y + h));
+  const qrRight = Math.max(...qrCells.map(([x, , w]) => x + w));
+  const sku = texts.find(([t]) => t === '8820264824001');
+  assert.ok(sku, '料號有印出');
+  assert.equal(sku[1], 10, '料號和 QR Code 左邊對齊');
+  assert.equal(sku[2], qrBottom + 4, '料號在 QR Code 正下方');
+  assert.ok(sku[2] + 18 <= 240, '料號沒有超出標籤底部');
+  const serial = texts.find(([t]) => t === 'LB24A0012345');
+  assert.ok(serial[1] > qrRight, '原廠序號在 QR Code 右邊');
+  assert.ok(!texts.some(([t]) => t === '料號'), '右邊不再重複印料號');
+});
