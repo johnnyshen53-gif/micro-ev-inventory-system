@@ -1578,21 +1578,54 @@ $('warranty-case-list')?.addEventListener('click', async (event) => {
 
 function renderSalePicker() {
   const category = $('sale-category').value, select = $('sale-item'), selected = select.value;
-  const items = state.items.filter(item => item.category === category);
+  // 車身以外的分類要先選車種，只列出該車種＋「通用」＋還沒設定車種的品項（掃描 QR Code 不受影響）。
+  const models = state.vehicleModels ?? [];
+  const needsModel = Boolean(category) && category !== '車身' && models.length > 0;
+  const modelId = needsModel ? renderSaleVehicleModels(category) : '';
+  if (!needsModel && $('sale-vehicle-model-field')) $('sale-vehicle-model-field').hidden = true;
+  const universalIds = new Set(models.filter(model => model.isUniversal).map(model => model.id));
+  // 排序：選定車種的品項在前，其次「通用」，最後是未設定車種的舊品項。
+  const rank = item => !needsModel || item.vehicleModelId === modelId ? 0 : universalIds.has(item.vehicleModelId) ? 1 : 2;
+  const items = needsModel && !modelId ? [] : state.items
+    .filter(item => item.category === category && (!needsModel || rank(item) < 2 || !item.vehicleModelId))
+    .sort((a, b) => rank(a) - rank(b));
   select.replaceChildren();
   const placeholder = document.createElement('option');
-  placeholder.value = ''; placeholder.textContent = !category ? '請先選擇分類' : items.length ? '請選擇品項' : '此分類尚無品項';
+  placeholder.value = ''; placeholder.textContent = !category ? '請先選擇分類' : needsModel && !modelId ? '請先選擇車種' : items.length ? '請選擇品項' : needsModel ? '此車種尚無品項' : '此分類尚無品項';
   select.append(placeholder);
   items.forEach(item => {
     const available = item.stock - (saleCart.find(line => line.itemId === item.id)?.quantity ?? 0);
     const option = document.createElement('option'); option.value = item.id;
-    option.textContent = `${item.name}｜${item.sku || ''}｜售價 ${formatNumber(item.price)}｜可售 ${formatNumber(available)}${available <= 0 ? '（無可售庫存）' : ''}`;
+    const tag = ['', '（通用）', '（未設定車種）'][rank(item)];
+    option.textContent = `${item.name}${tag}｜${item.sku || ''}｜售價 ${formatNumber(item.price)}｜可售 ${formatNumber(available)}${available <= 0 ? '（無可售庫存）' : ''}`;
     option.disabled = available <= 0; select.append(option);
     if (item.id === selected && available > 0) select.value = selected;
   });
   select.disabled = !items.length;
   $('sale-pick-add').disabled = !select.value;
-  $('sale-picker-hint').textContent = !category ? '先選分類，再選品項加入購物車。' : !items.length ? '此分類尚無品項，請選擇其他分類。' : '可售數量已扣除購物車中的數量；無庫存品項不可加入。';
+  $('sale-picker-hint').textContent = !category ? '先選分類，再選品項加入購物車。'
+    : needsModel && !modelId ? '電池與元件請先選車種，會列出該車種與「通用」的品項。'
+    : !items.length ? (needsModel ? '這個車種在此分類沒有品項，請換車種或分類。' : '此分類尚無品項，請選擇其他分類。')
+    : '可售數量已扣除購物車中的數量；無庫存品項不可加入。';
+}
+// 銷售用的車種下拉：啟用中的車種（「通用」在最前面）；已停用但此分類還有品項的車種也列出，標示（已停用）。
+// 回傳目前選定的車種 id；換分類時保留原本選的車種，連續賣同一台車的零件不用重選。
+function renderSaleVehicleModels(category) {
+  const field = $('sale-vehicle-model-field'), select = $('sale-vehicle-model');
+  if (!select) return '';
+  if (field) field.hidden = false;
+  const selected = select.value;
+  const used = new Set(state.items.filter(item => item.category === category).map(item => item.vehicleModelId));
+  const choices = [...(state.vehicleModels ?? [])].filter(model => model.active || used.has(model.id))
+    .sort((a, b) => Number(b.isUniversal) - Number(a.isUniversal) || a.name.localeCompare(b.name, 'zh-Hant'));
+  select.replaceChildren();
+  const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = '請選擇車種'; select.append(placeholder);
+  choices.forEach(model => {
+    const option = document.createElement('option'); option.value = model.id;
+    option.textContent = `${model.name}${model.active ? '' : '（已停用）'}`; select.append(option);
+  });
+  select.value = choices.some(model => model.id === selected) ? selected : '';
+  return select.value;
 }
 function renderSaleSerialSelector(item) {
   const panel = $('sale-serial-panel'); panel.hidden = !requiresSerial(item);
@@ -1681,6 +1714,7 @@ $('sale-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'E
 $('sale-add')?.addEventListener('click', addSaleLine);
 $('sale-category')?.addEventListener('change', () => { $('sale-item').value = ''; $('sale-pick-quantity').value = '1'; renderSalePicker(); });
 $('sale-item')?.addEventListener('change', renderSalePicker);
+$('sale-vehicle-model')?.addEventListener('change', () => { $('sale-item').value = ''; $('sale-pick-quantity').value = '1'; renderSalePicker(); });
 $('sale-pick-add')?.addEventListener('click', () => {
   const item = state.items.find(candidate => candidate.id === $('sale-item').value && candidate.category === $('sale-category').value);
   if (requiresSerial(item)) return beginSaleSerialSelection(item, Number($('sale-pick-quantity').value));

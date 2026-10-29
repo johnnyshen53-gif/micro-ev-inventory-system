@@ -63,6 +63,8 @@ dialog { width: min(420px, calc(100% - 2rem)); border: 1px solid var(--line); bo
 .sale-picker legend { font-weight: 700; padding: 0 .4rem; }
 .sale-picker .field { min-width: 0; }
 .sale-picker select { width: 100%; }
+/* 選電池或元件時多一個「車種」欄：分類、車種窄一點，品項寬一點。 */
+@media (min-width: 701px) { .sale-picker .split-fields:has(#sale-vehicle-model-field:not([hidden])) { grid-template-columns: 1fr 1fr 2fr; } }
 .serial-panel { grid-column: 1 / -1; }
 .serial-box { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line, #cbd5e1); border-radius: .7rem; min-width: 0; }
 .serial-box select[multiple] { min-height: 8rem; }

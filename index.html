@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -278,7 +278,7 @@
           <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div class="field sale-qty"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入</button></div>
           <div id="sale-item-info" class="scan-result" hidden></div>
           <p class="sale-hint">掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。</p>
-          <fieldset class="sale-picker"><legend>或由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>車身</option><option>電池</option><option>電控元件</option><option>機構元件</option><option>外觀元件</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="sale-picker-actions"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
+          <fieldset class="sale-picker"><legend>或由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>車身</option><option>電池</option><option>電控元件</option><option>機構元件</option><option>外觀元件</option></select></div><div class="field" id="sale-vehicle-model-field" hidden><label for="sale-vehicle-model">車種</label><select id="sale-vehicle-model"><option value="">請選擇車種</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="sale-picker-actions"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
           <div id="sale-serial-panel" class="serial-box" hidden><h3>指定本次實物序號</h3><p id="sale-serial-hint" aria-live="polite"></p><div class="field"><label for="sale-serial-scan">掃描原廠序號（非商品條碼）</label><input id="sale-serial-scan" type="text" autocomplete="off" placeholder="掃描後按 Enter 選取"></div><div class="field"><label for="sale-serial-ids">選擇在庫序號（可多選）</label><select id="sale-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div><button id="sale-serial-add" type="button">確認序號並加入購物車</button></div>
           <p id="sale-form-error" class="form-error" role="alert" hidden></p>
         </div>
@@ -435,6 +435,6 @@
   <script src="website-items-ui.js?v=1"></script>
   <script src="label-image.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=63"></script>
+  <script src="app.js?v=64"></script>
 </body>
 </html>
