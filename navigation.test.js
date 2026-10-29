@@ -49,38 +49,30 @@ test('customer form stores multiple optional plates and shows them on edit', asy
   assert.equal(inventory.validateState(context.state).customers[0].plateNumbers.length, 2);
 });
 
-test('quotation builder prices installation hours and prints saved labor while only manager changes shop rate', async () => {
+test('quotations no longer charge installation labor because part prices already include it', async () => {
   const { context, $, inventory: I } = await purchasingUi();
   context.state = I.addSalesperson(I.addCustomer(I.addItem(context.state, { name: '煞車皮', category: '電控元件', price: 350, cost: 100, stock: 2, minimumStock: 0 }), { name: '甲', phone: '0911' }), { name: '乙' });
   context.quotationLines = [];
-  context.hourlyRate = 800;
-  context.window = { AppData: { setHourlyRate: async rate => Number(rate) } };
+  context.window = {};
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   vm.runInNewContext(app.slice(app.indexOf('function renderQuotationBuilder()'), app.indexOf('function renderSaleCustomers()')), context);
   context.renderQuotationBuilder();
   $('quotation-customer').value = context.state.customers[0].id;
   $('quotation-salesperson').value = context.state.salespeople[0].id;
   $('quotation-item').value = context.state.items[0].id;
-  $('quotation-quantity').value = '1';
-  $('quotation-installation-required').value = 'yes';
-  $('quotation-installation-required').listeners.change();
-  assert.equal($('quotation-labor-hours-wrap').hidden, false);
-  $('quotation-labor-hours').value = '1.5';
+  $('quotation-quantity').value = '2';
   $('quotation-add-line').listeners.click();
-  assert.equal($('quotation-total').textContent, 'NT$ 1550');
+  assert.equal($('quotation-total').textContent, 'NT$ 700');
+  assert.equal($('quotation-lines').children[0].children.length, 6, '品項、庫存、單價、數量、小計、操作');
   await $('quotation-form').listeners.submit({ preventDefault() {} });
-  assert.equal(context.state.quotations[0].lines[0].hourlyRate, 800);
-  assert.equal(context.state.quotations[0].total, 1550);
+  const line = context.state.quotations[0].lines[0];
+  assert.deepEqual([line.installationRequired, line.laborHours, line.hourlyRate, line.laborAmount], [false, 0, 0, 0]);
+  assert.equal(context.state.quotations[0].total, 700);
   context.showQuotation(context.state.quotations[0]);
+  assert.doesNotMatch(JSON.stringify($('quotation-print-content').children), /工時|工資|安裝/);
+  // 舊報價有工資時，列印仍顯示安裝與工資欄
+  context.showQuotation({ ...context.state.quotations[0], lines: [{ ...line, installationRequired: true, laborHours: 1.5, hourlyRate: 800, laborAmount: 1200 }] });
   assert.match(JSON.stringify($('quotation-print-content').children), /1200/);
-  context.document.body.dataset.role = 'clerk';
-  $('shop-hourly-rate').value = '900';
-  await $('shop-rate-form').listeners.submit({ preventDefault() {} });
-  assert.equal(context.hourlyRate, 800);
-  context.document.body.dataset.role = 'admin';
-  await $('shop-rate-form').listeners.submit({ preventDefault() {} });
-  assert.equal(context.hourlyRate, 900);
-  assert.equal(context.state.quotations[0].lines[0].hourlyRate, 800);
 });
 
 test('supplier UI creates edits searches and deactivates suppliers with role guards', async () => {
@@ -503,7 +495,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=29"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=66"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=67"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -1024,11 +1016,10 @@ test('monthly salesperson performance shows sales only (repairs have no salesper
   assert.equal($('monthly-performance-list').children[0].children[2].dataset.label, '銷售金額');
 });
 
-test('shop hourly rate is maintained on the manager-only bonus page instead of quotations', async () => {
+test('labor rate and labor fields are gone from quotations, repairs and the bonus page', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  const section = page => html.match(new RegExp(`<section class="app-page[^"]*" data-page="${page}"[\\s\\S]*?\\n    </section>`))?.[0] ?? '';
-  assert.match(section('bonus'), /id="shop-rate-form"/);
-  assert.match(section('bonus'), /id="shop-hourly-rate"/);
-  assert.doesNotMatch(section('quotations'), /shop-rate-form/);
-  assert.match(html, /data-page="bonus" aria-label="分紅管理" data-role="admin"/);
+  for (const id of ['shop-rate-form', 'shop-hourly-rate', 'quotation-installation-required', 'quotation-labor-hours', 'quotation-hourly-rate', 'repair-labor', 'repair-labor-hours']) {
+    assert.doesNotMatch(html, new RegExp(`id="${id}"`), id);
+  }
+  assert.match(html, /零件售價已含安裝費/);
 });

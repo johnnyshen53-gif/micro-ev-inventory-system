@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=33">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -259,7 +259,7 @@
       <article class="panel"><div class="section-heading"><h2>店員名單</h2><label class="search"><span class="sr-only">搜尋店員</span><input id="salesperson-search" type="search" placeholder="搜尋姓名"></label></div><div class="table-wrap"><table><thead><tr><th>姓名</th><th>身分</th><th>狀態</th><th>操作</th></tr></thead><tbody id="salesperson-list"></tbody></table></div></article>
     </section>
     <section class="app-page" data-page="quotations" aria-label="報價單" hidden>
-      <article class="panel"><h2>建立報價單</h2><form id="quotation-form"><div class="field"><label for="quotation-customer">客戶</label><select id="quotation-customer" required></select></div><div class="field"><label for="quotation-salesperson">業務人員</label><select id="quotation-salesperson" required></select></div><div class="split-fields"><div class="field"><label for="quotation-item">品項</label><select id="quotation-item"></select></div><div class="field"><label for="quotation-quantity">數量</label><input id="quotation-quantity" type="number" min="1" value="1"></div></div><div class="split-fields"><div class="field"><label for="quotation-installation-required">是否安裝</label><select id="quotation-installation-required"><option value="no">免安裝</option><option value="yes">需安裝</option></select></div><div class="field" id="quotation-labor-hours-wrap" hidden><label for="quotation-labor-hours">安裝工時（小時）</label><input id="quotation-labor-hours" type="number" min="0.01" step="0.01"></div></div><p>目前每小時工資：<span id="quotation-hourly-rate">0</span> 元</p><button id="quotation-add-line" class="secondary" type="button">加入明細</button><div class="table-wrap"><table><thead><tr><th>品項</th><th>庫存</th><th>單價</th><th>數量</th><th>安裝</th><th>工時</th><th>時薪</th><th>材料小計</th><th>工資</th><th>操作</th></tr></thead><tbody id="quotation-lines"></tbody><tfoot><tr id="quotation-discount-row" hidden><th colspan="8">組合折扣</th><th id="quotation-discount">0</th><th></th></tr><tr><th colspan="8">合計</th><th id="quotation-total">0</th><th></th></tr></tfoot></table></div><section id="quotation-promo-panel" class="sale-promos" aria-label="特惠組合" hidden><ul id="quotation-promo-suggestions" class="sale-promo-suggestions" aria-live="polite" hidden></ul><ul id="quotation-promo-applied" class="sale-promo-applied" aria-label="已套用的組合" hidden></ul><div class="sale-promo-picker"><div class="field"><label for="quotation-promo-select">特惠組合</label><select id="quotation-promo-select"><option value="">選擇本期組合</option></select></div><button id="quotation-promo-add" type="button" class="secondary" disabled>加入組合</button></div><p id="quotation-promo-hint" class="sale-hint promo-hint" aria-live="polite"></p></section><div class="field"><label for="quotation-note">備註</label><textarea id="quotation-note" rows="2"></textarea></div><p id="quotation-form-error" class="form-error" role="alert" hidden></p><button type="submit">建立報價單</button></form></article>
+      <article class="panel"><h2>建立報價單</h2><form id="quotation-form"><div class="field"><label for="quotation-customer">客戶</label><select id="quotation-customer" required></select></div><div class="field"><label for="quotation-salesperson">業務人員</label><select id="quotation-salesperson" required></select></div><div class="split-fields"><div class="field"><label for="quotation-item">品項</label><select id="quotation-item"></select></div><div class="field"><label for="quotation-quantity">數量</label><input id="quotation-quantity" type="number" min="1" value="1"></div></div><p class="hint">零件售價已含安裝費。</p><button id="quotation-add-line" class="secondary" type="button">加入明細</button><div class="table-wrap"><table><thead><tr><th>品項</th><th>庫存</th><th>單價</th><th>數量</th><th>小計</th><th>操作</th></tr></thead><tbody id="quotation-lines"></tbody><tfoot><tr id="quotation-discount-row" hidden><th colspan="4">組合折扣</th><th id="quotation-discount">0</th><th></th></tr><tr><th colspan="4">合計</th><th id="quotation-total">0</th><th></th></tr></tfoot></table></div><section id="quotation-promo-panel" class="sale-promos" aria-label="特惠組合" hidden><ul id="quotation-promo-suggestions" class="sale-promo-suggestions" aria-live="polite" hidden></ul><ul id="quotation-promo-applied" class="sale-promo-applied" aria-label="已套用的組合" hidden></ul><div class="sale-promo-picker"><div class="field"><label for="quotation-promo-select">特惠組合</label><select id="quotation-promo-select"><option value="">選擇本期組合</option></select></div><button id="quotation-promo-add" type="button" class="secondary" disabled>加入組合</button></div><p id="quotation-promo-hint" class="sale-hint promo-hint" aria-live="polite"></p></section><div class="field"><label for="quotation-note">備註</label><textarea id="quotation-note" rows="2"></textarea></div><p id="quotation-form-error" class="form-error" role="alert" hidden></p><button type="submit">建立報價單</button></form></article>
       <section><div class="section-heading"><h2>報價紀錄</h2><input id="quotation-search" class="search" type="search" aria-label="搜尋報價紀錄" placeholder="搜尋編號、客戶或電話"></div><div class="table-wrap"><table><thead><tr><th>編號</th><th>日期</th><th>客戶</th><th>業務</th><th>總額</th><th>操作</th></tr></thead><tbody id="quotation-list"></tbody></table></div></section>
       <section id="quotation-detail" class="panel print-document" hidden><div class="section-heading no-print"><h2>報價詳情</h2><button id="print-quotation" type="button">列印報價單</button></div><div id="quotation-print-content"></div></section>
     </section>
@@ -360,10 +360,9 @@
             <div class="field"><label for="repair-vehicle">車型／車輛描述</label><input id="repair-vehicle" required></div>
             <div class="field"><label for="repair-issue">故障與需求</label><textarea id="repair-issue" required></textarea></div>
             <div class="field"><label for="repair-diagnosis">檢查／處理說明</label><textarea id="repair-diagnosis"></textarea></div>
-            <div class="split-fields"><div class="field"><label for="repair-labor-hours">工時（小時，選填）</label><input id="repair-labor-hours" type="number" min="0" max="999.99" step="0.01" placeholder="例：1.5"></div><div class="field"><label for="repair-labor">工資（NT$）</label><input id="repair-labor" type="number" min="0" step="0.01" value="0" required></div></div><p id="repair-labor-hint" class="hint repair-labor-hint"></p>
             <div class="repair-material-entry"><div class="field"><label for="repair-item">用料（電池／電控／機構／外觀元件）</label><select id="repair-item"><option value="">選擇品項</option></select></div><div class="field"><label for="repair-quantity">數量</label><input id="repair-quantity" type="number" min="1" step="1" value="1"></div><div class="field"><label for="repair-price">單價（NT$）</label><input id="repair-price" type="number" min="0" step="0.01"></div><button id="repair-add-line" class="secondary" type="button">加入用料</button></div>
             <div class="table-wrap"><table><thead><tr><th>用料</th><th>數量</th><th>單價</th><th>小計</th><th>操作</th></tr></thead><tbody id="repair-lines"></tbody></table></div>
-            <p>總額由資料庫計算，接修與報價均不扣庫存。</p>
+            <p>總額由資料庫計算（零件售價已含安裝費，不另收工資），接修與報價均不扣庫存。</p>
             <p id="repair-form-error" class="form-error" role="alert" hidden></p>
             <div class="form-actions"><button id="repair-save" type="submit">儲存接修</button><button id="repair-quote" type="button" class="secondary" hidden>確認報價</button></div>
           </form>
@@ -392,7 +391,6 @@
           <div class="table-wrap bonus-costs-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>成本</th><th>狀態</th><th>操作</th></tr></thead><tbody id="bonus-costs"></tbody></table></div>
         </article>
       </div>
-      <article id="shop-rate-panel" class="panel"><h3>全店工時費率</h3><form id="shop-rate-form"><div class="field"><label for="shop-hourly-rate">每小時工資（元）</label><input id="shop-hourly-rate" type="number" min="0" step="0.01" required><small>只有店長可修改；新報價使用此費率，舊報價不變。</small></div><p id="shop-rate-form-error" class="form-error" role="alert" hidden></p><button type="submit">儲存費率</button></form></article>
       <article id="price-markup-panel" class="panel"><h3>售價加成（依分類）</h3><form id="price-markup-form"><p class="hint">進貨收貨時，售價＝進貨單價 ×（1＋加成%），<strong>無條件進位到 10 元</strong>。例：成本 873 元、加成 35% → 1,178.55 → 售價 1,180 元。空白＝該分類不自動定價；品項勾「固定售價」者不會被改。新增品項輸入成本時也會自動帶入。</p><div class="markup-grid"><div class="field"><label for="markup-0">車身（%）</label><input id="markup-0" data-category="車身" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-1">電池（%）</label><input id="markup-1" data-category="電池" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-2">電控元件（%）</label><input id="markup-2" data-category="電控元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-3">機構元件（%）</label><input id="markup-3" data-category="機構元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-4">外觀元件（%）</label><input id="markup-4" data-category="外觀元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div></div><button type="submit">儲存售價加成</button></form></article>
       <article class="panel bonus-report">
         <div class="section-heading"><h3>月份分紅報表</h3><label class="field"><span>月份</span><input id="bonus-month" type="month"></label></div>
@@ -428,7 +426,7 @@
   <script src="inventory.js?v=31"></script>
   <script src="storage.js?v=2"></script>
   <script src="cloud-data.js?v=29"></script>
-  <script src="repair-ui.js?v=12"></script>
+  <script src="repair-ui.js?v=13"></script>
   <script src="bonus-ui.js?v=5"></script>
   <script src="promotions-ui.js?v=4"></script>
   <script src="coupons-ui.js?v=1"></script>
@@ -437,6 +435,6 @@
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=66"></script>
+  <script src="app.js?v=67"></script>
 </body>
 </html>
