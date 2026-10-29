@@ -131,6 +131,8 @@ if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: (
 // 特惠組合頁有自己的狀態列，不再重複顯示在頁首。
 if (window.PromotionUI) window.PromotionUI.instance = window.PromotionUI.mount({ getState: () => state });
 // 官網商品（店長專用）：勾選車身／電池顯示在官網車款頁；品項名單取自目前狀態。
+// 標籤列印方式（瀏覽器列印／標籤圖片），每台裝置各自記住。
+window.LabelImage?.mountModeSelect();
 if (window.WebsiteItemsUI) window.WebsiteItemsUI.instance = window.WebsiteItemsUI.mount({ getState: () => state, notify: setStatus });
 // 批次匯入品項（CSV）：預覽全部正確後，用和「新增品項」相同的儲存流程一次寫入。
 if (window.ItemImport) window.ItemImport.instance = window.ItemImport.mount({
@@ -605,6 +607,13 @@ if ($('item-list')) $('item-list').addEventListener('click', async (event) => {
 });
 
 function showQrLabel(item) {
+  // 這台裝置選了「標籤圖片」：產生 40×30 mm 圖片，分享或下載給藍牙標籤機的手機 App。
+  if (window.LabelImage?.mode() === 'image') {
+    window.LabelImage.output(item).then(result => {
+      if (result === 'downloaded') setStatus('標籤圖片已下載，請在標籤機 App 選「圖片列印」。');
+    }).catch(error => setStatus(`無法產生標籤圖片：${error.message}`, true));
+    return;
+  }
   const label = $('qr-label');
   const content = $('qr-label-content');
   if (!window.qrcode) throw new Error('QR Code 元件尚未載入，請確認網路後重試。');

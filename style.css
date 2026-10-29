@@ -407,6 +407,10 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
   table:has(#promo-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7), :nth-child(8)) { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @media (max-width: 900px) { .promo-head-fields { grid-template-columns: 1fr 1fr; } }
+/* 標籤列印方式 */
+.inventory-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.label-mode { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--muted); }
+.label-mode select { min-height: 40px; }
 /* 官網商品 */
 .website-items-panel { grid-column: 1 / -1; }
 .web-item-form { border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; margin: 0 0 1rem; }
