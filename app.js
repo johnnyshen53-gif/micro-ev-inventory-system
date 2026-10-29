@@ -51,7 +51,8 @@ let appSessionEpoch = 0;
 let pendingSave = null;
 let receiptPurchaseId = '';
 let receiptSerialNumbersByItem = {};
-const mobileAllowedPages = new Set(['monthly-sales']);
+// 手機版只開放：營運總覽、庫存清單（查庫存、印標籤）。
+const mobileAllowedPages = new Set(['monthly-sales', 'list']);
 function isMobileView() { return window.matchMedia?.('(max-width: 700px)')?.matches === true; }
 
 function setAppEnabled(enabled) {
@@ -259,6 +260,8 @@ function renderItems() {
     [item.name, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
       const cell = document.createElement('td');
       cell.textContent = value;
+      // 手機版把每列排成卡片，用 data-label 在每個值前面顯示欄名。
+      cell.dataset.label = ['品項', '分類', '車種', '料號', '條碼', '售價', '庫存', '最低', '供應商'][index];
       // 低庫存不只靠橘色：再加「低庫存」文字標籤，色弱或黑白列印也看得出來。
       if (index === 6 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
       row.append(cell);
