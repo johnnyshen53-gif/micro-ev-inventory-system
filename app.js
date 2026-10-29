@@ -325,10 +325,36 @@ function renderTransactionItems() {
     $('transaction-form').querySelector('button').disabled = true;
     return;
   }
+  // 篩選：分類；分類選車身以外時可再選車種（列出該車種＋「通用」＋尚未設定車種的品項，和銷售頁相同）。
+  const category = $('transaction-category')?.value ?? '';
+  const models = state.vehicleModels ?? [];
+  const showModel = Boolean(category) && category !== '車身' && models.length > 0;
+  const modelField = $('transaction-vehicle-model-field'), modelSelect = $('transaction-vehicle-model');
+  if (modelField) modelField.hidden = !showModel;
+  let modelId = '';
+  if (showModel && modelSelect) {
+    const chosen = modelSelect.value;
+    const used = new Set(state.items.filter((item) => item.category === category).map((item) => item.vehicleModelId));
+    const choices = [...models].filter((model) => model.active || used.has(model.id))
+      .sort((a, b) => Number(b.isUniversal) - Number(a.isUniversal) || a.name.localeCompare(b.name, 'zh-Hant'));
+    modelSelect.replaceChildren(new Option('全部車種', ''));
+    choices.forEach((model) => modelSelect.append(new Option(`${model.name}${model.active ? '' : '（已停用）'}`, model.id)));
+    modelSelect.value = choices.some((model) => model.id === chosen) ? chosen : '';
+    modelId = modelSelect.value;
+  }
+  const universalIds = new Set(models.filter((model) => model.isUniversal).map((model) => model.id));
+  const rank = (item) => !modelId || item.vehicleModelId === modelId ? 0 : universalIds.has(item.vehicleModelId) ? 1 : item.vehicleModelId ? 3 : 2;
+  const items = state.items.filter((item) => (!category || item.category === category) && rank(item) < 3).sort((a, b) => rank(a) - rank(b));
+  const button = $('transaction-form').querySelector('button[type="submit"]') ?? $('transaction-form').querySelector('button');
+  if (!items.length) {
+    select.append(new Option('此條件沒有品項', ''));
+    select.disabled = true; button.disabled = true;
+    return;
+  }
   select.disabled = false;
-  $('transaction-form').querySelector('button').disabled = false;
-  state.items.forEach((item) => select.append(new Option(`${item.name}（庫存 ${formatNumber(item.stock)}）`, item.id)));
-  if (state.items.some((item) => item.id === selected)) select.value = selected;
+  button.disabled = false;
+  items.forEach((item) => select.append(new Option(`${item.name}${['', '（通用）', '（未設定車種）'][rank(item)]}（庫存 ${formatNumber(item.stock)}）`, item.id)));
+  if (items.some((item) => item.id === selected)) select.value = selected;
 }
 
 function render() {
@@ -518,6 +544,12 @@ function handleTransactionScan(decodedText) {
     $('transaction-scan-result').hidden = true;
     showFormError('transaction-form', scan.barcode ? '找不到此條碼的品項。' : '請先掃描或輸入條碼。');
     return false;
+  }
+  // 掃到的品項不在目前篩選的清單裡時，把篩選清空，讓它一定選得到。
+  if ($('transaction-category') && !Array.from($('transaction-item').options ?? []).some((option) => option.value === item.id)) {
+    $('transaction-category').value = '';
+    if ($('transaction-vehicle-model')) $('transaction-vehicle-model').value = '';
+    renderTransactionItems();
   }
   $('transaction-item').value = item.id;
   renderTransactionSerials();
@@ -848,6 +880,9 @@ $('serial-list')?.addEventListener('click', (event) => {
 });
 for (const id of ['item-serial-numbers', 'serial-numbers', 'transaction-serial-numbers']) $(id)?.addEventListener('keydown', keepSerialEnterInField);
 $('transaction-item')?.addEventListener('change', () => { $('transaction-serial-numbers').value = ''; renderTransactionSerials(); });
+for (const id of ['transaction-category', 'transaction-vehicle-model']) {
+  $(id)?.addEventListener('change', () => { $('transaction-item').value = ''; $('transaction-serial-numbers').value = ''; renderTransactionItems(); renderTransactionSerials(); });
+}
 $('transaction-type')?.addEventListener('change', () => { $('transaction-serial-numbers').value = ''; $('transaction-serial-ids').value = ''; renderTransactionSerials(); renderTransactionWarranty(); });
 $('transaction-warranty')?.addEventListener('change', renderTransactionWarranty);
 

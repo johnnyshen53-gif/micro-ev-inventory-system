@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=33">
+  <link rel="stylesheet" href="style.css?v=34">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -110,6 +110,7 @@
       <article class="panel">
         <h2>登記庫存異動</h2>
         <form id="transaction-form">
+          <div class="split-fields"><div class="field"><label for="transaction-category">分類</label><select id="transaction-category"><option value="">全部分類</option><option>車身</option><option>電池</option><option>電控元件</option><option>機構元件</option><option>外觀元件</option></select></div><div class="field" id="transaction-vehicle-model-field" hidden><label for="transaction-vehicle-model">車種</label><select id="transaction-vehicle-model"><option value="">全部車種</option></select></div></div>
           <div class="field"><label for="transaction-item">品項</label><select id="transaction-item" required></select></div>
           <div class="field"><label for="transaction-barcode">掃描／輸入 QR Code</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後自動選取品項"><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div>
           <div class="field"><label for="transaction-type">異動類型</label><select id="transaction-type" required><option value="in">進貨</option><option value="out">出庫／移出（銷售請至銷售管理）</option><option value="warranty_out">出保固（免費更換）</option><option value="adjust">盤點調整</option></select></div>
@@ -429,6 +430,6 @@
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=68"></script>
+  <script src="app.js?v=69"></script>
 </body>
 </html>

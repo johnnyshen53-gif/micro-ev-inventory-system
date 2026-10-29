@@ -450,6 +450,8 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .web-state-off, .web-state-none { color: var(--muted); }
 @media (max-width: 700px) { .web-item-fields { grid-template-columns: 1fr; } }
 /* 車種管理 */
+/* 登記庫存異動：分類選車身或全部時沒有車種欄，分類欄占滿整列。 */
+.split-fields:has(> #transaction-vehicle-model-field[hidden]) { grid-template-columns: 1fr; }
 .vehicle-model-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; margin-bottom: 1rem; }
 .vehicle-model-form .field { flex: 1 1 220px; margin: 0; }
 .vehicle-model-form .form-actions { margin: 0; }
