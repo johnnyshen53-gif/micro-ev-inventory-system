@@ -73,3 +73,10 @@ test('staff never load bonus data; manager saves the checked recipients and item
     assert.deepEqual(JSON.parse(JSON.stringify(save[1])), { motorcycleBonusAmount: 500, repairBonusPercent: null, recipientIds: ['sp-1'], motorcycleItemIds: ['moto-1'] });
   }
 });
+
+test('the manager no longer confirms part costs one by one', async () => {
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const ui = await readFile(new URL('./bonus-ui.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /用料成本確認|id="bonus-costs"/);
+  assert.doesNotMatch(ui, /setItemCostsConfirmed|確認成本/);
+});
