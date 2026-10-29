@@ -22,7 +22,7 @@ declare
   v_denied boolean;
 begin
   insert into public.salespeople(id, name, active, created_by) values (v_person, '冪等業務', true, auth.uid());
-  insert into public.items(id, name, price, stock, created_by) values (v_item, '冪等測試零件', 100, 3, auth.uid());
+  insert into public.items(id, name, price, stock, created_by, vehicle_model_id) values (v_item, '冪等測試零件', 100, 3, auth.uid(), (select id from public.vehicle_models where is_universal));
   v_lines := jsonb_build_array(jsonb_build_object('item_id', v_item, 'quantity', 1));
 
   -- 第一次結帳：建立銷售單，銷售單 ID 就是 checkout id，庫存 3 → 2。

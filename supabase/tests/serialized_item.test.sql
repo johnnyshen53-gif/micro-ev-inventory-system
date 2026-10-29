@@ -25,7 +25,7 @@ begin
   perform public.create_serialized_item(
     jsonb_build_object('id', v_item, 'name', '序號測試電池', 'category', '電池',
       'sku', 'TEST-SERIAL', 'barcode', '', 'price', 100, 'stock', 2,
-      'minimum_stock', 0, 'warranty_months', 12, 'notes', ''),
+      'minimum_stock', 0, 'warranty_months', 12, 'notes', '', 'vehicle_model_id', (select id from public.vehicle_models where is_universal)),
     50, jsonb_build_array(jsonb_build_object('id', v_serial, 'serialNumber', 'TEST-FACTORY-A'),
       jsonb_build_object('id', v_second, 'serialNumber', 'TEST-FACTORY-B')));
   if (select stock from public.items where id = v_item) <> 2
@@ -34,8 +34,8 @@ begin
     raise exception 'item and initial serials were not saved together';
   end if;
 
-  insert into public.items (id, name, category, stock, created_by)
-    values (v_existing, '既有測試電池', '電池', 2, auth.uid());
+  insert into public.items (id, name, category, stock, created_by, vehicle_model_id)
+    values (v_existing, '既有測試電池', '電池', 2, auth.uid(), (select id from public.vehicle_models where is_universal));
   perform public.register_inventory_serials(v_existing,
     jsonb_build_array(jsonb_build_object('id', gen_random_uuid(), 'serialNumber', 'TEST-FACTORY-E')));
   if (select count(*) from public.inventory_serials where item_id = v_existing and status = 'in_stock') <> 1 then

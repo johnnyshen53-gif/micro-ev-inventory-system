@@ -3,13 +3,14 @@
 //   只新增：料號留空就自動編碼；填了但已存在（或同一檔案重複）的列標示錯誤，不會覆蓋舊資料。
 //   庫存：一般元件可直接帶入；車身／電池需要逐件序號，匯入時庫存必須是 0，之後用進貨收貨登錄序號。
 //   售價留空：依「分紅管理」設定的分類加成自動計算（成本 ×（1＋加成%），進位到 10 元）；該分類沒設定加成就必填。
+//   車種：必填，填「車種管理」裡啟用中的車種名稱（英文不分大小寫）；全部車款都能用填「通用」。
 //   先預覽：每一列都檢查並標示原因，全部正確才能按「確認匯入」，不會只匯一半。
 (function () {
   const $ = id => document.getElementById(id);
   const MAX_ROWS = 500;
   // 欄位：標題 → 內部名稱。標題前後空白、結尾的 * 都會忽略。
   const COLUMNS = [
-    ['品項名稱', 'name', true], ['分類', 'category', true], ['料號', 'sku'], ['條碼', 'barcode'], ['成本', 'cost'], ['售價', 'price'],
+    ['品項名稱', 'name', true], ['分類', 'category', true], ['車種', 'vehicleModel', true], ['料號', 'sku'], ['條碼', 'barcode'], ['成本', 'cost'], ['售價', 'price'],
     ['目前庫存', 'stock'], ['最低庫存', 'minimumStock'], ['保固月數', 'warrantyMonths'], ['供應商', 'supplier'],
     ['電壓', 'voltage'], ['容量', 'capacity'], ['固定售價', 'priceLocked'], ['備註', 'notes'],
   ];
@@ -71,7 +72,9 @@
     const headers = table[0].map(cell => clean(cell).replace(/\*$/, '').trim());
     const indexOf = new Map();
     headers.forEach((header, index) => { const column = COLUMNS.find(([label]) => label === header); if (column && !indexOf.has(column[1])) indexOf.set(column[1], index); });
-    const missing = COLUMNS.filter(([, key, required]) => required && !indexOf.has(key)).map(([label]) => label);
+    // 車種清單還沒載入（例如單元測試的空資料）時不要求車種欄；雲端資料一定有內建的「通用」，實際使用時一律必填。
+    const models = state.vehicleModels ?? [];
+    const missing = COLUMNS.filter(([, key, required]) => required && (key !== 'vehicleModel' || models.length) && !indexOf.has(key)).map(([label]) => label);
     if (missing.length) return { fileError: `第 1 列必須是標題列，缺少欄位：${missing.join('、')}。請使用範本。`, rows: [] };
     const unknown = headers.filter(header => header && !COLUMNS.some(([label]) => label === header));
     const dataRows = table.slice(1);
@@ -84,11 +87,18 @@
     const names = new Set(state.items.map(item => item.name));
     const rows = dataRows.map((cells, offset) => {
       const get = key => indexOf.has(key) ? clean(cells[indexOf.get(key)]) : '';
-      const row = { line: offset + 2, name: get('name'), category: get('category'), sku: get('sku'), barcode: get('barcode'), errors: [], warnings: [] };
+      const row = { line: offset + 2, name: get('name'), category: get('category'), vehicleModel: get('vehicleModel'), sku: get('sku'), barcode: get('barcode'), errors: [], warnings: [] };
       const fail = message => { row.errors.push(message); return row; };
       try {
         if (!row.name) return fail('品項名稱不可空白');
         if (!CATEGORIES.includes(row.category)) return fail(`分類須為：${CATEGORIES.join('、')}`);
+        let vehicleModelId = '';
+        if (models.length) {
+          if (!row.vehicleModel) return fail('車種不可空白（全部車款都能用請填「通用」）');
+          const model = models.find(candidate => candidate.active && candidate.name.toLowerCase() === row.vehicleModel.toLowerCase());
+          if (!model) return fail(`找不到啟用中的車種「${row.vehicleModel}」，請先在車種管理新增或啟用`);
+          vehicleModelId = model.id; row.vehicleModel = model.name;
+        }
         const cost = numberCell(get('cost'), '成本') ?? 0;
         let price = numberCell(get('price'), '售價');
         const stock = numberCell(get('stock'), '目前庫存', { integer: true }) ?? 0;
@@ -118,7 +128,7 @@
         }
         const before = next.items.length;
         next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, stock, minimumStock,
-          warrantyMonths, supplierId, voltage, capacity, notes: get('notes'), priceLocked, serialNumbers: [] });
+          warrantyMonths, supplierId, vehicleModelId, voltage, capacity, notes: get('notes'), priceLocked, serialNumbers: [] });
         const created = next.items[before];
         Object.assign(row, { id: created.id, name: created.name, sku: created.sku, barcode: created.barcode, cost, price, stock, priceLocked });
         usedSkus.add(created.sku); if (created.barcode) usedBarcodes.add(created.barcode);
@@ -143,10 +153,10 @@
       if (!preview) return;
       for (const row of preview.rows) {
         const tr = document.createElement('tr'); if (row.errors.length) tr.className = 'import-error';
-        const cells = [String(row.line), row.name || '—', row.category || '—', row.sku || '（自動）',
+        const cells = [String(row.line), row.name || '—', row.category || '—', row.vehicleModel || '—', row.sku || '（自動）',
           row.cost === undefined ? '—' : money(row.cost), row.price === undefined ? '—' : `${money(row.price)}${row.priceFromMarkup ? '（加成）' : ''}${row.priceLocked ? '（固定）' : ''}`,
           row.stock === undefined ? '—' : money(row.stock), row.errors.length ? row.errors.join('；') : row.warnings.length ? `可匯入（${row.warnings.join('；')}）` : '可匯入'];
-        cells.forEach((value, index) => { const td = document.createElement('td'); td.textContent = value; if (index === 7) td.className = row.errors.length ? 'import-state-error' : 'import-state-ok'; tr.append(td); });
+        cells.forEach((value, index) => { const td = document.createElement('td'); td.textContent = value; if (index === 8) td.className = row.errors.length ? 'import-state-error' : 'import-state-ok'; tr.append(td); });
         body.append(tr);
       }
     }

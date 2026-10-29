@@ -22,7 +22,7 @@ test('CSV parser handles quotes, commas, line breaks, CRLF and the Excel BOM', (
   const big5 = new Uint8Array([0xab, 0x7e, 0xb6, 0xb5]); // 「品項」的 Big5 編碼
   assert.equal(ItemImport.decodeCsv(big5.buffer), '品項');
   assert.equal(ItemImport.decodeCsv(new TextEncoder().encode('品項').buffer), '品項');
-  assert.ok(ItemImport.templateCsv().startsWith('﻿品項名稱*,分類*,料號'));
+  assert.ok(ItemImport.templateCsv().startsWith('﻿品項名稱*,分類*,車種*,料號'));
 });
 
 test('valid rows get auto SKUs, markup prices and initial stock; nothing is saved while any row is wrong', () => {

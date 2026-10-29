@@ -18,7 +18,7 @@ declare
   v_denied boolean;
 begin
   insert into public.salespeople(id, name, active, created_by) values (v_person, '甲業務', true, v_actor);
-  insert into public.items(id, name, price, stock, created_by) values (v_item, '測試品', 100, 3, v_actor);
+  insert into public.items(id, name, price, stock, created_by, vehicle_model_id) values (v_item, '測試品', 100, 3, v_actor, (select id from public.vehicle_models where is_universal));
   v_before := (select stock from public.items where id = v_item);
   v_denied := false;
   begin

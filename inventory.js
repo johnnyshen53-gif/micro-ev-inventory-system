@@ -6,7 +6,7 @@ const EXPIRED_WARRANTY_MARK = '[過期保固放行]';
 const warrantyCaseStatuses = new Set(['pending', 'in_progress', 'completed', 'not_covered']);
 
 function emptyState() {
-  return { items: [], transactions: [], customers: [], salespeople: [], quotations: [], sales: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [] };
+  return { items: [], transactions: [], customers: [], salespeople: [], quotations: [], sales: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [], vehicleModels: [] };
 }
 
 function requiresSerial(item) { return item?.category === '車身' || item?.category === '電池'; }
@@ -149,6 +149,8 @@ function normalizedItem(value, fallbackId) {
     name,
     category,
     supplierId: text(value.supplierId),
+    // 車種（vehicle_models 的 id）；舊品項可能還沒設定（空字串）。
+    vehicleModelId: text(value.vehicleModelId),
     voltage: value.category === '電池' && value.voltage != null && value.voltage !== '' ? number(value.voltage, '電壓') : null,
     capacity: value.category === '電池' && value.capacity != null && value.capacity !== '' ? number(value.capacity, '容量') : null,
     sku: text(value.sku),
@@ -392,8 +394,15 @@ function validateState(value) {
   const suppliers = (value.suppliers ?? []).map(normalizedSupplier);
   const supplierIds = new Set(suppliers.map((supplier) => supplier.id));
   if (supplierIds.size !== suppliers.length) throw new Error('供應商 ID 重複');
+  if (value.vehicleModels !== undefined && !Array.isArray(value.vehicleModels)) throw new Error('車種資料格式不正確');
+  const vehicleModels = (value.vehicleModels ?? []).map(normalizedVehicleModel);
+  const vehicleModelIds = new Set(vehicleModels.map((model) => model.id));
+  if (vehicleModelIds.size !== vehicleModels.length) throw new Error('車種 ID 重複');
+  if (new Set(vehicleModels.map((model) => vehicleModelKey(model.name))).size !== vehicleModels.length) throw new Error('車種名稱重複');
   const items = value.items.map((item) => normalizedItem(item));
   if (items.some((item) => item.supplierId && !supplierIds.has(item.supplierId))) throw new Error('品項供應商不存在');
+  // 有車種清單時才檢查品項的車種是否存在（舊版離線備份沒有車種清單）。
+  if (vehicleModels.length && items.some((item) => item.vehicleModelId && !vehicleModelIds.has(item.vehicleModelId))) throw new Error('品項車種不存在');
   const ids = new Set(items.map((item) => item.id));
   if (ids.size !== items.length) throw new Error('品項 ID 重複');
   const barcodes = items.filter((item) => item.barcode).map((item) => item.barcode);
@@ -436,7 +445,7 @@ function validateState(value) {
     if (!purchase || purchase.status !== 'received' || transaction.type !== 'in' || !line || line.quantity !== transaction.quantity) throw new Error('庫存異動的進貨關聯無效');
   }
   validateSerialRelations(serials, items, sales, customers, purchases, warranties, transactions);
-  return { items, transactions, customers, salespeople, quotations, sales, warranties, warrantyCases, suppliers, purchases, serials };
+  return { items, transactions, customers, salespeople, quotations, sales, warranties, warrantyCases, suppliers, purchases, serials, vehicleModels };
 }
 
 function addItem(state, fields) {
@@ -444,6 +453,7 @@ function addItem(state, fields) {
   const nextItem = normalizedItem(fields, crypto.randomUUID());
   validateBatterySpecs(nextItem);
   validateSupplierAssignment(current, nextItem);
+  validateVehicleModelAssignment(current, nextItem);
   nextItem.name = batteryItemName(nextItem);
   if (!nextItem.sku) {
     const date = taipeiDate(new Date()).replaceAll('-', '');
@@ -474,6 +484,7 @@ function updateItem(state, itemId, fields) {
   }
   validateBatterySpecs(nextItem);
   validateSupplierAssignment(current, nextItem, current.items.find((item) => item.id === itemId).supplierId);
+  validateVehicleModelAssignment(current, nextItem, existing.vehicleModelId);
   nextItem.name = batteryItemName(nextItem);
   return validateState({ ...current, items: current.items.map((item) => item.id === itemId ? nextItem : item) });
 }
@@ -490,6 +501,51 @@ function validateSupplierAssignment(state, item, previousId = '') {
   const supplier = state.suppliers.find((candidate) => candidate.id === item.supplierId);
   if (!supplier) throw new Error('供應商不存在');
   if (!supplier.active && item.supplierId !== previousId) throw new Error('不能指定已停用供應商');
+}
+
+// ── 車種 ──
+// 每個品項都要選一個車種（全部車款都能用的選「通用」）。車種清單由店長維護，不能刪除，只能停用。
+const MAX_VEHICLE_MODEL_NAME = 30;
+// 比對重複名稱時不分大小寫（「Vespa」「vespa」算同一個），和資料庫的唯一索引一致。
+const vehicleModelKey = (name) => text(name).toLowerCase();
+function normalizedVehicleModel(value) {
+  const name = text(value?.name);
+  if (!name) throw new Error('車種名稱不可空白');
+  if (name.length > MAX_VEHICLE_MODEL_NAME) throw new Error(`車種名稱最多 ${MAX_VEHICLE_MODEL_NAME} 字`);
+  if (typeof value?.active !== 'boolean') throw new Error('車種啟用狀態無效');
+  return { id: id(value?.id, '車種 ID'), name, isUniversal: value.isUniversal === true, active: value.active, createdAt: text(value?.createdAt), updatedAt: text(value?.updatedAt) };
+}
+// 品項的車種檢查。state 沒有車種清單時（舊版離線資料、單元測試）不檢查；
+// 雲端資料一定有內建的「通用」車種，所以實際使用時一律必填（資料庫也會再檢查一次）。
+// previousId：編輯時原本的車種；原本就是停用車種的品項可以維持不變，但不能改成別的停用車種。
+function validateVehicleModelAssignment(state, item, previousId = '') {
+  const models = state.vehicleModels ?? [];
+  if (!models.length) return;
+  if (!item.vehicleModelId) throw new Error('請選擇車種');
+  const model = models.find((candidate) => candidate.id === item.vehicleModelId);
+  if (!model) throw new Error('車種不存在');
+  if (!model.active && item.vehicleModelId !== previousId) throw new Error('不能指定已停用的車種');
+}
+function vehicleModelName(state, vehicleModelId) {
+  if (!vehicleModelId) return '';
+  return (state.vehicleModels ?? []).find((model) => model.id === vehicleModelId)?.name ?? '';
+}
+function addVehicleModel(state, fields) {
+  const current = validateState(state);
+  const timestamp = new Date().toISOString();
+  const model = normalizedVehicleModel({ id: crypto.randomUUID(), name: fields?.name, isUniversal: false, active: true, createdAt: timestamp, updatedAt: timestamp });
+  if (current.vehicleModels.some((existing) => vehicleModelKey(existing.name) === vehicleModelKey(model.name))) throw new Error(`車種「${model.name}」已存在`);
+  return validateState({ ...current, vehicleModels: [...current.vehicleModels, model] });
+}
+// fields：{ name, active }，沒給的欄位維持原值。「通用」不能改名或停用。
+function updateVehicleModel(state, modelId, fields) {
+  const current = validateState(state);
+  const existing = current.vehicleModels.find((model) => model.id === modelId);
+  if (!existing) throw new Error('找不到車種');
+  const next = normalizedVehicleModel({ ...existing, name: fields?.name ?? existing.name, active: fields?.active ?? existing.active, updatedAt: new Date().toISOString() });
+  if (existing.isUniversal && (next.name !== existing.name || !next.active)) throw new Error('「通用」車種不能改名或停用');
+  if (current.vehicleModels.some((model) => model.id !== modelId && vehicleModelKey(model.name) === vehicleModelKey(next.name))) throw new Error(`車種「${next.name}」已存在`);
+  return validateState({ ...current, vehicleModels: current.vehicleModels.map((model) => model.id === modelId ? next : model) });
 }
 
 function addSupplier(state, fields) {
@@ -1184,4 +1240,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

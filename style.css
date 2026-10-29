@@ -301,7 +301,7 @@ th { white-space: nowrap; }
 /* 數字欄（金額、數量）靠右對齊＋等寬數字，上下比較位數更容易。手機卡片版不套用。 */
 @media (min-width: 701px) {
   :is(
-    table:has(#item-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7)),
+    table:has(#item-list) :is(th, td):is(:nth-child(6), :nth-child(7), :nth-child(8)),
     table:has(#purchase-lines) :is(th, td):nth-child(5),
     table:has(#purchase-list) :is(th, td):nth-child(3),
     .purchase-detail-table :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(6)),
@@ -324,6 +324,9 @@ th { white-space: nowrap; }
 .low-badge { display: block; width: fit-content; margin: .2rem 0 0 auto; padding: .05rem .4rem; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .72rem; font-weight: 700; }
 /* 標籤放在數字下一行，庫存欄不會變寬；分類（機車／零件）不換行。 */
 #item-list td:nth-child(2) { white-space: nowrap; }
+/* 加了車種欄後，品項名稱與車種不要被擠成一字一行。 */
+#item-list td:first-child { min-width: 7em; }
+#item-list td:nth-child(3) { min-width: 5.5em; }
 /* 區塊間距：統計卡片與下方提示、建立帳號按鈕與帳號表格不再貼在一起。 */
 .app-page[data-page="list"] .cards + .grid { margin-top: 1rem; }
 form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { margin-top: 1.25rem; }
@@ -407,6 +410,10 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
   table:has(#promo-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7), :nth-child(8)) { text-align: right; font-variant-numeric: tabular-nums; }
 }
 @media (max-width: 900px) { .promo-head-fields { grid-template-columns: 1fr 1fr; } }
+/* 標籤列印方式 */
+.inventory-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.label-mode { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--muted); }
+.label-mode select { min-height: 40px; }
 /* 官網商品 */
 .website-items-panel { grid-column: 1 / -1; }
 .web-item-form { border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; margin: 0 0 1rem; }
@@ -419,6 +426,13 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .web-state-on { color: #15803d; }
 .web-state-off, .web-state-none { color: var(--muted); }
 @media (max-width: 700px) { .web-item-fields { grid-template-columns: 1fr; } }
+/* 車種管理 */
+.vehicle-model-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; margin-bottom: 1rem; }
+.vehicle-model-form .field { flex: 1 1 220px; margin: 0; }
+.vehicle-model-form .form-actions { margin: 0; }
+.vehicle-model-form .form-error { flex-basis: 100%; margin: 0; }
+#vehicle-model-list tr.inactive td:not(.actions) { color: var(--muted); }
+#vehicle-model-list td.num, table:has(#vehicle-model-list) th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* 批次匯入品項（CSV） */
 .item-import-panel { grid-column: 1 / -1; }
 .import-guide { margin: .5rem 0 1rem; color: var(--muted); }
@@ -430,5 +444,5 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 #item-import-rows tr.import-error { background: #fef2f2; }
 #item-import-rows .import-state-error { color: var(--danger); font-weight: 700; }
 #item-import-rows .import-state-ok { color: #15803d; font-weight: 700; }
-@media (min-width: 701px) { table:has(#item-import-rows) :is(th, td):is(:nth-child(1), :nth-child(5), :nth-child(6), :nth-child(7)) { text-align: right; font-variant-numeric: tabular-nums; } }
+@media (min-width: 701px) { table:has(#item-import-rows) :is(th, td):is(:nth-child(1), :nth-child(6), :nth-child(7), :nth-child(8)) { text-align: right; font-variant-numeric: tabular-nums; } }
 #item-import-preview .form-actions { margin-top: 1rem; }

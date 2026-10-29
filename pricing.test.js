@@ -31,7 +31,7 @@ test('items keep the fixed-price flag', () => {
 
 test('cloud data reads and writes the fixed-price flag and exposes markup RPCs', async () => {
   const source = await readFile(new URL('./cloud-data.js', import.meta.url), 'utf8');
-  assert.match(source, /fields: 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id,price_locked'/);
+  assert.match(source, /fields: 'id,name,category,sku,barcode,price,stock,minimum_stock,warranty_months,notes,supplier_id,price_locked,vehicle_model_id'/);
   assert.match(source, /priceLocked: row\.price_locked === true/);
   assert.match(source, /price_locked: item\.priceLocked === true/);
   assert.match(source, /bonusRpc\('get_price_markups', \{\}\)/);
