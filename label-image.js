@@ -2,16 +2,61 @@
 // 「列印 QR Code」在「標籤圖片」模式下，不開瀏覽器列印，而是畫一張 40×30 mm、203 dpi 的黑白 PNG，
 // 在 Android 上直接「分享」給標籤機 App；不支援分享的瀏覽器就改成下載圖片。
 // 列印方式記在這台裝置的瀏覽器裡（店裡電腦用印表機、手機用標籤圖片，各自設定）。
+// 第三種「藍牙標籤機直接列印」：用 label-printer.js 把同一張標籤圖轉成 TSPL 指令，經藍牙直接送進標籤機（Chrome／Edge）。
 (function () {
   const MODE_KEY = 'label-output-mode-v1';
+  const PRINTER_KEY = 'label-printer-settings-v1';
+  const MODES = ['print', 'image', 'ble'];
+  // L58B 實測（2026-10）：方向 1、往右 32 點（4 mm）印出來正好置中。
+  const DEFAULT_PRINTER = { x: 32, y: 0, direction: 1 };
   const DOTS_PER_MM = 8; // 203 dpi 熱感標籤機每公釐 8 點
   const WIDTH_MM = 40, HEIGHT_MM = 30;
 
   function mode() {
-    try { return localStorage.getItem(MODE_KEY) === 'image' ? 'image' : 'print'; } catch { return 'print'; }
+    try { const value = localStorage.getItem(MODE_KEY); return MODES.includes(value) ? value : 'print'; } catch { return 'print'; }
   }
   function setMode(value) {
-    try { localStorage.setItem(MODE_KEY, value === 'image' ? 'image' : 'print'); } catch { /* 無法儲存時沿用預設的瀏覽器列印 */ }
+    try { localStorage.setItem(MODE_KEY, MODES.includes(value) ? value : 'print'); } catch { /* 無法儲存時沿用預設的瀏覽器列印 */ }
+  }
+
+  // 標籤機位置設定（每台裝置各自記住）：x、y 是點數（8 點＝1 mm），範圍 ±80；方向只有 0 或 1。
+  function printerSettings() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(PRINTER_KEY) || '{}') || {}; } catch { saved = {}; }
+    const offset = (value, fallback) => Number.isInteger(value) && value >= -80 && value <= 80 ? value : fallback;
+    return { x: offset(saved.x, DEFAULT_PRINTER.x), y: offset(saved.y, DEFAULT_PRINTER.y), direction: saved.direction === 0 ? 0 : 1 };
+  }
+  function savePrinterSettings(values) {
+    const next = { ...printerSettings(), ...values };
+    try { localStorage.setItem(PRINTER_KEY, JSON.stringify(next)); } catch { /* 無法儲存時本次仍使用畫面上的數值 */ }
+    return printerSettings();
+  }
+
+  // 藍牙標籤機：同一個頁面只選一次。斷線（例如標籤機關機再開）時，先試著自動重連同一台，不用再跳出清單。
+  let printer = null, queue = Promise.resolve();
+  async function connectedPrinter() {
+    const lib = window.LabelPrinter;
+    if (!lib) throw new Error('標籤機元件尚未載入，請重新整理頁面。');
+    if (printer?.isConnected()) return printer;
+    if (printer) {
+      try { printer = await lib.openBluetooth(printer.device); return printer; } catch { printer = null; }
+    }
+    printer = await lib.connectBluetooth();
+    return printer;
+  }
+  // 直接列印一張標籤。必須由按鈕點擊直接呼叫：第一次連線要跳出藍牙清單（瀏覽器規定要使用者操作）。
+  async function printDirect(item) {
+    const job = async () => {
+      const device = await connectedPrinter();
+      const canvas = drawLabel(item);
+      const image = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      await device.send(window.LabelPrinter.buildBitmapJob(image.data, canvas.width, canvas.height, printerSettings()));
+      return device.name;
+    };
+    // 連續按很多次時排隊一張一張送，避免兩張標籤的資料混在一起。
+    const run = queue.then(job, job);
+    queue = run.catch(() => {});
+    return run;
   }
 
   // 依可用寬度把文字切成多行，最多 maxLines 行，超過的最後一行加「…」。measure(text) 回傳文字寬度。
@@ -110,12 +155,29 @@
   }
 
   // 「標籤列印方式」選單：放在庫存清單的搜尋框旁。
+  // 選「藍牙標籤機」時才顯示位置設定。不支援藍牙的瀏覽器（Safari、iPhone）把選項停用並說明。
   function mountModeSelect() {
     const select = document.getElementById('label-output-mode');
     if (!select) return;
+    const ble = select.querySelector('option[value="ble"]');
+    const supported = Boolean(window.LabelPrinter?.supportsBluetooth());
+    if (ble && !supported) { ble.disabled = true; ble.textContent += '（此瀏覽器不支援）'; }
+    if (mode() === 'ble' && !supported) setMode('print');
     select.value = mode();
-    select.addEventListener('change', () => setMode(select.value));
+    const panel = document.getElementById('label-printer-settings');
+    const fields = { x: document.getElementById('label-offset-x'), y: document.getElementById('label-offset-y'), direction: document.getElementById('label-direction') };
+    const fill = () => { const s = printerSettings(); if (fields.x) fields.x.value = s.x; if (fields.y) fields.y.value = s.y; if (fields.direction) fields.direction.value = String(s.direction); };
+    const sync = () => { if (panel) panel.hidden = select.value !== 'ble'; };
+    fill(); sync();
+    select.addEventListener('change', () => { setMode(select.value); sync(); });
+    for (const [key, input] of Object.entries(fields)) {
+      input?.addEventListener('change', () => {
+        const value = Number(input.value);
+        if (Number.isInteger(value)) savePrinterSettings({ [key]: value });
+        fill();
+      });
+    }
   }
 
-  window.LabelImage = { mode, setMode, wrapText, qrPayload, fileName, drawLabel, output, mountModeSelect, WIDTH_MM, HEIGHT_MM, DOTS_PER_MM };
+  window.LabelImage = { mode, setMode, printerSettings, savePrinterSettings, printDirect, wrapText, qrPayload, fileName, drawLabel, output, mountModeSelect, WIDTH_MM, HEIGHT_MM, DOTS_PER_MM, DEFAULT_PRINTER };
 })();

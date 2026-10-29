@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=31">
+  <link rel="stylesheet" href="style.css?v=32">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -75,7 +75,8 @@
       </section>
 
       <section aria-labelledby="inventory-title">
-        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><div class="inventory-tools"><label class="label-mode"><span>標籤列印方式</span><select id="label-output-mode"><option value="print">瀏覽器列印（印表機）</option><option value="image">標籤圖片 40×30 mm（手機 App）</option></select></label><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號、分類或車種"></label></div></div>
+        <div class="section-heading"><h2 id="inventory-title">品項庫存</h2><div class="inventory-tools"><label class="label-mode"><span>標籤列印方式</span><select id="label-output-mode"><option value="print">瀏覽器列印（印表機）</option><option value="image">標籤圖片 40×30 mm（手機 App）</option><option value="ble">藍牙標籤機直接列印（Chrome）</option></select></label><label class="search"><span class="sr-only">搜尋品項</span><input id="item-search" type="search" placeholder="搜尋名稱、料號、分類或車種"></label></div></div>
+        <details id="label-printer-settings" class="label-printer-settings" hidden><summary>標籤機位置設定</summary><div class="label-printer-fields"><label>左右微調（點，8 點＝1 mm）<input id="label-offset-x" type="number" min="-80" max="80" step="1"></label><label>上下微調（點）<input id="label-offset-y" type="number" min="-80" max="80" step="1"></label><label>列印方向<select id="label-direction"><option value="1">方向 1（預設）</option><option value="0">方向 0（顛倒時用）</option></select></label></div><p class="hint">L58B 實測：左右 32、方向 1。左邊被切掉就把左右微調加大，右邊被切掉就減少；印出來不對可到 <a href="printer-test.html">標籤機測試頁</a> 試印。手機的 mLabel 要先關掉，標籤機同時只能連一台。</p></details>
         <div id="item-category-tabs" class="category-tabs" aria-label="依分類檢視"></div>
         <div class="table-wrap"><table><thead><tr><th>品項</th><th>分類</th><th>車種</th><th>料號</th><th>條碼</th><th>售價</th><th>庫存</th><th>最低</th><th>供應商</th><th>操作</th></tr></thead><tbody id="item-list"></tbody></table></div>
       </section>
@@ -433,8 +434,9 @@
   <script src="coupons-ui.js?v=1"></script>
   <script src="item-import.js?v=2"></script>
   <script src="website-items-ui.js?v=1"></script>
-  <script src="label-image.js?v=1"></script>
+  <script src="label-printer.js?v=1"></script>
+  <script src="label-image.js?v=2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=65"></script>
+  <script src="app.js?v=66"></script>
 </body>
 </html>

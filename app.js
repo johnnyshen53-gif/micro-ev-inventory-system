@@ -581,6 +581,14 @@ if ($('item-list')) $('item-list').addEventListener('click', async (event) => {
 
 function showQrLabel(item) {
   // 這台裝置選了「標籤圖片」：產生 40×30 mm 圖片，分享或下載給藍牙標籤機的手機 App。
+  // 這台裝置選了「藍牙標籤機」：直接把標籤送到標籤機（第一次會跳出藍牙清單選 L58B）。
+  if (window.LabelImage?.mode() === 'ble') {
+    setStatus(`正在送到標籤機：${item.name}…`);
+    window.LabelImage.printDirect(item)
+      .then(name => setStatus(`已送到標籤機（${name}）：${item.name}`))
+      .catch(error => setStatus(error?.name === 'NotFoundError' ? '沒有選擇標籤機，這張沒有列印。' : `標籤機列印失敗：${error.message}。可確認標籤機已開機、手機 mLabel 已關閉，或暫時改用「標籤圖片」方式。`, true));
+    return;
+  }
   if (window.LabelImage?.mode() === 'image') {
     window.LabelImage.output(item).then(result => {
       if (result === 'downloaded') setStatus('標籤圖片已下載，請在標籤機 App 選「圖片列印」。');
