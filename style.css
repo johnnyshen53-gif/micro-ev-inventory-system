@@ -307,7 +307,7 @@ th { white-space: nowrap; }
     table:has(#purchase-lines) :is(th, td):nth-child(5),
     table:has(#purchase-list) :is(th, td):nth-child(3),
     .purchase-detail-table :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(6)),
-    table:has(#quotation-lines) :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(4), :nth-child(6), :nth-child(7), :nth-child(8), :nth-child(9)),
+    table:has(#quotation-lines) :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(4), :nth-child(5)),
     table:has(#quotation-list) :is(th, td):nth-child(5),
     table:has(#warranty-replacement-list) :is(th, td):nth-child(3),
     table:has(#repair-lines) :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(4)),
