@@ -1,4 +1,5 @@
-// 分紅管理（店長專用）：設定每台機車獎金、維修分紅百分比、受領名單、適用品項、用料成本確認，並查看月份報表。
+// 分紅管理（店長專用）：設定每台機車獎金、維修分紅百分比、受領名單、適用品項，並查看月份報表。
+// 2026-11 起不需要「用料成本確認」：維修完工時，資料庫只檢查用料有沒有成本資料。
 // 店員的業務員／維修員身分在「店員管理」頁設定。
 // 金額一律由資料庫在結帳／完工當下計算與記帳；這個畫面只送出設定、顯示已記帳的快照。
 (function () {
@@ -72,19 +73,6 @@
         .map(item => ({ id: item.id, label: `${item.name}（${item.category}）` }));
       checkList($('bonus-items'), items, admin.motorcycleItemIds, 'bonus-item');
     }
-    function renderCosts() {
-      const body = $('bonus-costs'); body.replaceChildren();
-      const pending = admin.partCosts.filter(row => !row.confirmed).length;
-      $('bonus-costs-summary').textContent = pending ? `尚有 ${pending} 個用料品項成本未確認。` : '所有用料品項成本皆已確認。';
-      for (const row of admin.partCosts) {
-        const tr = element('tr'), cell = element('td'), button = element('button', row.confirmed ? '取消確認' : '確認成本', row.confirmed ? 'secondary' : '');
-        button.type = 'button'; button.dataset.costItemId = row.itemId; button.dataset.costConfirmed = String(!row.confirmed);
-        cell.append(button);
-        tr.append(element('td', row.name), element('td', row.category), element('td', row.cost === null ? '未建立' : money(row.cost)),
-          element('td', row.confirmed ? '已確認' : '未確認', row.confirmed ? '' : 'warning'), cell);
-        body.append(tr);
-      }
-    }
     async function renderReport() {
       const month = $('bonus-month').value;
       const summary = $('bonus-summary'), detail = $('bonus-detail');
@@ -127,7 +115,7 @@
     async function refresh() {
       admin = await window.AppData.loadBonusAdminState();
       if ($('price-markup-form') && window.AppData.loadPriceMarkups) renderMarkups(await window.AppData.loadPriceMarkups());
-      renderSettings(); renderCosts();
+      renderSettings();
       await renderReport();
     }
     async function run(action, success) {
@@ -154,12 +142,6 @@
       try { markups = parseMarkups(); } catch (error) { message(error.message, true); return; }
       run(() => window.AppData.savePriceMarkups(markups), '售價加成已儲存；之後收貨與新增品項會依新比例帶入售價。');
     });
-    $('bonus-costs').addEventListener('click', event => {
-      const button = event.target.closest('button[data-cost-item-id]');
-      if (!button) return;
-      const confirmed = button.dataset.costConfirmed === 'true';
-      run(() => window.AppData.setItemCostsConfirmed([button.dataset.costItemId], confirmed), confirmed ? '成本已確認。' : '已取消成本確認。');
-    });
     $('bonus-month').addEventListener('change', () => { if (isAdmin()) renderReport().catch(error => message(`無法讀取分紅報表：${error.message}`, true)); });
 
     return {
@@ -173,8 +155,8 @@
       },
       clear() {
         generation++; busy = false; admin = null;
-        for (const id of ['bonus-recipients', 'bonus-items', 'bonus-costs', 'bonus-summary', 'bonus-detail']) $(id).replaceChildren();
-        for (const id of ['bonus-status', 'bonus-motorcycle-state', 'bonus-repair-state', 'bonus-costs-summary']) $(id).textContent = '';
+        for (const id of ['bonus-recipients', 'bonus-items', 'bonus-summary', 'bonus-detail']) $(id).replaceChildren();
+        for (const id of ['bonus-status', 'bonus-motorcycle-state', 'bonus-repair-state']) $(id).textContent = '';
         $('bonus-motorcycle-amount').value = ''; $('bonus-repair-percent').value = '';
       },
     };

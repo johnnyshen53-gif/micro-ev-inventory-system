@@ -124,14 +124,15 @@ begin
     or (select stock from public.items where id = '72000000-0000-4000-8000-000000000033') <> 20 then
     raise exception 'failed completion was not rolled back'; end if;
 
-  -- 用料成本未確認：拒絕完工。
-  v_order := pg_temp.quoted_repair(v_tech, '72000000-0000-4000-8000-000000000033', 2, 100, 200);
+  -- 用料沒有成本資料：拒絕完工（成本會被當成 0，分紅會算錯）。
+  v_order := pg_temp.quoted_repair(v_tech, '72000000-0000-4000-8000-000000000034', 1, 80, 0);
   v_failed := null;
   begin perform public.complete_repair_order(v_order, '{}'::jsonb); exception when others then v_failed := sqlerrm; end;
-  if v_failed is null or v_failed not like '%煞車片%成本尚未確認%' then raise exception 'unconfirmed cost allowed: %', v_failed; end if;
+  if v_failed is null or v_failed not like '%未確認成本零件%尚未設定成本%' then raise exception 'missing cost allowed: %', v_failed; end if;
 
-  -- 確認成本後：工資 200 + 用料 2×100 = 400；成本 2×30 = 60；淨額 340 × 10% = 34。
-  perform public.set_item_costs_confirmed(array['72000000-0000-4000-8000-000000000033']::uuid[], true);
+  -- 有成本資料就能完工，不需要店長「確認成本」：工資 200 + 用料 2×100 = 400；成本 2×30 = 60；淨額 340 × 10% = 34。
+  v_order := pg_temp.quoted_repair(v_tech, '72000000-0000-4000-8000-000000000033', 2, 100, 200);
+  if (select cost_confirmed from public.item_costs where item_id = '72000000-0000-4000-8000-000000000033') then raise exception 'fixture should be unconfirmed'; end if;
   perform public.complete_repair_order(v_order, '{}'::jsonb);
   select * into v_rec from pg_temp.repair_bonus() where repair_order_id = v_order;
   if v_rec.repair_total <> 400 or v_rec.parts_cost <> 60 or v_rec.net_amount <> 340 or v_rec.bonus_amount <> 34
