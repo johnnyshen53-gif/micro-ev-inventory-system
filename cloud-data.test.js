@@ -799,7 +799,7 @@ test('after a save only the tables that operation touched are fetched again', as
     inventory: { emptyState: () => empty, validateState: value => value },
   });
   await appData.loadSnapshot({ id: 'admin', role: 'admin' });
-  assert.equal(fetched.length, 16);
+  assert.equal(fetched.length, 17);
 
   // 只新增一筆報價：只重抓報價主檔與明細。
   fetched.length = 0;
@@ -809,7 +809,7 @@ test('after a save only the tables that operation touched are fetched again', as
   // 認不得的操作（例如進貨）會整份重抓。
   fetched.length = 0;
   await appData.saveSnapshot(empty, { ...empty, purchases: [{ id: 'p-1', status: 'draft', lines: [] }] });
-  assert.equal(fetched.length, 16);
+  assert.equal(fetched.length, 17);
 });
 
 test('one-time import explains in Chinese when backup data is already in the cloud, before any backup or RPC', async () => {

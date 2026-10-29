@@ -19,7 +19,7 @@ declare
   v_customer uuid := '60000000-0000-4000-8000-0000000000c1';
   v_today date := (now() at time zone 'Asia/Taipei')::date;
 begin
-  insert into public.items(id, name, price, stock, created_by) values (v_item, '保固測試零件', 100, 5, auth.uid());
+  insert into public.items(id, name, price, stock, created_by, vehicle_model_id) values (v_item, '保固測試零件', 100, 5, auth.uid(), (select id from public.vehicle_models where is_universal));
   insert into public.customers(id, member_number, name, created_by) values (v_customer, 'EXP-001', '保固客戶', auth.uid());
   insert into public.warranties(id, customer_id, customer_name, item_id, item_name, source, purchased_at, expires_at, created_by) values
     ('60000000-0000-4000-8000-0000000000e1', v_customer, '保固客戶', v_item, '保固測試零件', 'manual', v_today - 400, v_today - 1, auth.uid()),
@@ -63,7 +63,7 @@ begin
 
   -- 結帳仍正常：品項順序與 ID 順序相反、同品項出現兩次，都要正確扣庫存。
   insert into public.salespeople(id, name, active, created_by) values (v_person, '鎖定業務', true, auth.uid());
-  insert into public.items(id, name, price, stock, created_by) values (v_other, '另一個零件', 50, 4, auth.uid());
+  insert into public.items(id, name, price, stock, created_by, vehicle_model_id) values (v_other, '另一個零件', 50, 4, auth.uid(), (select id from public.vehicle_models where is_universal));
   perform public.create_sale_with_serials(jsonb_build_array(
     jsonb_build_object('item_id', greatest(v_other, '60000000-0000-4000-8000-0000000000a1'::uuid), 'quantity', 1),
     jsonb_build_object('item_id', least(v_other, '60000000-0000-4000-8000-0000000000a1'::uuid), 'quantity', 1),

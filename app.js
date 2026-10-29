@@ -2,6 +2,7 @@
 const {
   requiresSerial, registerSerials,
   addSupplier, updateSupplier, deactivateSupplier,
+  addVehicleModel, updateVehicleModel,
   createPurchase, updatePurchase, deletePurchase, receivePurchase, markPurchasePaid,
   addCustomer,
   addItem,
@@ -245,13 +246,13 @@ function renderItemCategoryTabs() {
 function renderItems() {
   renderItemCategoryTabs();
   const query = $('item-search').value.trim().toLowerCase();
-  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && [item.name, item.sku, item.barcode, item.category].some((value) => value.toLowerCase().includes(query)));
+  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && [item.name, item.sku, item.barcode, item.category, vehicleModelLabel(item.vehicleModelId)].some((value) => value.toLowerCase().includes(query)));
   const list = $('item-list');
   list.replaceChildren();
   if (!items.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 9;
+    cell.colSpan = 10;
     cell.className = 'empty';
     cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
     row.append(cell);
@@ -260,11 +261,11 @@ function renderItems() {
   }
   items.forEach((item) => {
     const row = document.createElement('tr');
-    [item.name, item.category, item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
+    [item.name, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
       const cell = document.createElement('td');
       cell.textContent = value;
       // 低庫存不只靠橘色：再加「低庫存」文字標籤，色弱或黑白列印也看得出來。
-      if (index === 5 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
+      if (index === 6 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
       row.append(cell);
     });
     const actions = document.createElement('td');
@@ -312,6 +313,8 @@ function renderTransactionItems() {
 function render() {
   if ($('supplier-list')) renderSuppliers();
   if ($('item-supplier')) renderItemSuppliers();
+  if ($('item-vehicle-model')) renderItemVehicleModels();
+  if ($('vehicle-model-list')) renderVehicleModels();
   if ($('purchase-list')) { renderPurchaseBuilder(); renderPurchases(); renderPurchaseDetail(); }
   if ($('item-count')) renderSummary();
   if ($('item-list')) renderItems();
@@ -336,6 +339,7 @@ function itemFields() {
     name: $('item-name').value,
     category: $('item-category').value,
     supplierId: $('item-supplier').value,
+    vehicleModelId: $('item-vehicle-model').value,
     voltage: $('item-voltage').value,
     capacity: $('item-capacity').value,
     sku: $('item-sku').value,
@@ -356,6 +360,8 @@ function resetItemForm() {
   $('item-form').reset();
   $('item-id').value = '';
   renderItemSuppliers();
+  $('item-vehicle-model').value = '';
+  renderItemVehicleModels();
   $('item-category').value = '電控元件';
   updateBatteryFields();
   $('item-cost').value = '0';
@@ -380,6 +386,9 @@ function startEditing(item) {
   $('item-id').value = item.id;
   renderItemSuppliers();
   $('item-supplier').value = item.supplierId;
+  // 先依這個品項重建選項（原本是停用車種也保留），再選取；舊品項還沒有車種時停在「請選擇車種」，儲存前必須補選。
+  renderItemVehicleModels();
+  $('item-vehicle-model').value = item.vehicleModelId;
   Object.entries(item).forEach(([key, value]) => {
     const input = $(`item-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`);
     if (input) input.value = value;
@@ -867,6 +876,109 @@ function supplierName(supplierId) {
   const supplier = state.suppliers.find((entry) => entry.id === supplierId);
   return supplier ? `${supplier.name}${supplier.active ? '' : '（已停用）'}` : '未指定';
 }
+
+// ── 車種 ──
+// 品項清單顯示的車種名稱；舊品項還沒設定時顯示「未設定」。
+function vehicleModelLabel(vehicleModelId) {
+  if (!vehicleModelId) return '未設定';
+  const model = (state.vehicleModels ?? []).find((entry) => entry.id === vehicleModelId);
+  return model ? `${model.name}${model.active ? '' : '（已停用）'}` : '未設定';
+}
+// 排序：「通用」放最前面，其餘依名稱（中文筆畫／英文字母）。
+function sortedVehicleModels() {
+  return [...(state.vehicleModels ?? [])].sort((a, b) => Number(b.isUniversal) - Number(a.isUniversal) || a.name.localeCompare(b.name, 'zh-Hant'));
+}
+// 品項表單的車種下拉：只列啟用中的車種；正在編輯的品項若原本是停用車種，也保留讓它維持不變。
+function renderItemVehicleModels() {
+  const select = $('item-vehicle-model');
+  if (!select) return;
+  const selected = select.value;
+  const existingId = state.items.find((item) => item.id === $('item-id').value)?.vehicleModelId;
+  const choices = sortedVehicleModels().filter((model) => model.active || model.id === existingId);
+  select.replaceChildren(new Option('請選擇車種', ''));
+  choices.forEach((model) => select.append(new Option(vehicleModelLabel(model.id), model.id)));
+  select.value = choices.some((model) => model.id === selected) ? selected : '';
+}
+function resetVehicleModelForm() {
+  $('vehicle-model-form').reset();
+  $('vehicle-model-id').value = '';
+  $('vehicle-model-form-title').textContent = '新增車種';
+  $('vehicle-model-save').textContent = '新增車種';
+  $('vehicle-model-cancel').hidden = true;
+  clearFormError('vehicle-model-form');
+}
+function renderVehicleModels() {
+  const list = $('vehicle-model-list');
+  list.replaceChildren();
+  const counts = new Map();
+  state.items.forEach((item) => { if (item.vehicleModelId) counts.set(item.vehicleModelId, (counts.get(item.vehicleModelId) ?? 0) + 1); });
+  for (const model of sortedVehicleModels()) {
+    const row = document.createElement('tr');
+    if (!model.active) row.className = 'inactive';
+    [model.name, model.isUniversal ? '內建' : model.active ? '啟用' : '已停用', formatNumber(counts.get(model.id) ?? 0)].forEach((value, index) => {
+      const cell = document.createElement('td'); cell.textContent = value; if (index === 2) cell.className = 'num'; row.append(cell);
+    });
+    const actions = document.createElement('td');
+    actions.className = 'actions';
+    // 「通用」不能改名或停用，所以沒有操作按鈕。
+    if (!model.isUniversal && document.body.dataset.role === 'admin') {
+      for (const [label, action] of [['改名', 'rename'], model.active ? ['停用', 'deactivate'] : ['啟用', 'activate']]) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'secondary'; button.textContent = label;
+        button.dataset.vehicleModelAction = action; button.dataset.id = model.id; actions.append(button);
+      }
+    }
+    row.append(actions); list.append(row);
+  }
+  const missing = state.items.filter((item) => !item.vehicleModelId).length;
+  if (missing) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 4; cell.className = 'empty';
+    cell.textContent = `還有 ${formatNumber(missing)} 個舊品項未設定車種（品項清單顯示「未設定」），編輯該品項時請補選。`;
+    row.append(cell); list.append(row);
+  }
+}
+
+let vehicleModelBusy = false;
+$('vehicle-model-form')?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (vehicleModelBusy || document.body.dataset.role !== 'admin') return;
+  vehicleModelBusy = true;
+  try {
+    const modelId = $('vehicle-model-id').value;
+    const name = $('vehicle-model-name').value;
+    const next = modelId ? updateVehicleModel(state, modelId, { name }) : addVehicleModel(state, { name });
+    if (!await saveState(next)) return;
+    resetVehicleModelForm(); render(); setStatus(modelId ? '車種已改名。' : '車種已新增，新增品項時可以選擇。');
+  } catch (error) { showFormError('vehicle-model-form', error.message); }
+  finally { vehicleModelBusy = false; }
+});
+$('vehicle-model-list')?.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-vehicle-model-action]');
+  if (!button || vehicleModelBusy || document.body.dataset.role !== 'admin') return;
+  const model = (state.vehicleModels ?? []).find((entry) => entry.id === button.dataset.id);
+  if (!model) return;
+  const action = button.dataset.vehicleModelAction;
+  if (action === 'rename') {
+    $('vehicle-model-id').value = model.id;
+    $('vehicle-model-name').value = model.name;
+    $('vehicle-model-form-title').textContent = `改名：${model.name}`;
+    $('vehicle-model-save').textContent = '儲存名稱';
+    $('vehicle-model-cancel').hidden = false;
+    clearFormError('vehicle-model-form');
+    $('vehicle-model-name').focus();
+    return;
+  }
+  if (action === 'deactivate' && !confirm(`確定停用「${model.name}」？新增品項時就不能再選它；已使用的品項仍保留這個車種。`)) return;
+  vehicleModelBusy = true;
+  try {
+    if (!await saveState(updateVehicleModel(state, model.id, { active: action === 'activate' }))) return;
+    render(); setStatus(action === 'activate' ? `「${model.name}」已重新啟用。` : `「${model.name}」已停用。`);
+  } catch (error) { setStatus(error.message, true); }
+  finally { vehicleModelBusy = false; }
+});
+$('vehicle-model-cancel')?.addEventListener('click', resetVehicleModelForm);
 
 function tableEmpty(list, columns, message) {
   const row = document.createElement('tr');

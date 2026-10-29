@@ -15,7 +15,7 @@ function harness(items) {
     replaceChildren(...c) { this.children = c; }, append(...c) { this.children.push(...c); },
     setAttribute(k, v) { this.attributes[k] = v; }, addEventListener(t, fn) { this.listeners[t] = fn; } });
   const $ = id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); };
-  const context = { $, state: { items }, document: { createElement: node, body: { dataset: { role: 'clerk' } } }, formatNumber: String, supplierName: () => '—' };
+  const context = { $, state: { items }, document: { createElement: node, body: { dataset: { role: 'clerk' } } }, formatNumber: String, supplierName: () => '—', vehicleModelLabel: () => '未設定' };
   vm.createContext(context);
   vm.runInContext(app.slice(start, app.indexOf('function renderItems() {')) + renderItems + '\n' + tabsListener, context);
   const click = category => $('item-category-tabs').listeners.click({ target: { closest: () => ({ dataset: { category } }) } });
