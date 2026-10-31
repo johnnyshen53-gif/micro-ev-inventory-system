@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>電小二會員</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body{font-family:system-ui,sans-serif;background:#f4f7f7;color:#172b2b;margin:0;padding:24px}
+  main{max-width:440px;margin:auto;background:white;border-radius:18px;padding:24px}
+  label{display:block;margin:18px 0 6px}
+  input[type=text],input[type=tel]{box-sizing:border-box;width:100%;padding:14px;border:1px solid #aababa;border-radius:8px;font-size:16px}
+  button{width:100%;padding:14px;background:#06c755;color:white;border:0;border-radius:8px;font-size:17px;margin-top:20px}
+  button:disabled{opacity:.5}
+  small{line-height:1.6;display:block;margin-top:14px;color:#44605f}
+  #status{line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+  <h1>電小二會員</h1>
+  <p>使用 LINE 登入，填寫資料即可加入。</p>
+  <form id="form">
+    <label for="name">姓名</label>
+    <input id="name" type="text" maxlength="50" required autocomplete="name">
+    <label for="phone">手機號碼</label>
+    <input id="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="0912345678">
+    <label><input id="consent" type="checkbox" required> 我已閱讀並同意以下個資說明</label>
+    <small>電小二將使用您的 LINE 識別碼、姓名及手機號碼建立與管理會員資料，並以 Google 試算表儲存。手機號碼未經簡訊驗證。正式使用前，請由經營者補充完整隱私權政策、聯絡方式及保存期間。</small>
+    <button id="submit" disabled>登入 LINE 並加入會員</button>
+  </form>
+  <p id="status" role="status"></p>
+</main>
+<script>
+// 此頁為一般頂層 HTTPS 網頁（非 Apps Script 的 sandbox iframe），
+// 這樣 liff.login() 的導向才不會被瀏覽器的 cross-origin iframe 導頁限制擋下。
+const LIFF_ID = '2012304925-4cpnMw8Q';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzb4DPFbBHqAW6G9Qc-ZfQCa1Q59n3276JOkoVpsvIJtgBuJLC3HeTGuZVMZ4u7ehIG/exec';
+
+const status = document.getElementById('status');
+const button = document.getElementById('submit');
+let ready = false;
+
+liff.init({ liffId: LIFF_ID }).then(() => {
+  ready = true;
+  button.disabled = false;
+}).catch(() => {
+  status.textContent = 'LINE 初始化失敗，請從會員連結重新開啟。';
+});
+
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!ready) return;
+  if (!liff.isLoggedIn()) { liff.login(); return; }
+
+  const token = liff.getIDToken();
+  if (!token) { status.textContent = '無法取得 LINE 登入資料，請重新開啟。'; return; }
+
+  button.disabled = true;
+  status.textContent = '處理中，請稍候…';
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      // 用 text/plain 避免瀏覽器送出 CORS 預檢請求（Apps Script 不支援預檢）。
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        token: token,
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        consent: document.getElementById('consent').checked
+      })
+    });
+    const data = await res.json();
+    status.textContent = data.message;
+  } catch (err) {
+    status.textContent = '未能完成，請檢查網路後稍後再試。';
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
