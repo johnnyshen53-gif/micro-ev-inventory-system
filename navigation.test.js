@@ -439,7 +439,7 @@ test('opens cloud operations on desktop while retaining mobile and clerk access 
   }]));
   let mobile = false;
   const context = {
-    window: { matchMedia: () => ({ matches: mobile }) }, location: { hash: '' }, manageApproved: false, renderMonthlySales() {},
+    window: { matchMedia: () => ({ matches: mobile }) }, location: { hash: '' }, manageApproved: false, renderMonthlySales() {}, syncSaleDate() {},
     document: {
       body: { dataset: { role: 'admin' } },
       querySelector(selector) {
@@ -493,9 +493,9 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
 
   assert.match(html, /<script src="inventory\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="cloud-data\.js\?v=29"><\/script>/, 'new cloud persistence must use a fresh asset URL');
+  assert.match(html, /<script src="cloud-data\.js\?v=30"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=70"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=71"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -778,7 +778,7 @@ test('shows salespeople in monthly sales only to administrators', async () => {
   const context = {
     $, document: { body: { dataset: { role: 'admin' } }, createElement: node },
     state: { items: [], transactions: [], customers: [], salespeople: [], quotations: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [], sales: [{ createdAt: '2026-10-12T09:00:00.000Z', itemName: '安全帽', barcode: '123', unitPrice: 500, quantity: 1, subtotal: 500, createdByAccount: '王業務', serialIds: [], serialNumbers: [] }] },
-    salesForMonth: (state, month) => state.sales.filter((sale) => sale.createdAt.startsWith(month)), formatNumber: String,
+    salesForMonth: (state, month) => state.sales.filter((sale) => sale.createdAt.startsWith(month)), saleDateOf: sale => sale.saleDate || sale.createdAt.slice(0, 10), formatNumber: String,
     appendEmpty() {},
   };
   vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
@@ -806,7 +806,7 @@ test('monthly sales exposes card labels and counts distinct sales without exposi
       { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'A', barcode: '1', unitPrice: 10, quantity: 1, subtotal: 10 },
       { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'B', barcode: '2', unitPrice: 20, quantity: 2, subtotal: 40 },
       { saleNumber: 'S2', createdAt: '2026-10-13T09:00:00Z', itemName: 'C', barcode: '3', unitPrice: 30, quantity: 1, subtotal: 30 },
-    ] }, salesForMonth: state => state.sales, formatNumber: String, appendEmpty() {},
+    ] }, salesForMonth: state => state.sales, saleDateOf: sale => sale.saleDate || sale.createdAt.slice(0, 10), formatNumber: String, appendEmpty() {},
   };
   vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
   context.renderMonthlySales();
@@ -827,7 +827,7 @@ test('monthly performance table is manager-only and distinguishes cashier from s
   let calls = 0;
   const context = { $, window: { AppData: { loadMonthlySalespersonPerformance: async () => { calls++; return [{ salespersonId: 'p1', name: '張業務', quantity: 3, total: 250 }]; }, loadMonthlySaleAssignments: async () => [] } },
     document: { body: { dataset: { role: 'admin' } }, createElement: node },
-    state: { sales: [] }, salesForMonth: () => [], formatNumber: String, appendEmpty() {},
+    state: { sales: [] }, salesForMonth: () => [], saleDateOf: sale => sale.saleDate || sale.createdAt.slice(0, 10), formatNumber: String, appendEmpty() {},
   };
   vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
   await context.renderMonthlySales(true);
@@ -880,7 +880,7 @@ test('manager backfills an unattributed whole sale from monthly list and staff c
     state: { salespeople: [{ id: 'p1', name: '張業務', active: true }], sales: [
       { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'A', barcode: '', unitPrice: 10, quantity: 1, subtotal: 10 },
       { saleNumber: 'S1', createdAt: '2026-10-12T09:00:00Z', itemName: 'B', barcode: '', unitPrice: 20, quantity: 1, subtotal: 20 },
-    ] }, salesForMonth: state => state.sales, formatNumber: String, appendEmpty() {}, currentPage: () => 'monthly-sales', setStatus() {},
+    ] }, salesForMonth: state => state.sales, saleDateOf: sale => sale.saleDate || sale.createdAt.slice(0, 10), formatNumber: String, appendEmpty() {}, currentPage: () => 'monthly-sales', setStatus() {},
   };
   vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf('async function resetAppSession(')), context);
   await context.renderMonthlySales(true);
@@ -1006,7 +1006,7 @@ test('monthly salesperson performance shows sales only (repairs have no salesper
       loadMonthlySaleAssignments: async () => [],
     } },
     document: { body: { dataset: { role: 'admin' } }, createElement: node },
-    state: { sales: [] }, salesForMonth: () => [], formatNumber: String, appendEmpty() {},
+    state: { sales: [] }, salesForMonth: () => [], saleDateOf: sale => sale.saleDate || sale.createdAt.slice(0, 10), formatNumber: String, appendEmpty() {},
   };
   vm.runInNewContext(app.slice(app.indexOf('function renderMonthlySales('), app.indexOf("$('monthly-sales-month')?.addEventListener")), context);
   await context.renderMonthlySales(true);

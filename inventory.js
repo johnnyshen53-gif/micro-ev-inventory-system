@@ -428,6 +428,7 @@ function validateState(value) {
   if (!Array.isArray(value.sales ?? []) || !Array.isArray(value.serials ?? [])) throw new Error('銷售或序號資料格式不正確');
   const sales = (value.sales ?? []).map(sale => {
     if (!sale || !Array.isArray(sale.serialIds ?? []) || !Array.isArray(sale.serialNumbers ?? [])) throw new Error('銷售序號格式無效');
+    if (sale.saleDate !== undefined && sale.saleDate !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(String(sale.saleDate))) throw new Error('銷售日期格式無效');
     return { ...sale, serialIds: (sale.serialIds ?? []).map(value => id(value, '銷售序號 ID')), serialNumbers: (sale.serialNumbers ?? []).map(value => id(value, '銷售序號')) };
   });
   const serials = (value.serials ?? []).map(normalizedSerial);
@@ -1046,7 +1047,9 @@ function recordSaleBatch(state, fields) {
   const checkoutId = fields?.checkoutId ? id(fields.checkoutId, '結帳識別碼') : crypto.randomUUID();
   const createdAt = new Date().toISOString();
   const saleNumber = `S${createdAt.slice(0, 10).replaceAll('-', '')}-${String(current.sales.length + 1).padStart(4, '0')}`;
-  const purchasedAt = taipeiDate(createdAt);
+  // 銷售日期：沒填就是今天（台灣日期）；可補登過去，但不可晚於今天。保固從銷售日期起算。
+  const saleDate = fields?.saleDate ? checkedSaleDate(fields.saleDate, taipeiDate(createdAt)) : taipeiDate(createdAt);
+  const purchasedAt = saleDate;
   // 特惠組合：折扣算法與資料庫相同；雲端會再算一次，以資料庫結果為準。
   const appliedPromotions = Array.isArray(fields?.promotions) ? fields.promotions : [];
   const promotion = appliedPromotions.length ? promotionDiscounts(requested.map(line => ({ itemId: line.item.id, unitPrice: line.item.price, quantity: line.quantity })), appliedPromotions) : null;
@@ -1061,7 +1064,7 @@ function recordSaleBatch(state, fields) {
   const sales = requested.map((line) => {
     const item = line.item, discountCents = (promotion?.byItem.get(item.id) ?? 0) + (couponByItem.get(item.id) ?? 0);
     const subtotal = discountCents ? (toCents(item.price) * line.quantity - discountCents) / 100 : item.price * line.quantity;
-    return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, discount: discountCents / 100, subtotal, promotions: promotionRefs, couponCode: coupon?.code ?? '', createdAt, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) };
+    return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, discount: discountCents / 100, subtotal, promotions: promotionRefs, couponCode: coupon?.code ?? '', createdAt, saleDate, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) };
   });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
@@ -1077,19 +1080,24 @@ function recordSaleBatch(state, fields) {
   return validateState({ ...current, serials, items: current.items.map((item) => ({ ...item, stock: item.stock - (quantities.get(item.id) ?? 0) })), transactions: [...current.transactions, ...transactions], sales: [...current.sales, ...sales], warranties: [...current.warranties, ...warranties] });
 }
 
+// 銷售日期（YYYY-MM-DD）：結帳時選的日期；舊單沒有銷售日期，改用建立時間的台灣日期（和資料庫相同）。
+function saleDateOf(sale) { return sale.saleDate || taipeiDate(sale.createdAt); }
+function checkedSaleDate(value, today) {
+  const text = String(value ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || new Date(`${text}T00:00:00Z`).toISOString().slice(0, 10) !== text) throw new Error('銷售日期格式無效');
+  if (text > today) throw new Error('銷售日期不可晚於今天');
+  if (text < '2000-01-01') throw new Error('銷售日期無效');
+  return text;
+}
 function salesForMonth(state, month) {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return [];
-  const [year, numericMonth] = month.split('-').map(Number);
-  const start = Date.UTC(year, numericMonth - 1, 1) - 8 * 60 * 60 * 1000;
-  const end = Date.UTC(year, numericMonth, 1) - 8 * 60 * 60 * 1000;
-  return validateState(state).sales.filter((sale) => {
-    const at = Date.parse(sale.createdAt);
-    return at >= start && at < end;
-  });
+  // 依銷售日期歸月；同月內依銷售日期、再依建立時間排序。
+  return validateState(state).sales
+    .filter(sale => saleDateOf(sale).slice(0, 7) === month)
+    .sort((a, b) => saleDateOf(a).localeCompare(saleDateOf(b)) || String(a.createdAt).localeCompare(String(b.createdAt)));
 }
 
-// 營運總覽：一次走訪銷售紀錄，以台灣時間（UTC+8）月份分組，邊界與 salesForMonth 相同。
-function taipeiMonth(value) { return new Date(Date.parse(value) + 8 * 60 * 60 * 1000).toISOString().slice(0, 7); }
+// 營運總覽：一次走訪銷售紀錄，依銷售日期的月份分組，和 salesForMonth 相同。
 function shiftMonth(month, offset) {
   const [year, numericMonth] = month.split('-').map(Number);
   return new Date(Date.UTC(year, numericMonth - 1 + offset, 1)).toISOString().slice(0, 7);
@@ -1112,7 +1120,7 @@ function dashboardSummary(state, month, options = {}) {
   const current = validateState(state);
   const byMonth = new Map();
   for (const sale of current.sales) {
-    const key = taipeiMonth(sale.createdAt);
+    const key = saleDateOf(sale).slice(0, 7);
     if (!byMonth.has(key)) byMonth.set(key, []);
     byMonth.get(key).push(sale);
   }
@@ -1240,4 +1248,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

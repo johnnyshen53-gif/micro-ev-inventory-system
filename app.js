@@ -22,6 +22,7 @@ const {
   recordSale,
   recordSaleBatch,
   recordTransaction,
+  saleDateOf,
   salesForMonth,
   toBackup,
   updateCustomer,
@@ -79,7 +80,7 @@ function showPage(page) {
   if (page === 'monthly-sales') renderMonthlySales(true);
   if (page === 'repairs') window.RepairUI?.instance?.load();
   if (page === 'promotions') { window.PromotionUI?.instance?.load(); window.CouponUI?.instance?.load(); }
-  if (page === 'sales') window.PromotionUI?.checkout?.load();
+  if (page === 'sales') { window.PromotionUI?.checkout?.load(); syncSaleDate(); }
   if (page === 'quotations') window.PromotionUI?.quotation?.load();
   if (page === 'manage') window.WebsiteItemsUI?.instance?.load();
 }
@@ -1765,7 +1766,7 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
   const finishSale = (message) => {
     saleCart = []; saleCheckoutId = ''; saleSerialItemId = ''; saleSerialQuantity = 1;
     window.PromotionUI?.checkout?.reset();
-    $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1';
+    $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1'; syncSaleDate(true);
     $('sale-serial-panel').hidden = true; $('sale-serial-ids').replaceChildren(); $('sale-item-info').hidden = true;
     clearFormError('sale-form'); renderSaleCart(); render(); setStatus(message);
   };
@@ -1774,7 +1775,7 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
     saleCheckoutId ||= crypto.randomUUID();
     // 上一次送出其實已在雲端完成（畫面已重新讀取到這張單）：直接收尾，不再送一次。
     if (committed()) { finishSale('此筆銷售先前已完成，未重複扣庫存。'); return; }
-    const next = recordSaleBatch(state, { lines: saleCart, checkoutId: saleCheckoutId, customerId: $('sale-customer').value, salespersonId: $('sale-salesperson').value, promotions: window.PromotionUI?.checkout?.selected() ?? [], coupon: window.PromotionUI?.checkout?.coupon() ?? null, createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id });
+    const next = recordSaleBatch(state, { lines: saleCart, checkoutId: saleCheckoutId, customerId: $('sale-customer').value, salespersonId: $('sale-salesperson').value, promotions: window.PromotionUI?.checkout?.selected() ?? [], coupon: window.PromotionUI?.checkout?.coupon() ?? null, createdBy: currentUser?.id, createdByAccount: currentUser?.displayName || currentUser?.username || currentUser?.id, saleDate: $('sale-date')?.value });
     if (!await saveState(next)) {
       if (committed()) finishSale('連線中斷，但雲端已確認此筆銷售完成，未重複扣庫存。');
       return;
@@ -1782,6 +1783,15 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
     finishSale('銷售已完成。');
   } catch (error) { showFormError('sale-form', error.message); }
 });
+// 銷售日期欄：最晚只能選今天（台灣日期）。reset＝結帳完成後改回今天；否則只在空白或超過今天時補成今天。
+function syncSaleDate(reset = false) {
+  const input = $('sale-date');
+  if (!input) return;
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  input.max = today;
+  if (reset || !input.value || input.value > today) input.value = today;
+}
+syncSaleDate();
 function renderMonthlySales(refreshPerformance = false) {
   const monthInput = $('monthly-sales-month');
   const month = monthInput.value || new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
@@ -1800,7 +1810,7 @@ function renderMonthlySales(refreshPerformance = false) {
   const seenSales = new Set();
   sales.forEach((sale) => {
     const row = document.createElement('tr');
-    [new Date(sale.createdAt).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }), sale.itemName, sale.barcode, `NT$ ${formatNumber(sale.unitPrice)}`, formatNumber(sale.quantity), `NT$ ${formatNumber(sale.subtotal)}`, ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
+    [saleDateOf(sale).split('-').map((part, index) => index ? String(Number(part)) : part).join('/'), sale.itemName, sale.barcode, `NT$ ${formatNumber(sale.unitPrice)}`, formatNumber(sale.quantity), `NT$ ${formatNumber(sale.subtotal)}`, ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
       const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['日期', '品項', '條碼', '單價', '數量', '小計', '結帳人'][index]; row.append(cell);
     });
     // 小計是折扣後實收；有特惠組合或優惠代碼折扣時在下方註明。
