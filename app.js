@@ -32,8 +32,6 @@ const {
   validateState,
   warrantiesForFilter,
 } = window.Inventory;
-// 售價加成 { 分類: 百分比 }（店長進入庫存管理時從雲端讀取）。放在開頭宣告，避免其他函式提早使用時尚未初始化。
-let priceMarkups = {};
 
 const { InventoryStorage } = window;
 const $ = (id) => document.getElementById(id);
@@ -80,11 +78,10 @@ function showPage(page) {
   });
   if (page === 'monthly-sales') renderMonthlySales(true);
   if (page === 'repairs') window.RepairUI?.instance?.load();
-  if (page === 'bonus') window.BonusUI?.instance?.load();
   if (page === 'promotions') { window.PromotionUI?.instance?.load(); window.CouponUI?.instance?.load(); }
   if (page === 'sales') window.PromotionUI?.checkout?.load();
   if (page === 'quotations') window.PromotionUI?.quotation?.load();
-  if (page === 'manage') { loadPriceMarkups(); window.WebsiteItemsUI?.instance?.load(); }
+  if (page === 'manage') window.WebsiteItemsUI?.instance?.load();
 }
 
 function currentPage() {
@@ -120,8 +117,6 @@ if (window.RepairUI) window.RepairUI.instance = window.RepairUI.mount({
   setState: next => { state = next; render(); },
   notify: setStatus,
 });
-// 分紅管理（店長專用）：業務員與品項名單取自目前狀態，金額設定與紀錄另由店長專用 RPC 讀取。
-if (window.BonusUI) window.BonusUI.instance = window.BonusUI.mount({ getState: () => state, notify: setStatus });
 // 特惠組合頁有自己的狀態列，不再重複顯示在頁首。
 if (window.PromotionUI) window.PromotionUI.instance = window.PromotionUI.mount({ getState: () => state });
 // 官網商品（店長專用）：勾選車身／電池顯示在官網車款頁；品項名單取自目前狀態。
@@ -131,7 +126,6 @@ if (window.WebsiteItemsUI) window.WebsiteItemsUI.instance = window.WebsiteItemsU
 // 批次匯入品項（CSV）：預覽全部正確後，用和「新增品項」相同的儲存流程一次寫入。
 if (window.ItemImport) window.ItemImport.instance = window.ItemImport.mount({
   getState: () => state,
-  getMarkups: () => priceMarkups,
   saveState: async next => { const saved = await saveState(next); if (saved) render(); return saved; },
   notify: setStatus,
 });
@@ -397,7 +391,8 @@ function itemFields() {
     minimumStock: $('item-minimum-stock').value,
     warrantyMonths: $('item-warranty-months').value,
     notes: $('item-notes').value,
-    priceLocked: Boolean($('item-price-locked')?.checked),
+    // 售價加成已移除：固定售價不再有作用，編輯時沿用原本的值，不去改它。
+    priceLocked: state.items.find(item => item.id === $('item-id').value)?.priceLocked === true,
     serialNumbers: serialNumbersFromInput($('item-serial-numbers')?.value || ''),
     createdBy: currentUser?.id,
   };
@@ -416,7 +411,6 @@ function resetItemForm() {
   $('item-stock').value = '0';
   $('item-minimum-stock').value = '0';
   $('item-warranty-months').value = '0';
-  if ($('item-price-locked')) $('item-price-locked').checked = false;
   updateSuggestedPrice(false);
   $('item-form-title').textContent = '新增品項';
   $('item-cancel').hidden = true;
@@ -440,7 +434,6 @@ function startEditing(item) {
     const input = $(`item-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`);
     if (input) input.value = value;
   });
-  if ($('item-price-locked')) $('item-price-locked').checked = item.priceLocked === true;
   $('item-form-title').textContent = `編輯：${item.name}`;
   updateBatteryFields();
   updateSuggestedPrice(false);
@@ -475,43 +468,6 @@ function updateBatteryFields() {
 }
 $('item-category').addEventListener('change', updateBatteryFields);
 
-// 售價加成：在「分紅管理」設定各分類的加成 %。輸入成本或換分類時自動帶入售價（無條件進位到 10 元）；
-// 手動改過售價就自動勾「固定售價」，之後進貨收貨也不會被重算。（priceMarkups 宣告在檔案開頭）
-async function loadPriceMarkups() {
-  if (document.body.dataset.role !== 'admin' || !window.AppData?.loadPriceMarkups) return;
-  try { priceMarkups = await window.AppData.loadPriceMarkups() ?? {}; } catch { priceMarkups = {}; }
-  updateSuggestedPrice(false);
-  window.ItemImport?.instance?.refresh();
-}
-function currentSuggestedPrice() {
-  const percent = priceMarkups[$('item-category')?.value];
-  return percent === undefined ? null : window.Inventory.suggestedPrice($('item-cost').value, percent);
-}
-function updateSuggestedPrice(apply = true) {
-  const hint = $('item-price-hint');
-  if (!hint) return;
-  const category = $('item-category').value, percent = priceMarkups[category];
-  if (percent === undefined) { hint.textContent = `「${category}」未設定售價加成（可在「分紅管理」設定）。`; return; }
-  const suggested = currentSuggestedPrice();
-  if ($('item-price-locked').checked) {
-    hint.textContent = `固定售價：不會自動重算${suggested === null ? '' : `（依加成 ${percent}% 建議 NT$ ${formatNumber(suggested)}）`}。`;
-    return;
-  }
-  if (apply && suggested !== null) $('item-price').value = String(suggested);
-  hint.textContent = `售價依「${category}」加成 ${percent}% 自動計算（無條件進位到 10 元）；進貨收貨時也會重算。`;
-}
-if ($('item-price-hint')) {
-  $('item-category').addEventListener('change', () => updateSuggestedPrice(true));
-  $('item-cost').addEventListener('input', () => updateSuggestedPrice(true));
-  $('item-price').addEventListener('input', () => {
-    const suggested = currentSuggestedPrice();
-    if (suggested === null || $('item-price-locked').checked || Number($('item-price').value) === suggested) return;
-    $('item-price-locked').checked = true;
-    updateSuggestedPrice(false);
-    $('item-price-hint').textContent = '已手動修改售價，已自動勾選「固定售價」；取消勾選即可恢復自動計算。';
-  });
-  $('item-price-locked').addEventListener('change', () => updateSuggestedPrice(!$('item-price-locked').checked));
-}
 function parseUnitQr(value) {
   const raw = String(value || '').trim();
   const [barcode, serialNumber, extra] = raw.split('|');
@@ -1920,7 +1876,7 @@ function renderMonthlySales(refreshPerformance = false) {
     if (requestId !== renderMonthlySales.requestId || document.body.dataset.role !== 'admin' || monthInput.value !== month) return;
     renderMonthlySales.assignmentMonth = month;
     renderMonthlySales.assignments = new Map(assignments.map(value => [value.saleNumber, value]));
-    // 業務員績效只算銷售；維修成果改由「分紅管理」的維修人員報表查看。
+    // 業務員績效只算銷售；不含維修。
     performance.forEach(person => {
       const row = document.createElement('tr');
       [person.name, formatNumber(person.quantity), `NT$ ${formatNumber(person.total)}`].forEach((value, index) => { const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['業務員', '售出件數', '銷售金額'][index]; row.append(cell); });
@@ -2052,7 +2008,6 @@ $('monthly-detail-back')?.addEventListener('click', () => {
 async function resetAppSession() {
   appSessionEpoch++;
   window.RepairUI?.instance?.clear();
-  window.BonusUI?.instance?.clear();
   window.PromotionUI?.instance?.clear();
   window.PromotionUI?.checkout?.clear();
   window.CouponUI?.instance?.clear();

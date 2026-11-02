@@ -2,7 +2,7 @@
 // 規則（店長已確認）：
 //   只新增：料號留空就自動編碼；填了但已存在（或同一檔案重複）的列標示錯誤，不會覆蓋舊資料。
 //   庫存：一般元件可直接帶入；車身／電池需要逐件序號，匯入時庫存必須是 0，之後用進貨收貨登錄序號。
-//   售價留空：依「分紅管理」設定的分類加成自動計算（成本 ×（1＋加成%），進位到 10 元）；該分類沒設定加成就必填。
+//   售價必填（售價加成已移除；markups 參數保留給測試，正式畫面一律傳空物件）。
 //   車種：必填，填「車種管理」裡啟用中的車種名稱（英文不分大小寫）；全部車款都能用填「通用」。
 //   先預覽：每一列都檢查並標示原因，全部正確才能按「確認匯入」，不會只匯一半。
 (function () {
@@ -112,7 +112,7 @@
         const markup = markups[row.category];
         const suggested = markup === null || markup === undefined ? null : inventory.suggestedPrice(cost, markup);
         if (price === null) {
-          if (suggested === null) return fail(`售價未填，且「${row.category}」尚未設定加成，請填售價`);
+          if (suggested === null) return fail('售價未填，請填售價');
           price = suggested; row.priceFromMarkup = true;
         }
         // 固定售價：有填就照填；沒填時，手動售價和加成算出來的不同就視為固定（和手動新增品項相同）。
@@ -141,7 +141,7 @@
     return { rows, errorCount, unknownColumns: unknown, nextState: errorCount ? null : next };
   }
 
-  function mount({ getState, getMarkups, saveState, notify = () => {} }) {
+  function mount({ getState, getMarkups = () => ({}), saveState, notify = () => {} }) {
     if (!$('item-import-file')) return { clear() {} };
     let preview = null, fileText = '', fileName = '';
     const money = value => new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 2 }).format(value);

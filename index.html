@@ -56,7 +56,6 @@
       <button class="page-tab" type="button" data-page-target="warranties">保固管理</button>
       <button class="page-tab" type="button" data-page-target="repairs">維修單</button>
       <button class="page-tab" type="button" data-page-target="monthly-sales" data-mobile-page>營運總覽</button>
-      <button class="page-tab" type="button" data-page-target="bonus" data-role="admin">分紅管理</button>
     </nav>
 
     <div class="app-page" data-page="list">
@@ -97,7 +96,7 @@
           </div>
           <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
           <div class="field"><label for="item-barcode">品項識別碼（選填，13 碼數字可列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
-          <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required aria-describedby="item-price-hint"></div></div><label class="check-item price-lock"><input id="item-price-locked" type="checkbox"> 固定售價（進貨收貨時不自動重算，例如特價品）</label><small id="item-price-hint" class="price-hint" aria-live="polite"></small>
+          <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required aria-describedby="item-price-hint"></div></div>
           <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
           <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>車身、電池每件一個序號；初始庫存為 0 可留空。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
@@ -143,8 +142,7 @@
           <ul>
             <li><b>品項名稱*、分類*</b>：分類填 車身、電池、電控元件、機構元件、外觀元件。</li>
             <li><b>料號、條碼</b>：留空會自動編碼（條碼同料號）；已存在的料號或條碼不會匯入。</li>
-            <li><b>成本、售價</b>：售價留空時依「分紅管理」的分類加成自動計算（進位到 10 元）；該分類沒設定加成就必填。</li>
-            <li><b>固定售價</b>：填「是」＝進貨收貨時不自動重算售價；留空時，手填售價與加成結果不同就視為固定。</li>
+            <li><b>成本、售價</b>：售價必填（系統不會自動計算售價）。</li>
             <li><b>目前庫存、最低庫存、保固月數</b>：整數，留空＝0。車身、電池需要逐件序號，庫存必須是 0，之後用進貨收貨登錄。</li>
             <li><b>電壓、容量</b>：電池必填（1～99 整數），名稱會自動加上「48V 24Ah」這類規格。</li>
             <li><b>供應商</b>：填供應商管理裡的名稱（完全相同），可留空。</li>
@@ -256,7 +254,7 @@
         <form id="staff-link-form"><h3>連結既有登入帳號與本機業務</h3><div class="field"><label for="staff-existing-user">雲端帳號</label><select id="staff-existing-user" required></select></div><div class="field"><label for="staff-existing-person">本機業務</label><select id="staff-existing-person" required></select></div><button type="submit" class="secondary">儲存連結／重試連結</button></form>
         <section id="staff-reset-panel" hidden><h3>重設密碼</h3><form id="staff-reset-form"><input id="staff-reset-user" type="hidden"><div class="field"><label for="staff-new-password">新密碼（至少 12 字元）</label><input id="staff-new-password" type="password" minlength="12" autocomplete="new-password" required></div><div class="field"><label for="staff-confirm-password">再次輸入新密碼</label><input id="staff-confirm-password" type="password" minlength="12" autocomplete="new-password" required></div><button type="submit">確認重設密碼</button></form></section>
       </article>
-      <article class="panel"><h2 id="salesperson-form-title">新增店員</h2><form id="salesperson-form"><input id="salesperson-id" type="hidden"><div class="field"><label for="salesperson-name">姓名</label><input id="salesperson-name" required></div><fieldset class="staff-roles"><legend>身分（至少勾選一個，可同時勾選）</legend><label class="check-item"><input id="salesperson-is-sales" type="checkbox" checked> 業務員<small>可在結帳、報價選擇；可列入機車獎金名單</small></label><label class="check-item"><input id="salesperson-is-technician" type="checkbox"> 維修員<small>可在維修單指定為維修人員，領維修分紅</small></label></fieldset><p id="salesperson-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存店員</button><button id="salesperson-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
+      <article class="panel"><h2 id="salesperson-form-title">新增店員</h2><form id="salesperson-form"><input id="salesperson-id" type="hidden"><div class="field"><label for="salesperson-name">姓名</label><input id="salesperson-name" required></div><fieldset class="staff-roles"><legend>身分（至少勾選一個，可同時勾選）</legend><label class="check-item"><input id="salesperson-is-sales" type="checkbox" checked> 業務員<small>可在結帳、報價選擇</small></label><label class="check-item"><input id="salesperson-is-technician" type="checkbox"> 維修員<small>可在維修單指定為維修人員</small></label></fieldset><p id="salesperson-form-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button type="submit">儲存店員</button><button id="salesperson-cancel" class="secondary" type="button" hidden>取消編輯</button></div></form></article>
       <article class="panel"><div class="section-heading"><h2>店員名單</h2><label class="search"><span class="sr-only">搜尋店員</span><input id="salesperson-search" type="search" placeholder="搜尋姓名"></label></div><div class="table-wrap"><table><thead><tr><th>姓名</th><th>身分</th><th>狀態</th><th>操作</th></tr></thead><tbody id="salesperson-list"></tbody></table></div></article>
     </section>
     <section class="app-page" data-page="quotations" aria-label="報價單" hidden>
@@ -371,29 +369,6 @@
         <article class="panel"><h3>維修單清單</h3><div class="field"><label for="repair-search">搜尋單號、電話、車牌或原廠序號</label><input id="repair-search" type="search"></div><div class="table-wrap"><table><thead><tr><th>單號</th><th>客戶</th><th>車牌／序號</th><th>狀態</th><th>總額</th><th>操作</th></tr></thead><tbody id="repair-list"></tbody></table></div><section id="repair-detail" class="repair-detail" aria-label="維修單明細" hidden></section></article>
       </div>
     </section>
-    <section class="app-page bonus-page" data-page="bonus" aria-label="分紅管理" data-role="admin" hidden>
-      <div class="section-heading"><div><h2>分紅管理</h2><p class="hint">分紅在結帳／維修完工當下由系統記帳；之後修改設定不會改變已成立的紀錄。此頁只有店長看得到。</p></div></div>
-      <p id="bonus-status" class="status" role="status" aria-live="polite"></p>
-      <div class="grid forms">
-        <article class="panel">
-          <h3>分紅設定</h3>
-          <form id="bonus-settings-form">
-            <div class="field"><label for="bonus-motorcycle-amount">每台機車獎金（元，空白＝未設定）</label><input id="bonus-motorcycle-amount" type="number" min="0" step="0.01" placeholder="未設定"><small id="bonus-motorcycle-state"></small></div>
-            <div class="field"><label for="bonus-repair-percent">維修分紅百分比（%，空白＝未設定）</label><input id="bonus-repair-percent" type="number" min="0" max="100" step="0.01" placeholder="未設定"><small id="bonus-repair-state"></small></div>
-            <fieldset class="bonus-fieldset"><legend>機車獎金受領業務員（每人同額）</legend><div id="bonus-recipients" class="check-list"></div></fieldset>
-            <fieldset class="bonus-fieldset"><legend>適用機車獎金的品項</legend><div id="bonus-items" class="check-list"></div></fieldset>
-            <button type="submit">儲存設定</button>
-          </form>
-        </article>
-      </div>
-      <article id="price-markup-panel" class="panel"><h3>售價加成（依分類）</h3><form id="price-markup-form"><p class="hint">進貨收貨時，售價＝進貨單價 ×（1＋加成%），<strong>無條件進位到 10 元</strong>。例：成本 873 元、加成 35% → 1,178.55 → 售價 1,180 元。空白＝該分類不自動定價；品項勾「固定售價」者不會被改。新增品項輸入成本時也會自動帶入。</p><div class="markup-grid"><div class="field"><label for="markup-0">車身（%）</label><input id="markup-0" data-category="車身" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-1">電池（%）</label><input id="markup-1" data-category="電池" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-2">電控元件（%）</label><input id="markup-2" data-category="電控元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-3">機構元件（%）</label><input id="markup-3" data-category="機構元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div><div class="field"><label for="markup-4">外觀元件（%）</label><input id="markup-4" data-category="外觀元件" type="number" min="0" max="1000" step="0.01" inputmode="decimal" placeholder="不自動定價"></div></div><button type="submit">儲存售價加成</button></form></article>
-      <article class="panel bonus-report">
-        <div class="section-heading"><h3>月份分紅報表</h3><label class="field"><span>月份</span><input id="bonus-month" type="month"></label></div>
-        <div class="table-wrap"><table><thead><tr><th>對象</th><th>類別</th><th>筆數</th><th>分紅合計</th></tr></thead><tbody id="bonus-summary"></tbody></table></div>
-        <div class="table-wrap"><table><thead><tr><th>日期</th><th>類別</th><th>對象</th><th>單號</th><th>計算基準</th><th>分紅</th></tr></thead><tbody id="bonus-detail"></tbody></table></div>
-        <p class="hint">計算基準：機車＝台數 × 每台獎金；維修＝維修單金額扣除用料成本後的淨額。</p>
-      </article>
-    </section>
     <section class="app-page monthly-sales-page" data-page="monthly-sales" aria-label="營運總覽" hidden>
       <div class="section-heading"><h2>營運總覽</h2><label class="monthly-month-field">查詢月份<input id="monthly-sales-month" type="month"></label></div>
       <div class="cards monthly-summary"><article class="card monthly-total-card"><span>本月銷售總額</span><strong class="money-figure"><span class="currency">NT$</span> <span id="monthly-sales-total">0</span></strong><small id="monthly-sales-total-change" class="dashboard-change" data-role="admin" hidden></small></article><article class="card"><span>售出件數</span><strong id="monthly-sales-quantity">0</strong><small id="monthly-sales-quantity-change" class="dashboard-change" data-role="admin" hidden></small></article><article class="card"><span>銷售筆數</span><strong id="monthly-sales-count">0</strong><small id="monthly-sales-count-change" class="dashboard-change" data-role="admin" hidden></small></article></div>
@@ -422,14 +397,13 @@
   <script src="storage.js?v=2"></script>
   <script src="cloud-data.js?v=29"></script>
   <script src="repair-ui.js?v=13"></script>
-  <script src="bonus-ui.js?v=6"></script>
   <script src="promotions-ui.js?v=4"></script>
   <script src="coupons-ui.js?v=1"></script>
-  <script src="item-import.js?v=2"></script>
+  <script src="item-import.js?v=3"></script>
   <script src="website-items-ui.js?v=1"></script>
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=69"></script>
+  <script src="app.js?v=70"></script>
 </body>
 </html>
