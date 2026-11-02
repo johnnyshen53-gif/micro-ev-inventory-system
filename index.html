@@ -294,6 +294,7 @@
           </section>
           <div class="field sale-customer"><label for="sale-customer">客戶</label><select id="sale-customer"><option value="">不指定客戶</option></select><small>車身／電池必選；有保固月數時會自動建立保固。</small></div>
           <div class="field"><label for="sale-salesperson">業務員（必選）</label><select id="sale-salesperson" required><option value="">請選擇業務員</option></select></div>
+          <div class="field"><label for="sale-date">銷售日期</label><input id="sale-date" type="date" required aria-describedby="sale-date-hint"><small id="sale-date-hint">預設今天；補登過去的銷售可改日期（不可選未來）。營運總覽依此日期歸月份，保固也從這天起算。</small></div>
           <div class="sale-checkout"><dl id="sale-cart-breakdown" class="sale-breakdown" hidden><div><dt>原價合計</dt><dd>NT$ <span id="sale-cart-gross">0</span></dd></div><div id="sale-cart-combo-row"><dt>組合折扣</dt><dd>−NT$ <span id="sale-cart-discount">0</span></dd></div><div id="sale-cart-coupon-row"><dt>優惠代碼</dt><dd>−NT$ <span id="sale-cart-coupon">0</span></dd></div></dl><div class="sale-total"><span>合計</span><strong>NT$ <span id="sale-cart-total">0</span></strong></div><button type="submit">確認結帳</button></div>
         </aside>
       </form>
@@ -393,9 +394,9 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=31"></script>
+  <script src="inventory.js?v=32"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=29"></script>
+  <script src="cloud-data.js?v=30"></script>
   <script src="repair-ui.js?v=13"></script>
   <script src="promotions-ui.js?v=4"></script>
   <script src="coupons-ui.js?v=1"></script>
@@ -404,6 +405,6 @@
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=70"></script>
+  <script src="app.js?v=71"></script>
 </body>
 </html>
