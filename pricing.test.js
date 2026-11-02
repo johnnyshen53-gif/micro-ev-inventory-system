@@ -38,10 +38,13 @@ test('cloud data reads and writes the fixed-price flag and exposes markup RPCs',
   assert.match(source, /bonusRpc\('save_price_markups', \{ p_markups: markups \}\)/);
 });
 
-test('bonus page has one markup input per item category and the item form has a fixed-price checkbox', async () => {
+test('bonus page and price markups are removed from the screens', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
-  const categories = [...html.matchAll(/<input id="markup-\d" data-category="([^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(categories, ['車身', '電池', '電控元件', '機構元件', '外觀元件']);
-  assert.match(html, /<input id="item-price-locked" type="checkbox">/);
-  assert.match(html, /id="item-price-hint"/);
+  for (const pattern of [/data-page-target="bonus"/, /data-page="bonus"/, /id="price-markup-form"/, /id="item-price-locked"/, /id="item-price-hint"/, /bonus-ui\.js/, /分紅/, /加成/]) {
+    assert.doesNotMatch(html, pattern, String(pattern));
+  }
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(app, /BonusUI|priceMarkups|loadPriceMarkups/);
+  // 固定售價不再出現在畫面上；編輯品項時沿用原本的值。
+  assert.match(app, /priceLocked: state\.items\.find\(item => item\.id === \$\('item-id'\)\.value\)\?\.priceLocked === true/);
 });
