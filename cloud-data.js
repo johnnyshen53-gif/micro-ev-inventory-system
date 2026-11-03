@@ -185,6 +185,7 @@
     adjust_inventory: ['items', 'transactions'],
     issue_warranty_replacement: ['items', 'transactions', 'serials'],
     save_quotation: ['quotations', 'quotationLines'],
+    delete_quotation: ['quotations', 'quotationLines'],
     save_warranty: ['warranties'],
     save_warranty_case: ['warrantyCases'],
     delete_warranty_case: ['warrantyCases'],
@@ -311,6 +312,12 @@
     for (const quotation of rows(next, 'quotations')) {
       if (same(oldQuotations.get(quotation.id), quotation)) continue;
       const { error } = await client.rpc('save_quotation', { p_quotation: quotation, p_lines: quotation.lines });
+      if (error) throw error;
+    }
+    // 刪除報價單：資料庫只允許店長，並留操作紀錄。
+    const nextQuotationIds = new Set(rows(next, 'quotations').map(value => value.id));
+    for (const quotation of rows(previous, 'quotations').filter(value => !nextQuotationIds.has(value.id))) {
+      const { error } = await client.rpc('delete_quotation', { p_quotation_id: quotation.id });
       if (error) throw error;
     }
     for (const purchase of rows(next, 'purchases')) {

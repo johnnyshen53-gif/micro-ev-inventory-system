@@ -991,6 +991,12 @@ function updateWarrantyCase(state, caseId, fields) {
   return validateState({ ...current, warrantyCases: current.warrantyCases.map((candidate) => candidate.id === caseId ? warrantyCase : candidate) });
 }
 
+// 刪除報價單（畫面只給店長按；資料庫也只允許店長）。
+function deleteQuotation(state, quotationId) {
+  const current = validateState(state);
+  if (!current.quotations.some((quotation) => quotation.id === quotationId)) throw new Error('找不到報價單');
+  return validateState({ ...current, quotations: current.quotations.filter((quotation) => quotation.id !== quotationId) });
+}
 function deleteWarrantyCase(state, caseId) {
   const current = validateState(state);
   if (!current.warrantyCases.some((warrantyCase) => warrantyCase.id === caseId)) throw new Error('找不到案件');
@@ -1274,4 +1280,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

@@ -89,7 +89,7 @@ test('quotations show each line\'s vehicle model, and the record list joins the 
 test('the printed quotation header has customer and phone, date, and salesperson on separate lines', async () => {
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
   const start = app.indexOf('function showQuotation(');
-  const node = () => ({ children: [], hidden: true, textContent: '', innerHTML: '', append(...kids) { this.children.push(...kids); }, replaceChildren() { this.children = []; } });
+  const node = () => ({ children: [], dataset: {}, hidden: true, textContent: '', innerHTML: '', append(...kids) { this.children.push(...kids); }, replaceChildren() { this.children = []; } });
   const els = {};
   const ctx = { $: id => (els[id] ??= node()), document: { createElement: node }, formatNumber: String, quotationItemVehicle: () => '—' };
   vm.runInNewContext(app.slice(start, app.indexOf('\n', app.indexOf('\n', start) + 1)), ctx);
@@ -101,4 +101,17 @@ test('the printed quotation header has customer and phone, date, and salesperson
   assert.deepEqual(header.children.map(line => line.textContent), ['客戶：王先生　電話：0922333444　車號：ABC-1234', `日期：${new Date(base.createdAt).toLocaleDateString('zh-TW')}`, '業務：阿明']);
   ctx.showQuotation({ ...base, customerName: '李小姐', customerPhone: '', salespersonName: '' });
   assert.deepEqual(els['quotation-print-content'].children[2].children.map(line => line.textContent).filter((_, i) => i !== 1), ['客戶：李小姐', '業務：未填寫']);
+});
+
+test('managers can delete a quotation; the cloud save calls delete_quotation', async () => {
+  const state = quote(base(), { customerId: '', customerName: '王先生' });
+  const id = state.quotations[0].id;
+  assert.equal(Inventory.deleteQuotation(state, id).quotations.length, 0);
+  assert.throws(() => Inventory.deleteQuotation(state, 'missing'), /找不到報價單/);
+  const [app, cloud] = await Promise.all(['app.js', 'cloud-data.js'].map(file => readFile(new URL(`./${file}`, import.meta.url), 'utf8')));
+  assert.match(cloud, /client\.rpc\('delete_quotation', \{ p_quotation_id: quotation\.id \}\)/);
+  assert.match(cloud, /delete_quotation: \['quotations', 'quotationLines'\]/);
+  // 刪除按鈕只給店長；按下要先確認。
+  assert.match(app, /if \(document\.body\.dataset\.role === 'admin'\) \{ const remove = document\.createElement\('button'\);/);
+  assert.match(app, /confirm\(`確定刪除報價單 \$\{target\.number\}/);
 });
