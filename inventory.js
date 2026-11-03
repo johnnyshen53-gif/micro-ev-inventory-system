@@ -331,8 +331,9 @@ function quotationLabor(hours, rate) {
 }
 
 function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallbackId) {
-  const customerId = id(value?.customerId, '客戶 ID');
-  if (!customerIds.has(customerId)) throw new Error('報價客戶不存在');
+  // 客戶 ID 空白＝直接填寫的客戶（只有姓名必填）。
+  const customerId = text(value?.customerId);
+  if (customerId && !customerIds.has(customerId)) throw new Error('報價客戶不存在');
   if (!Array.isArray(value?.lines) || !value.lines.length) throw new Error('報價至少需要一筆明細');
   const lines = value.lines.map((line) => {
     const itemId = id(line?.itemId, '品項 ID');
@@ -362,7 +363,7 @@ function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallba
   const numberValue = text(value?.number);
   const customerName = text(value?.customerName);
   const customerPhone = text(value?.customerPhone);
-  if (!numberValue || !customerName || !customerPhone) throw new Error('報價資料不完整');
+  if (!numberValue || !customerName || (customerId && !customerPhone)) throw new Error('報價資料不完整');
   const salespersonId = text(value?.salespersonId);
   const salespersonName = text(value?.salespersonName);
   if ((salespersonId || salespersonName) && (!salespersonId || !salespersonName || !salespersonIds.has(salespersonId))) throw new Error('報價業務不存在');
@@ -856,9 +857,19 @@ function deactivateSalesperson(state, salespersonId) {
 
 function createQuotation(state, fields) {
   const current = validateState(state);
-  const customer = current.customers.find((candidate) => candidate.id === fields?.customerId);
-  if (!customer) throw new Error('找不到客戶');
-  if (!customer.active) throw new Error('客戶已停用，無法建立報價');
+  // 客戶：從客戶清單選，或直接填寫姓名（電話可空白）；填寫的客戶只存在報價單上。
+  let customer;
+  if (text(fields?.customerId)) {
+    customer = current.customers.find((candidate) => candidate.id === fields.customerId);
+    if (!customer) throw new Error('找不到客戶');
+    if (!customer.active) throw new Error('客戶已停用，無法建立報價');
+  } else {
+    const name = text(fields?.customerName), phone = text(fields?.customerPhone);
+    if (!name) throw new Error('請選擇客戶或填寫客戶姓名');
+    if (name.length > 50) throw new Error('客戶姓名最多 50 字');
+    if (phone.length > 30) throw new Error('電話最多 30 字');
+    customer = { id: '', name, phone };
+  }
   const salesperson = current.salespeople.find((candidate) => candidate.id === fields?.salespersonId);
   if (!salesperson) throw new Error('找不到業務');
   if (!salesperson.active) throw new Error('業務已停用，無法建立報價');
