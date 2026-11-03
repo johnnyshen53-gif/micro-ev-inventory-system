@@ -193,7 +193,8 @@ function appendEmpty(list, message) {
 }
 
 function renderSummary() {
-  const lowStock = state.items.filter((item) => item.stock <= item.minimumStock);
+  // 已停用的品項不會再補貨，不列入低庫存提示。
+  const lowStock = state.items.filter((item) => item.active !== false && item.stock <= item.minimumStock);
   $('item-count').textContent = String(state.items.length);
   $('stock-count').textContent = String(state.items.reduce((sum, item) => sum + item.stock, 0));
   $('low-stock-count').textContent = String(lowStock.length);
@@ -281,7 +282,7 @@ function renderItems() {
   }
   items.forEach((item) => {
     const row = document.createElement('tr');
-    [item.name, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
+    [`${item.name}${item.active === false ? '（已停用）' : ''}`, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
       const cell = document.createElement('td');
       cell.textContent = value;
       // 手機版把每列排成卡片，用 data-label 在每個值前面顯示欄名。
@@ -354,7 +355,7 @@ function renderTransactionItems() {
   }
   select.disabled = false;
   button.disabled = false;
-  items.forEach((item) => select.append(new Option(`${item.name}${['', '（通用）', '（未設定車種）'][rank(item)]}（庫存 ${formatNumber(item.stock)}）`, item.id)));
+  items.forEach((item) => select.append(new Option(`${item.name}${['', '（通用）', '（未設定車種）'][rank(item)]}${item.active === false ? '（已停用，不能入庫）' : ''}（庫存 ${formatNumber(item.stock)}）`, item.id)));
   if (items.some((item) => item.id === selected)) select.value = selected;
 }
 
@@ -384,6 +385,8 @@ function render() {
 
 function itemFields() {
   return {
+    // 停用勾選框只有店長看得到；沒勾＝啟用。
+    active: !$('item-inactive')?.checked,
     name: $('item-name').value,
     category: $('item-category').value,
     supplierId: $('item-supplier').value,
@@ -440,6 +443,7 @@ function startEditing(item) {
     const input = $(`item-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`);
     if (input) input.value = value;
   });
+  if ($('item-inactive')) $('item-inactive').checked = item.active === false;
   $('item-form-title').textContent = `編輯：${item.name}`;
   updateBatteryFields();
   $('item-cancel').hidden = false;
@@ -1094,7 +1098,7 @@ function renderPurchaseBuilder() {
   const itemSelect = $('purchase-item');
   const itemId = itemSelect.value;
   itemSelect.replaceChildren(new Option('請選此供應商的品項', ''));
-  state.items.filter((entry) => entry.supplierId && entry.supplierId === supplierSelect.value).forEach((entry) => itemSelect.append(new Option(`${entry.name}（${entry.sku || '無料號'}）`, entry.id)));
+  state.items.filter((entry) => entry.supplierId && entry.supplierId === supplierSelect.value && entry.active !== false).forEach((entry) => itemSelect.append(new Option(`${entry.name}（${entry.sku || '無料號'}）`, entry.id)));
   itemSelect.value = state.items.some((entry) => entry.id === itemId && entry.supplierId === supplierSelect.value) ? itemId : '';
   renderPurchaseLines();
 }
@@ -1667,7 +1671,7 @@ function renderSalePicker() {
   // 排序：選定車種的品項在前，其次「通用」，最後是未設定車種的舊品項。
   const rank = item => !needsModel || item.vehicleModelId === modelId ? 0 : universalIds.has(item.vehicleModelId) ? 1 : 2;
   const items = needsModel && !modelId ? [] : state.items
-    .filter(item => item.category === category && (!needsModel || rank(item) < 2 || !item.vehicleModelId))
+    .filter(item => item.category === category && item.active !== false && (!needsModel || rank(item) < 2 || !item.vehicleModelId))
     .sort((a, b) => rank(a) - rank(b));
   select.replaceChildren();
   const placeholder = document.createElement('option');
@@ -1729,6 +1733,7 @@ function beginSaleSerialSelection(item, quantity) {
   renderSaleSerialSelector(item); $('sale-serial-scan').focus();
 }
 function addSaleItem(item, quantity, serialIds = []) {
+  if (item?.active === false) { showFormError('sale-form', `「${item.name}」已停用，無法銷售。`); return false; }
   if (!item || !Number.isInteger(quantity) || quantity <= 0) { showFormError('sale-form', '請選擇品項並輸入正確數量。'); return false; }
   const existing = saleCart.find(line => line.itemId === item.id);
   const serials = serialIds.map(id => state.serials.find(s => s.id === id && s.itemId === item.id && s.status === 'in_stock'));

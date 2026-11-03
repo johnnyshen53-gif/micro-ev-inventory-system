@@ -100,7 +100,7 @@
           <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
           <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>序號選填：車身、電池每件一個，可以少於庫存或留空。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
-          <div class="field"><label for="item-notes">備註（選填）</label><textarea id="item-notes" rows="2"></textarea></div>
+          <div class="field"><label for="item-notes">備註（選填）</label><textarea id="item-notes" rows="2"></textarea></div><label class="check-item" data-role="admin"><input id="item-inactive" type="checkbox"> 停用此品項（停用後不能入庫、進貨、銷售、報價；出庫與盤點仍可）</label>
           <p id="item-form-error" class="form-error" role="alert" hidden></p>
           <div class="form-actions"><button type="submit">儲存品項</button><button id="item-print-qr" class="secondary" type="button" disabled>列印 QR Code</button><button id="item-cancel" class="secondary" type="button" hidden>取消編輯</button></div>
         </form>
@@ -394,9 +394,9 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=38"></script>
+  <script src="inventory.js?v=39"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=34"></script>
+  <script src="cloud-data.js?v=35"></script>
   <script src="repair-ui.js?v=14"></script>
   <script src="promotions-ui.js?v=5"></script>
   <script src="coupons-ui.js?v=1"></script>
@@ -405,6 +405,6 @@
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=83"></script>
+  <script src="app.js?v=84"></script>
 </body>
 </html>

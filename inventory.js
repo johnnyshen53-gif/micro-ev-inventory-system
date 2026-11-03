@@ -170,6 +170,8 @@ function normalizedItem(value, fallbackId) {
     notes: text(value.notes),
     // 固定售價：勾選後，進貨收貨時不會依加成自動重算售價。
     priceLocked: value.priceLocked === true,
+    // 停用（只有店長能設定）：不能入庫、進貨、銷售、報價；出庫與盤點仍可。
+    active: value.active !== false,
   };
 }
 
@@ -489,6 +491,7 @@ function updateItem(state, itemId, fields) {
   const nextItem = normalizedItem({ ...fields, id: itemId, sku: current.items.find((item) => item.id === itemId).sku });
   const existing = current.items.find(item => item.id === itemId);
   if (requiresSerial(existing) && nextItem.stock !== existing.stock) throw new Error('序號商品請使用盤點調整庫存');
+  if (!nextItem.active && nextItem.stock > existing.stock) throw new Error(`品項「${existing.name}」已停用，無法入庫`);
   if (nextItem.category !== existing.category) {
     const hasHistory = current.transactions.some(t => t.itemId === itemId) || current.sales.some(s => s.itemId === itemId) || current.warranties.some(w => w.itemId === itemId) || current.purchases.some(p => p.lines.some(l => l.itemId === itemId)) || current.quotations.some(q => q.lines.some(l => l.itemId === itemId));
     if (current.serials.some(s => s.itemId === itemId) || ((requiresSerial(existing) || requiresSerial(nextItem)) && (existing.stock !== 0 || nextItem.stock !== 0 || hasHistory))) throw new Error('此品項有庫存或歷史紀錄，請另建品項，不可變更序號分類');
@@ -646,6 +649,7 @@ function purchaseFields(state, fields) {
   const lines = fields.lines.map((line) => {
     const item = state.items.find((candidate) => candidate.id === line.itemId);
     if (!item || item.supplierId !== supplier.id) throw new Error('品項不存在或不屬於此供應商，請修改草稿');
+    if (!item.active) throw new Error(`品項「${item.name}」已停用，不能進貨或收貨，請修改進貨單`);
     const quantity = purchaseQuantity(line.quantity);
     const unitCents = purchaseCents(line.unitCost);
     const subtotal = quantity * unitCents;
@@ -760,6 +764,7 @@ function recordTransaction(state, fields) {
   const quantity = number(fields?.quantity, '異動數量');
   const item = current.items.find((candidate) => candidate.id === itemId);
   if (!item) throw new Error('找不到品項');
+  if (type === 'in' && !item.active) throw new Error(`品項「${item.name}」已停用，無法入庫`);
   const warranty = type === 'warranty_out' ? current.warranties.find(w => w.id === fields.warrantyId) : null;
   if (type === 'warranty_out') {
     if (!warranty) throw new Error('請選擇原保固紀錄');
@@ -893,6 +898,7 @@ function createQuotation(state, fields) {
   const lines = fields.lines.map((line) => {
     const item = current.items.find((candidate) => candidate.id === line?.itemId);
     if (!item) throw new Error('找不到品項');
+    if (!item.active) throw new Error(`「${item.name}」已停用，無法報價`);
     const quantity = positiveInteger(line?.quantity, '報價數量');
     const installationRequired = line.installationRequired === true;
     const laborHours = installationRequired ? quotationDecimal(line.laborHours, '工時', true) : 0;
@@ -1065,6 +1071,7 @@ function recordSaleBatch(state, fields) {
     const itemId = text(line?.itemId), barcode = text(line?.barcode);
     const item = current.items.find((candidate) => itemId ? candidate.id === itemId : barcode && candidate.barcode === barcode);
     if (!item) throw new Error('找不到此品項');
+    if (!item.active) throw new Error(`「${item.name}」已停用，無法銷售`);
     const quantity = positiveInteger(line?.quantity, '銷售數量');
     const serials = selectedSerials(current, item, line?.serialIds);
     if (requiresSerial(item) && config.strictSerials) {
@@ -1155,7 +1162,7 @@ function vehicleItemChoices(state, modelId, category) {
   if (!category || (models.length && !modelId)) return [];
   const universalIds = new Set(models.filter(model => model.isUniversal).map(model => model.id));
   const rank = item => !models.length || item.vehicleModelId === modelId ? 0 : universalIds.has(item.vehicleModelId) ? 1 : !item.vehicleModelId ? 2 : 3;
-  return state.items.filter(item => item.category === category).map(item => ({ item, rank: rank(item) }))
+  return state.items.filter(item => item.category === category && item.active !== false).map(item => ({ item, rank: rank(item) }))
     .filter(choice => choice.rank < 3).sort((a, b) => a.rank - b.rank || a.item.name.localeCompare(b.item.name, 'zh-Hant'));
 }
 // 銷售日期（YYYY-MM-DD）：結帳時選的日期；舊單沒有銷售日期，改用建立時間的台灣日期（和資料庫相同）。
