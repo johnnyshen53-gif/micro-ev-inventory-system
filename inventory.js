@@ -381,6 +381,7 @@ function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallba
     customerName,
     customerPhone,
     plateNumber: text(value?.plateNumber),
+    bundleDiscount: number(value?.bundleDiscount ?? 0, '車身電池折扣'),
     salespersonId,
     salespersonName,
     lines,
@@ -914,6 +915,15 @@ function createQuotation(state, fields) {
     }
     promotionEntries = result.entries.map(entry => ({ promotionId: entry.promotionId, name: entry.name, times: entry.times, discount: entry.discount }));
   }
+  // 車身＋電池折扣：同一品項先合併，以扣掉組合折扣後的金額為上限，再依明細順序往下扣（和資料庫 save_quotation 相同）。
+  const mergedNet = new Map();
+  lines.forEach(line => { const entry = mergedNet.get(line.itemId) ?? { itemId: line.itemId, quantity: 0, netCents: 0 }; entry.quantity += line.quantity; entry.netCents += toCents(line.unitPrice) * line.quantity - toCents(line.discount); mergedNet.set(line.itemId, entry); });
+  const bundle = bundleDiscounts([...mergedNet.values()], current.items);
+  const bundleLeft = new Map(bundle.byItem);
+  for (const line of lines) {
+    const cut = Math.min(bundleLeft.get(line.itemId) ?? 0, toCents(line.unitPrice) * line.quantity - toCents(line.discount));
+    if (cut > 0) { line.discount = (toCents(line.discount) + cut) / 100; bundleLeft.set(line.itemId, bundleLeft.get(line.itemId) - cut); }
+  }
   const timestamp = new Date().toISOString();
   const datePrefix = timestamp.slice(0, 10).replaceAll('-', '');
   const sequence = current.quotations.reduce((largest, quotation) => {
@@ -931,6 +941,7 @@ function createQuotation(state, fields) {
     salespersonName: salesperson.name,
     lines,
     promotions: promotionEntries,
+    bundleDiscount: bundle.total,
     total: quotationTotal(lines),
     note: text(fields.note),
     createdAt: timestamp,
@@ -1086,15 +1097,19 @@ function recordSaleBatch(state, fields) {
   const appliedPromotions = Array.isArray(fields?.promotions) ? fields.promotions : [];
   const promotion = appliedPromotions.length ? promotionDiscounts(requested.map(line => ({ itemId: line.item.id, unitPrice: line.item.price, quantity: line.quantity })), appliedPromotions) : null;
   const promotionRefs = appliedPromotions.map(entry => ({ promotionId: entry.promotion.id, times: entry.times }));
-  // 優惠代碼：在組合折扣之後計算（和資料庫 apply_sale_coupon 相同）。
+  // 車身＋電池折扣：在特惠組合之後、優惠代碼之前（和資料庫 apply_bundle_discount 相同）。
+  const saleNet = new Map();
+  requested.forEach(line => { const entry = saleNet.get(line.item.id) ?? { itemId: line.item.id, quantity: 0, netCents: -(promotion?.byItem.get(line.item.id) ?? 0) }; entry.quantity += line.quantity; entry.netCents += toCents(line.item.price) * line.quantity; saleNet.set(line.item.id, entry); });
+  const bundle = bundleDiscounts([...saleNet.values()], current.items);
+  // 優惠代碼：在組合折扣、車身＋電池折扣之後計算（和資料庫 apply_sale_coupon 相同）。
   const coupon = fields?.coupon ?? null;
   let couponByItem = new Map();
   if (coupon) {
     if (new Set(requested.map(line => line.item.id)).size !== requested.length) throw new Error('使用優惠代碼時，相同品項請合併成一列');
-    couponByItem = couponDiscounts(requested.map(line => ({ itemId: line.item.id, netCents: toCents(line.item.price) * line.quantity - (promotion?.byItem.get(line.item.id) ?? 0) })), coupon).byItem;
+    couponByItem = couponDiscounts(requested.map(line => ({ itemId: line.item.id, netCents: toCents(line.item.price) * line.quantity - (promotion?.byItem.get(line.item.id) ?? 0) - (bundle.byItem.get(line.item.id) ?? 0) })), coupon).byItem;
   }
   const sales = requested.map((line) => {
-    const item = line.item, discountCents = (promotion?.byItem.get(item.id) ?? 0) + (couponByItem.get(item.id) ?? 0);
+    const item = line.item, discountCents = (promotion?.byItem.get(item.id) ?? 0) + (bundle.byItem.get(item.id) ?? 0) + (couponByItem.get(item.id) ?? 0);
     const subtotal = discountCents ? (toCents(item.price) * line.quantity - discountCents) / 100 : item.price * line.quantity;
     return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, discount: discountCents / 100, subtotal, promotions: promotionRefs, couponCode: coupon?.code ?? '', createdAt, saleDate, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) };
   });
@@ -1113,6 +1128,26 @@ function recordSaleBatch(state, fields) {
   return validateState({ ...current, serials, items: current.items.map((item) => ({ ...item, stock: item.stock - (quantities.get(item.id) ?? 0) })), transactions: [...current.transactions, ...transactions], sales: [...current.sales, ...sales], warranties: [...current.warranties, ...warranties] });
 }
 
+// 車身＋電池組合折扣（和資料庫 calc_bundle_discounts 相同）：每「1 車身＋1 電池」配成一組折 500 元。
+// lines：同一品項已合併的 [{ itemId, quantity, netCents（扣掉特惠組合後的金額，單位：分） }]。
+// 折扣先從車身扣（金額大的先，同金額依品項 ID），不夠再從電池扣，每項最多扣到 0。回傳 { sets, total（元）, byItem（分） }。
+const BUNDLE_DISCOUNT_CENTS = 50000;
+function bundleDiscounts(lines, items) {
+  const category = itemId => items.find(item => item.id === itemId)?.category;
+  const quantityOf = name => lines.filter(line => category(line.itemId) === name).reduce((sum, line) => sum + line.quantity, 0);
+  const sets = Math.min(quantityOf('車身'), quantityOf('電池'));
+  let rest = sets * BUNDLE_DISCOUNT_CENTS;
+  const byItem = new Map();
+  const rank = line => category(line.itemId) === '車身' ? 0 : 1;
+  const ordered = lines.filter(line => ['車身', '電池'].includes(category(line.itemId)))
+    .sort((a, b) => rank(a) - rank(b) || b.netCents - a.netCents || (a.itemId < b.itemId ? -1 : a.itemId > b.itemId ? 1 : 0));
+  for (const line of ordered) {
+    if (rest <= 0) break;
+    const cut = Math.min(rest, Math.max(line.netCents, 0));
+    if (cut > 0) { byItem.set(line.itemId, (byItem.get(line.itemId) ?? 0) + cut); rest -= cut; }
+  }
+  return { sets, total: (sets * BUNDLE_DISCOUNT_CENTS - rest) / 100, byItem };
+}
 // 依車種＋分類挑品項（報價單用）：選定車種的品項在前（rank 0），其次「通用」（1），最後是還沒設定車種的舊品項（2）；
 // 其他車種的品項不列出。沒有任何車種資料時不篩車種（全部 rank 0）。
 function vehicleItemChoices(state, modelId, category) {
@@ -1291,4 +1326,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { config, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { config, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

@@ -38,7 +38,7 @@ test('the quotation form offers a typed-in customer and picks items by category 
   assert.match(html, /id="quotation-vehicle-model"/);
   assert.match(app, /vehicleItemChoices\(state, modelId, category\)/);
   assert.match(app, /customerName: \$\('quotation-customer-name'\)\?\.value, customerPhone: \$\('quotation-customer-phone'\)\?\.value/);
-  assert.match(cloud, /customer_id,customer_name,customer_phone,plate_number,salesperson_id/);
+  assert.match(cloud, /customer_id,customer_name,customer_phone,plate_number,bundle_discount,salesperson_id/);
   assert.match(cloud, /plateNumber: row\.plate_number \?\? ''/);
   assert.match(html, /<input id="quotation-plate-number" maxlength="20"/);
   assert.doesNotMatch(html, /id="quotation-plate-number"[^>]*required/, '車號不是必填');

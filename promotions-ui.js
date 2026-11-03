@@ -222,10 +222,15 @@
       catch (error) { return { error: error.message, byItem: new Map(), entries: [], total: 0 }; }
     }
     // 優惠代碼在組合折扣之後計算：以各品項扣掉組合折扣後的金額為基準。
-    function couponResult(result = compute()) {
+    // 車身＋電池折扣：每 1 車身＋1 電池折 500，在組合折扣之後、優惠代碼之前（自動套用）。
+    function bundleResult(result = compute()) {
+      return inventory().bundleDiscounts(cartLines().map(line => ({ itemId: line.itemId, quantity: line.quantity,
+        netCents: Math.round(Number(line.unitPrice) * 100) * line.quantity - (result.byItem.get(line.itemId) ?? 0) })), getState().items ?? []);
+    }
+    function couponResult(result = compute(), bundle = bundleResult(result)) {
       if (!coupon) return { byItem: new Map(), total: 0 };
       return inventory().couponDiscounts(cartLines().map(line => ({ itemId: line.itemId,
-        netCents: Math.round(Number(line.unitPrice) * 100) * line.quantity - (result.byItem.get(line.itemId) ?? 0) })), coupon);
+        netCents: Math.round(Number(line.unitPrice) * 100) * line.quantity - (result.byItem.get(line.itemId) ?? 0) - (bundle.byItem.get(line.itemId) ?? 0) })), coupon);
     }
     const hint = (text, error = false) => { el('hint').textContent = text; el('hint').classList.toggle('error', error); };
 
@@ -369,12 +374,12 @@
         render();
         return changed;
       },
-      // discount＝組合＋代碼的總折扣；byItem＝各品項折扣（分），兩種合計。
+      // discount＝組合＋車身電池＋代碼的總折扣；byItem＝各品項折扣（分），三種合計。
       summary() {
-        const result = compute(), couponPart = couponResult(result);
+        const result = compute(), bundle = bundleResult(result), couponPart = couponResult(result, bundle);
         const byItem = new Map(result.byItem);
-        couponPart.byItem.forEach((cents, itemId) => byItem.set(itemId, (byItem.get(itemId) ?? 0) + cents));
-        return { discount: Math.round((result.total + couponPart.total) * 100) / 100, comboDiscount: result.total, couponDiscount: couponPart.total, byItem };
+        for (const part of [bundle.byItem, couponPart.byItem]) part.forEach((cents, itemId) => byItem.set(itemId, (byItem.get(itemId) ?? 0) + cents));
+        return { discount: Math.round((result.total + bundle.total + couponPart.total) * 100) / 100, comboDiscount: result.total, bundleDiscount: bundle.total, couponDiscount: couponPart.total, byItem };
       },
       // 結帳送出用：[{ promotion, times }]
       selected() { return resolve().filter(entry => entry.promotion); },
