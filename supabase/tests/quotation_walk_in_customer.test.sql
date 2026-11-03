@@ -33,6 +33,12 @@ begin
   v_q := gen_random_uuid();
   perform public.save_quotation(jsonb_build_object('id', v_q, 'number', 'Q-WALK-2', 'customerName', '李小姐', 'total', 2900), v_line);
   if (select customer_phone from public.quotations where id = v_q) <> '' then raise exception 'empty phone should be allowed'; end if;
+  if (select plate_number from public.quotations where id = v_q) <> '' then raise exception 'plate number should default to empty'; end if;
+
+  -- 2b) 車號選填：存成大寫、去頭尾空白。
+  v_q := gen_random_uuid();
+  perform public.save_quotation(jsonb_build_object('id', v_q, 'number', 'Q-PLATE-1', 'customerName', '張先生', 'plateNumber', ' abc-1234 ', 'total', 2900), v_line);
+  if (select plate_number from public.quotations where id = v_q) <> 'ABC-1234' then raise exception 'plate number not stored'; end if;
 
   -- 3) 沒選客戶也沒填姓名：擋下。
   v_denied := false;

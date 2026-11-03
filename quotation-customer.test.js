@@ -17,7 +17,9 @@ const quote = (state, fields) => Inventory.createQuotation(state, { salespersonI
 test('a typed-in customer is stored only on the quotation; name is required, phone is optional', () => {
   const next = quote(base(), { customerId: '', customerName: '  王先生 ', customerPhone: '' });
   const q = next.quotations[0];
-  assert.deepEqual([q.customerId, q.customerName, q.customerPhone, q.total], ['', '王先生', '', 2900]);
+  assert.deepEqual([q.customerId, q.customerName, q.customerPhone, q.plateNumber, q.total], ['', '王先生', '', '', 2900]);
+  assert.equal(quote(base(), { customerId: 'c1', plateNumber: ' abc-1234 ' }).quotations[0].plateNumber, 'ABC-1234', '車號選填，存成大寫');
+  assert.throws(() => quote(base(), { customerId: 'c1', plateNumber: 'A'.repeat(21) }), /車號最多 20 字/);
   assert.equal(next.customers.length, 1, '不會新增到客戶管理');
   assert.equal(Inventory.validateState(next).quotations[0].customerName, '王先生');
   assert.throws(() => quote(base(), { customerId: '', customerName: '   ' }), /請選擇客戶或填寫客戶姓名/);
@@ -36,7 +38,11 @@ test('the quotation form offers a typed-in customer and picks items by category 
   assert.match(html, /id="quotation-vehicle-model"/);
   assert.match(app, /vehicleItemChoices\(state, modelId, category\)/);
   assert.match(app, /customerName: \$\('quotation-customer-name'\)\?\.value, customerPhone: \$\('quotation-customer-phone'\)\?\.value/);
-  assert.match(cloud, /customer_id,customer_name,customer_phone,salesperson_id/);
+  assert.match(cloud, /customer_id,customer_name,customer_phone,plate_number,salesperson_id/);
+  assert.match(cloud, /plateNumber: row\.plate_number \?\? ''/);
+  assert.match(html, /<input id="quotation-plate-number" maxlength="20"/);
+  assert.doesNotMatch(html, /id="quotation-plate-number"[^>]*required/, '車號不是必填');
+  assert.match(app, /plateNumber: \$\('quotation-plate-number'\)\?\.value/);
   assert.match(cloud, /customerName: row\.customer_id \? customerById\.get\(row\.customer_id\)\?\.name \?\? '' : row\.customer_name \?\? ''/);
 });
 
@@ -88,11 +94,11 @@ test('the printed quotation header has customer and phone, date, and salesperson
   const ctx = { $: id => (els[id] ??= node()), document: { createElement: node }, formatNumber: String, quotationItemVehicle: () => '—' };
   vm.runInNewContext(app.slice(start, app.indexOf('\n', app.indexOf('\n', start) + 1)), ctx);
   const base = { number: 'Q1', createdAt: '2026-11-03T02:00:00.000Z', salespersonName: '阿明', lines: [], promotions: [], total: 0 };
-  ctx.showQuotation({ ...base, customerName: '王先生', customerPhone: '0922333444' });
+  ctx.showQuotation({ ...base, customerName: '王先生', customerPhone: '0922333444', plateNumber: 'ABC-1234' });
   assert.equal(els['quotation-print-content'].children[0].textContent, '電小二冬山店');
   assert.equal(els['quotation-print-content'].children[1].textContent, '報價單　編號：Q1');
   const header = els['quotation-print-content'].children[2];
-  assert.deepEqual(header.children.map(line => line.textContent), ['客戶：王先生　電話：0922333444', `日期：${new Date(base.createdAt).toLocaleDateString('zh-TW')}`, '業務：阿明']);
+  assert.deepEqual(header.children.map(line => line.textContent), ['客戶：王先生　電話：0922333444　車號：ABC-1234', `日期：${new Date(base.createdAt).toLocaleDateString('zh-TW')}`, '業務：阿明']);
   ctx.showQuotation({ ...base, customerName: '李小姐', customerPhone: '', salespersonName: '' });
   assert.deepEqual(els['quotation-print-content'].children[2].children.map(line => line.textContent).filter((_, i) => i !== 1), ['客戶：李小姐', '業務：未填寫']);
 });

@@ -373,6 +373,7 @@ function normalizedQuotation(value, customerIds, salespersonIds, itemIds, fallba
     customerId,
     customerName,
     customerPhone,
+    plateNumber: text(value?.plateNumber),
     salespersonId,
     salespersonName,
     lines,
@@ -870,6 +871,9 @@ function createQuotation(state, fields) {
     if (phone.length > 30) throw new Error('電話最多 30 字');
     customer = { id: '', name, phone };
   }
+  // 車號選填：存成大寫、去頭尾空白，最多 20 字（和資料庫相同）。
+  const plateNumber = text(fields?.plateNumber).toUpperCase();
+  if (plateNumber.length > 20) throw new Error('車號最多 20 字');
   const salesperson = current.salespeople.find((candidate) => candidate.id === fields?.salespersonId);
   if (!salesperson) throw new Error('找不到業務');
   if (!salesperson.active) throw new Error('業務已停用，無法建立報價');
@@ -912,6 +916,7 @@ function createQuotation(state, fields) {
     customerId: customer.id,
     customerName: customer.name,
     customerPhone: customer.phone,
+    plateNumber,
     salespersonId: salesperson.id,
     salespersonName: salesperson.name,
     lines,
