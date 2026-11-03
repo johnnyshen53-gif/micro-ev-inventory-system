@@ -1822,13 +1822,7 @@ $('sale-serial-add')?.addEventListener('click', () => {
 if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (pendingSave) return;
-  const finishSale = (message) => {
-    saleCart = []; saleCheckoutId = ''; saleSerialItemId = ''; saleSerialQuantity = 1;
-    window.PromotionUI?.checkout?.reset();
-    $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1'; syncSaleDate(true);
-    $('sale-serial-panel').hidden = true; $('sale-serial-ids').replaceChildren(); $('sale-item-info').hidden = true;
-    clearFormError('sale-form'); renderSaleCart(); render(); setStatus(message);
-  };
+  const finishSale = (message) => resetSaleOrder(message);
   const committed = () => (state.sales ?? []).some(sale => sale.checkoutId === saleCheckoutId);
   try {
     saleCheckoutId ||= crypto.randomUUID();
@@ -1841,6 +1835,20 @@ if ($('sale-form')) $('sale-form').addEventListener('submit', async (event) => {
     }
     finishSale('銷售已完成。');
   } catch (error) { showFormError('sale-form', error.message); }
+});
+// 清空整張訂單（結帳完成或取消結帳都用）：購物車、組合、優惠代碼、客戶、業務員、日期、序號面板。
+function resetSaleOrder(message) {
+  saleCart = []; saleCheckoutId = ''; saleSerialItemId = ''; saleSerialQuantity = 1;
+  window.PromotionUI?.checkout?.reset();
+  $('sale-form').reset(); $('sale-quantity').value = '1'; $('sale-pick-quantity').value = '1'; syncSaleDate(true);
+  $('sale-serial-panel').hidden = true; $('sale-serial-ids').replaceChildren(); $('sale-item-info').hidden = true;
+  clearFormError('sale-form'); renderSaleCart(); render(); setStatus(message);
+}
+// 取消結帳：送出中不能取消；購物車有東西時先確認，避免誤按。不會動到庫存（還沒結帳）。
+$('sale-cancel')?.addEventListener('click', () => {
+  if (pendingSave) return;
+  if (saleCart.length && !confirm(`確定取消這筆結帳？購物車的 ${saleCart.length} 項商品、套用的優惠都會清空。`)) return;
+  resetSaleOrder('已取消結帳，購物車已清空。');
 });
 // 銷售日期欄：最晚只能選今天（台灣日期）。reset＝結帳完成後改回今天；否則只在空白或超過今天時補成今天。
 function syncSaleDate(reset = false) {

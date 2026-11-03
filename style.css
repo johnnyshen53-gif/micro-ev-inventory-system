@@ -485,3 +485,6 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .quotation-stamp { position: absolute; right: 0; top: -.7cm; width: 3.5cm; height: 3.5cm; object-fit: contain; opacity: .92; transform: rotate(-8deg); mix-blend-mode: multiply; pointer-events: none; }
 .quotation-stamp[hidden] { display: none; }
 @media print { .quotation-stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+/* 結帳按鈕：確認結帳（寬）＋取消結帳（窄）。 */
+.sale-checkout-actions { display: grid; grid-template-columns: 2fr 1fr; gap: .6rem; }
+@media (max-width: 700px) { .sale-checkout-actions { grid-template-columns: 1fr; } }
