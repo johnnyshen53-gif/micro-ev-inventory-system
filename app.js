@@ -483,6 +483,19 @@ function parseUnitQr(value) {
   return barcode && serialNumber && !extra && /^\d{13}$/.test(barcode) ? { barcode, serialNumber: serialNumber.trim() } : { barcode: raw, serialNumber: '' };
 }
 $('item-search')?.addEventListener('input', renderItems);
+// 匯出整份庫存清單（CSV）：全部品項；店長的檔案含成本與庫存金額，店員的不含。
+$('inventory-export')?.addEventListener('click', () => {
+  if (!window.InventoryExport) return setStatus('匯出功能尚未載入，請重新整理頁面。', true);
+  if (!state.items.length) return setStatus('目前沒有品項可以匯出。', true);
+  const includeCost = document.body.dataset.role === 'admin';
+  const csv = window.InventoryExport.inventoryCsv(state, { includeCost, vehicleName: vehicleModelLabel, supplierName });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = window.InventoryExport.exportFileName();
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  setStatus(`已匯出 ${state.items.length} 個品項${includeCost ? '（含成本）' : ''}。`);
+});
 $('item-category-tabs')?.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-category]');
   if (!button) return;
