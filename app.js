@@ -412,7 +412,6 @@ function resetItemForm() {
   $('item-stock').value = '0';
   $('item-minimum-stock').value = '0';
   $('item-warranty-months').value = '0';
-  updateSuggestedPrice(false);
   $('item-form-title').textContent = '新增品項';
   $('item-cancel').hidden = true;
   updateItemPrintButton();
@@ -437,7 +436,6 @@ function startEditing(item) {
   });
   $('item-form-title').textContent = `編輯：${item.name}`;
   updateBatteryFields();
-  updateSuggestedPrice(false);
   $('item-cancel').hidden = false;
   updateItemPrintButton();
   $('item-name').focus();

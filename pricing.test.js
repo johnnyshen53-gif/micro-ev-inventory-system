@@ -44,7 +44,8 @@ test('bonus page and price markups are removed from the screens', async () => {
     assert.doesNotMatch(html, pattern, String(pattern));
   }
   const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(app, /BonusUI|priceMarkups|loadPriceMarkups/);
+  // 移除後不可留下呼叫：編輯／儲存品項時會出現「updateSuggestedPrice is not defined」。
+  assert.doesNotMatch(app, /BonusUI|priceMarkups|loadPriceMarkups|updateSuggestedPrice|currentSuggestedPrice/);
   // 固定售價不再出現在畫面上；編輯品項時沿用原本的值。
   assert.match(app, /priceLocked: state\.items\.find\(item => item\.id === \$\('item-id'\)\.value\)\?\.priceLocked === true/);
 });
