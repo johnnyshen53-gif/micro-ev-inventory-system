@@ -24,6 +24,7 @@ const {
   recordTransaction,
   saleDateOf,
   salesForMonth,
+  vehicleItemChoices,
   toBackup,
   updateCustomer,
   updateSalesperson,
@@ -1330,15 +1331,29 @@ function renderQuotationBuilder() {
   // 客戶：第一個選項是「直接填寫客戶」（值為空白），選它時顯示姓名、電話欄位。
   customer.append(new Option('直接填寫客戶', ''));
   state.customers.filter((candidate) => candidate.active).forEach((candidate) => customer.append(new Option(`${candidate.name}（${candidate.phone}）`, candidate.id)));
-  // 品項：先選分類，品名只列出該分類的品項。
-  const category = $('quotation-category')?.value ?? '';
-  item.append(new Option(category ? '請選擇品名' : '請先選擇分類', ''));
-  state.items.filter((candidate) => candidate.category === category).forEach((candidate) => item.append(new Option(`${candidate.name}（庫存 ${formatNumber(candidate.stock)}）`, candidate.id)));
-  item.disabled = !category;
+  // 品項：先選車種，再選分類，品名只列出該車種＋「通用」＋還沒設定車種的品項（和銷售結帳相同）。
+  const vehicle = $('quotation-vehicle-model'), selectedVehicle = vehicle?.value ?? '';
+  const models = state.vehicleModels ?? [];
+  const usedModels = new Set(state.items.map((candidate) => candidate.vehicleModelId));
+  const vehicleChoices = models.filter((model) => model.active || usedModels.has(model.id))
+    .sort((a, b) => Number(b.isUniversal) - Number(a.isUniversal) || a.name.localeCompare(b.name, 'zh-Hant'));
+  if (vehicle) {
+    vehicle.replaceChildren(new Option(models.length ? '請選擇車種' : '尚未建立車種', ''));
+    vehicleChoices.forEach((model) => vehicle.append(new Option(`${model.name}${model.active ? '' : '（已停用）'}`, model.id)));
+    vehicle.value = vehicleChoices.some((model) => model.id === selectedVehicle) ? selectedVehicle : '';
+  }
+  const modelId = vehicle?.value ?? '';
+  const needsModel = models.length > 0;
+  if ($('quotation-category')) $('quotation-category').disabled = needsModel && !modelId;
+  const category = needsModel && !modelId ? '' : $('quotation-category')?.value ?? '';
+  const choices = vehicleItemChoices(state, modelId, category);
+  item.append(new Option(needsModel && !modelId ? '請先選擇車種' : !category ? '請先選擇分類' : choices.length ? '請選擇品名' : '此車種在這個分類沒有品項', ''));
+  choices.forEach(({ item: candidate, rank }) => item.append(new Option(`${candidate.name}${['', '（通用）', '（未設定車種）'][rank]}（庫存 ${formatNumber(candidate.stock)}）`, candidate.id)));
+  item.disabled = !choices.length;
   if (state.customers.some((candidate) => candidate.active && candidate.id === selectedCustomer)) customer.value = selectedCustomer;
   if ($('quotation-walk-in')) $('quotation-walk-in').hidden = Boolean(customer.value);
   if (state.salespeople.some((candidate) => (candidate.active && candidate.isSales !== false) && candidate.id === selectedSalesperson)) salesperson.value = selectedSalesperson;
-  if (state.items.some((candidate) => candidate.id === selectedItem && candidate.category === category)) item.value = selectedItem;
+  if (choices.some((choice) => choice.item.id === selectedItem)) item.value = selectedItem;
   // 特惠組合：先調整套用的組數，再把各品項分到的折扣依明細順序往下扣（和存檔時的算法相同），只用來顯示。
   const promotions = globalThis.PromotionUI?.quotation;
   promotions?.sync();
@@ -1366,6 +1381,7 @@ function showQuotation(quotation) { const detail = $('quotation-detail'); detail
 $('quotation-add-line')?.addEventListener('click', () => { const item = state.items.find((candidate) => candidate.id === $('quotation-item').value); const quantity = Number($('quotation-quantity').value); if (!item || !Number.isInteger(quantity) || quantity <= 0) return showFormError('quotation-form', '請選擇品項並輸入大於零的整數數量。'); addQuotationItem(item, quantity); });
 $('quotation-customer')?.addEventListener('change', () => { $('quotation-walk-in').hidden = Boolean($('quotation-customer').value); });
 $('quotation-category')?.addEventListener('change', () => { $('quotation-item').value = ''; renderQuotationBuilder(); });
+$('quotation-vehicle-model')?.addEventListener('change', () => { $('quotation-item').value = ''; renderQuotationBuilder(); });
 $('quotation-lines')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-remove-line]'); if (!button) return; quotationLines.splice(Number(button.dataset.removeLine), 1); renderQuotationBuilder(); });
 if ($('quotation-form')) $('quotation-form').addEventListener('submit', async (event) => { event.preventDefault(); try { const next = createQuotation(state, { customerId: $('quotation-customer').value, customerName: $('quotation-customer-name')?.value, customerPhone: $('quotation-customer-phone')?.value, salespersonId: $('quotation-salesperson').value, lines: quotationLines, note: $('quotation-note').value, promotions: window.PromotionUI?.quotation?.selected() ?? [] }); if (!await saveState(next)) return; quotationLines = []; window.PromotionUI?.quotation?.reset(); $('quotation-form').reset(); clearFormError('quotation-form'); render(); setStatus('報價單已建立。'); } catch (error) { showFormError('quotation-form', error.message); } });
 $('quotation-search')?.addEventListener('input', renderQuotations);

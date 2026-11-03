@@ -33,8 +33,31 @@ test('the quotation form offers a typed-in customer and picks items by category 
   for (const id of ['quotation-walk-in', 'quotation-customer-name', 'quotation-customer-phone', 'quotation-category', 'quotation-item']) assert.match(html, new RegExp(`id="${id}"`), id);
   assert.doesNotMatch(html, /<select id="quotation-customer" required>/);
   assert.match(app, /customer\.append\(new Option\('直接填寫客戶', ''\)\)/);
-  assert.match(app, /state\.items\.filter\(\(candidate\) => candidate\.category === category\)/);
+  assert.match(html, /id="quotation-vehicle-model"/);
+  assert.match(app, /vehicleItemChoices\(state, modelId, category\)/);
   assert.match(app, /customerName: \$\('quotation-customer-name'\)\?\.value, customerPhone: \$\('quotation-customer-phone'\)\?\.value/);
   assert.match(cloud, /customer_id,customer_name,customer_phone,salesperson_id/);
   assert.match(cloud, /customerName: row\.customer_id \? customerById\.get\(row\.customer_id\)\?\.name \?\? '' : row\.customer_name \?\? ''/);
+});
+
+test('quotation item choices follow vehicle then category, listing universal and unassigned items after the vehicle', () => {
+  const vespa = 'v-vespa', ninebot = 'v-nine', universal = 'v-all';
+  const state = { vehicleModels: [
+    { id: universal, name: '通用', isUniversal: true, active: true },
+    { id: vespa, name: '小偉士', isUniversal: false, active: true },
+    { id: ninebot, name: '九號', isUniversal: false, active: true },
+  ], items: [
+    { id: 'a', name: '小偉士後照鏡', category: '外觀元件', vehicleModelId: vespa },
+    { id: 'b', name: '九號後照鏡', category: '外觀元件', vehicleModelId: ninebot },
+    { id: 'c', name: '手機架', category: '外觀元件', vehicleModelId: universal },
+    { id: 'd', name: '舊貼紙', category: '外觀元件', vehicleModelId: '' },
+    { id: 'e', name: '小偉士輪胎', category: '機構元件', vehicleModelId: vespa },
+  ] };
+  const pick = (modelId, category) => JSON.parse(JSON.stringify(Inventory.vehicleItemChoices(state, modelId, category).map(choice => [choice.item.id, choice.rank])));
+  assert.deepEqual(pick(vespa, '外觀元件'), [['a', 0], ['c', 1], ['d', 2]], '九號的品項不列出');
+  assert.deepEqual(pick(vespa, '機構元件'), [['e', 0]]);
+  assert.deepEqual(pick('', '外觀元件'), [], '沒選車種不列品項');
+  assert.deepEqual(pick(vespa, ''), [], '沒選分類不列品項');
+  // 還沒建立任何車種：不篩車種。
+  assert.deepEqual(JSON.parse(JSON.stringify(Inventory.vehicleItemChoices({ vehicleModels: [], items: state.items }, '', '機構元件').map(choice => choice.item.id))), ['e']);
 });

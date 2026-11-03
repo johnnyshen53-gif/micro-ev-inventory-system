@@ -1091,6 +1091,16 @@ function recordSaleBatch(state, fields) {
   return validateState({ ...current, serials, items: current.items.map((item) => ({ ...item, stock: item.stock - (quantities.get(item.id) ?? 0) })), transactions: [...current.transactions, ...transactions], sales: [...current.sales, ...sales], warranties: [...current.warranties, ...warranties] });
 }
 
+// 依車種＋分類挑品項（報價單用）：選定車種的品項在前（rank 0），其次「通用」（1），最後是還沒設定車種的舊品項（2）；
+// 其他車種的品項不列出。沒有任何車種資料時不篩車種（全部 rank 0）。
+function vehicleItemChoices(state, modelId, category) {
+  const models = state.vehicleModels ?? [];
+  if (!category || (models.length && !modelId)) return [];
+  const universalIds = new Set(models.filter(model => model.isUniversal).map(model => model.id));
+  const rank = item => !models.length || item.vehicleModelId === modelId ? 0 : universalIds.has(item.vehicleModelId) ? 1 : !item.vehicleModelId ? 2 : 3;
+  return state.items.filter(item => item.category === category).map(item => ({ item, rank: rank(item) }))
+    .filter(choice => choice.rank < 3).sort((a, b) => a.rank - b.rank || a.item.name.localeCompare(b.item.name, 'zh-Hant'));
+}
 // 銷售日期（YYYY-MM-DD）：結帳時選的日期；舊單沒有銷售日期，改用建立時間的台灣日期（和資料庫相同）。
 function saleDateOf(sale) { return sale.saleDate || taipeiDate(sale.createdAt); }
 function checkedSaleDate(value, today) {
@@ -1259,4 +1269,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
