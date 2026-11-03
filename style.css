@@ -477,3 +477,11 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 /* 報價單抬頭：店名放大置中，下面一行是「報價單　編號」。 */
 .quotation-shop { margin: 0 0 .2rem; font-size: 2rem; font-weight: 800; letter-spacing: .08em; text-align: center; }
 .quotation-title { margin: 0 0 .8rem; font-size: 1.15rem; font-weight: 700; text-align: center; }
+/* 報價專用章：壓在合計右邊，約 3.5 公分；列印時保留紅色。 */
+.quotation-print-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.quotation-print-actions .check-item { margin: 0; }
+.quotation-total-row { position: relative; min-height: 3.6cm; margin-top: .5rem; }
+.quotation-total-row p { margin: 0; padding-right: 3.3cm; text-align: right; font-size: 1.2rem; font-weight: 800; }
+.quotation-stamp { position: absolute; right: 0; top: -.7cm; width: 3.5cm; height: 3.5cm; object-fit: contain; opacity: .92; transform: rotate(-8deg); mix-blend-mode: multiply; pointer-events: none; }
+.quotation-stamp[hidden] { display: none; }
+@media print { .quotation-stamp { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

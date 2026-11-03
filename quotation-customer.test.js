@@ -92,7 +92,7 @@ test('the printed quotation header has customer and phone, date, and salesperson
   const node = () => ({ children: [], dataset: {}, hidden: true, textContent: '', innerHTML: '', append(...kids) { this.children.push(...kids); }, replaceChildren() { this.children = []; } });
   const els = {};
   const ctx = { $: id => (els[id] ??= node()), document: { createElement: node }, formatNumber: String, quotationItemVehicle: () => '—' };
-  vm.runInNewContext(app.slice(start, app.indexOf('\n', app.indexOf('\n', start) + 1)), ctx);
+  vm.runInNewContext(app.slice(start, app.indexOf("\n$('", start)), ctx);
   const base = { number: 'Q1', createdAt: '2026-11-03T02:00:00.000Z', salespersonName: '阿明', lines: [], promotions: [], total: 0 };
   ctx.showQuotation({ ...base, customerName: '王先生', customerPhone: '0922333444', plateNumber: 'ABC-1234' });
   assert.equal(els['quotation-print-content'].children[0].textContent, '電小二冬山店');
@@ -114,4 +114,26 @@ test('managers can delete a quotation; the cloud save calls delete_quotation', a
   // 刪除按鈕只給店長；按下要先確認。
   assert.match(app, /if \(document\.body\.dataset\.role === 'admin'\) \{ const remove = document\.createElement\('button'\);/);
   assert.match(app, /confirm\(`確定刪除報價單 \$\{target\.number\}/);
+});
+
+test('the printed quotation can carry the quotation stamp next to the total, switched by a checkbox', async () => {
+  const [app, html, css] = await Promise.all(['app.js', 'index.html', 'style.css'].map(file => readFile(new URL(`./${file}`, import.meta.url), 'utf8')));
+  assert.match(html, /<input id="quotation-stamp-toggle" type="checkbox" checked> 蓋報價專用章/);
+  const start = app.indexOf('function showQuotation(');
+  const node = () => ({ children: [], dataset: {}, hidden: false, textContent: '', innerHTML: '', append(...kids) { this.children.push(...kids); }, replaceChildren() { this.children = []; } });
+  const els = {};
+  const ctx = { $: id => (els[id] ??= node()), document: { createElement: node }, formatNumber: String, quotationItemVehicle: () => '—' };
+  vm.runInNewContext(app.slice(start, app.indexOf("\n$('", start)), ctx);
+  const q = { number: 'Q1', createdAt: '2026-11-03T02:00:00.000Z', customerName: '王', customerPhone: '', salespersonName: '', lines: [], promotions: [], total: 2900 };
+  els['quotation-stamp-toggle'] = { checked: true };
+  ctx.showQuotation(q);
+  const totalRow = els['quotation-print-content'].children.at(-1);
+  assert.equal(totalRow.children[0].textContent, '合計：2900');
+  assert.equal(totalRow.children[1].src, 'assets/quotation-stamp.png');
+  assert.equal(totalRow.children[1].hidden, false);
+  els['quotation-stamp-toggle'].checked = false;
+  ctx.showQuotation(q);
+  assert.equal(els['quotation-print-content'].children.at(-1).children[1].hidden, true, '沒勾就不蓋章');
+  assert.match(css, /\.quotation-stamp \{ position: absolute; right: 0;/);
+  assert.match(css, /print-color-adjust: exact/);
 });
