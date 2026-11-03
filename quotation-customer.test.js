@@ -79,3 +79,18 @@ test('quotations show each line\'s vehicle model, and the record list joins the 
   assert.match(html, /<th>客戶<\/th><th>車種<\/th><th>業務<\/th>/);
   assert.match(app, /table\.innerHTML = `<thead><tr><th>品項<\/th><th>車種<\/th>/);
 });
+
+test('the printed quotation header has customer and phone, date, and salesperson on separate lines', async () => {
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const start = app.indexOf('function showQuotation(');
+  const node = () => ({ children: [], hidden: true, textContent: '', innerHTML: '', append(...kids) { this.children.push(...kids); }, replaceChildren() { this.children = []; } });
+  const els = {};
+  const ctx = { $: id => (els[id] ??= node()), document: { createElement: node }, formatNumber: String, quotationItemVehicle: () => '—' };
+  vm.runInNewContext(app.slice(start, app.indexOf('\n', app.indexOf('\n', start) + 1)), ctx);
+  const base = { number: 'Q1', createdAt: '2026-11-03T02:00:00.000Z', salespersonName: '阿明', lines: [], promotions: [], total: 0 };
+  ctx.showQuotation({ ...base, customerName: '王先生', customerPhone: '0922333444' });
+  const header = els['quotation-print-content'].children[1];
+  assert.deepEqual(header.children.map(line => line.textContent), ['客戶：王先生　電話：0922333444', `日期：${new Date(base.createdAt).toLocaleDateString('zh-TW')}`, '業務：阿明']);
+  ctx.showQuotation({ ...base, customerName: '李小姐', customerPhone: '', salespersonName: '' });
+  assert.deepEqual(els['quotation-print-content'].children[1].children.map(line => line.textContent).filter((_, i) => i !== 1), ['客戶：李小姐', '業務：未填寫']);
+});

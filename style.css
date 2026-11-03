@@ -471,3 +471,6 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 #item-import-rows .import-state-ok { color: #15803d; font-weight: 700; }
 @media (min-width: 701px) { table:has(#item-import-rows) :is(th, td):is(:nth-child(1), :nth-child(6), :nth-child(7), :nth-child(8)) { text-align: right; font-variant-numeric: tabular-nums; } }
 #item-import-preview .form-actions { margin-top: 1rem; }
+
+/* 報價單抬頭：客戶與電話、日期、業務員各一行。 */
+.quotation-info p { margin: .15rem 0; }
