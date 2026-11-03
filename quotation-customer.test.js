@@ -61,3 +61,21 @@ test('quotation item choices follow vehicle then category, listing universal and
   // 還沒建立任何車種：不篩車種。
   assert.deepEqual(JSON.parse(JSON.stringify(Inventory.vehicleItemChoices({ vehicleModels: [], items: state.items }, '', '機構元件').map(choice => choice.item.id))), ['e']);
 });
+
+test('quotations show each line\'s vehicle model, and the record list joins the distinct ones', async () => {
+  const app = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+  const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
+  const ctx = { state: { vehicleModels: [{ id: 'u', name: '通用', isUniversal: true }, { id: 'v', name: '小偉士' }, { id: 'n', name: '九號' }],
+    items: [{ id: 'a', vehicleModelId: 'v' }, { id: 'b', vehicleModelId: 'u' }, { id: 'c', vehicleModelId: '' }, { id: 'd', vehicleModelId: 'n' }] },
+    vehicleModelName: Inventory.vehicleModelName };
+  vm.runInNewContext(app.slice(app.indexOf('function quotationItemVehicle('), app.indexOf('function renderQuotations()')), ctx);
+  assert.deepEqual(['a', 'b', 'c'].map(ctx.quotationItemVehicle), ['小偉士', '通用', '—']);
+  const q = ids => ({ lines: ids.map(itemId => ({ itemId })) });
+  assert.equal(ctx.quotationVehicles(q(['a', 'b', 'c'])), '小偉士', '有指定車種時不列「通用」');
+  assert.equal(ctx.quotationVehicles(q(['a', 'd', 'a'])), '小偉士、九號');
+  assert.equal(ctx.quotationVehicles(q(['b'])), '通用');
+  assert.equal(ctx.quotationVehicles(q(['c'])), '—');
+  assert.match(html, /<th>品項<\/th><th>車種<\/th><th>庫存<\/th>/);
+  assert.match(html, /<th>客戶<\/th><th>車種<\/th><th>業務<\/th>/);
+  assert.match(app, /table\.innerHTML = `<thead><tr><th>品項<\/th><th>車種<\/th>/);
+});

@@ -63,7 +63,7 @@ test('quotations no longer charge installation labor because part prices already
   $('quotation-quantity').value = '2';
   $('quotation-add-line').listeners.click();
   assert.equal($('quotation-total').textContent, 'NT$ 700');
-  assert.equal($('quotation-lines').children[0].children.length, 6, '品項、庫存、單價、數量、小計、操作');
+  assert.equal($('quotation-lines').children[0].children.length, 7, '品項、車種、庫存、單價、數量、小計、操作');
   await $('quotation-form').listeners.submit({ preventDefault() {} });
   const line = context.state.quotations[0].lines[0];
   assert.deepEqual([line.installationRequired, line.laborHours, line.hourlyRate, line.laborAmount], [false, 0, 0, 0]);
@@ -495,7 +495,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=31"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=74"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=75"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
