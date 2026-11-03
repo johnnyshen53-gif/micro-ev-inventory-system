@@ -474,3 +474,6 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 
 /* 報價單抬頭：客戶與電話、日期、業務員各一行。 */
 .quotation-info p { margin: .15rem 0; }
+/* 報價單抬頭：店名放大置中，下面一行是「報價單　編號」。 */
+.quotation-shop { margin: 0 0 .2rem; font-size: 2rem; font-weight: 800; letter-spacing: .08em; text-align: center; }
+.quotation-title { margin: 0 0 .8rem; font-size: 1.15rem; font-weight: 700; text-align: center; }

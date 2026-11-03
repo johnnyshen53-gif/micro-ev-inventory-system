@@ -89,8 +89,10 @@ test('the printed quotation header has customer and phone, date, and salesperson
   vm.runInNewContext(app.slice(start, app.indexOf('\n', app.indexOf('\n', start) + 1)), ctx);
   const base = { number: 'Q1', createdAt: '2026-11-03T02:00:00.000Z', salespersonName: '阿明', lines: [], promotions: [], total: 0 };
   ctx.showQuotation({ ...base, customerName: '王先生', customerPhone: '0922333444' });
-  const header = els['quotation-print-content'].children[1];
+  assert.equal(els['quotation-print-content'].children[0].textContent, '電小二冬山店');
+  assert.equal(els['quotation-print-content'].children[1].textContent, '報價單　編號：Q1');
+  const header = els['quotation-print-content'].children[2];
   assert.deepEqual(header.children.map(line => line.textContent), ['客戶：王先生　電話：0922333444', `日期：${new Date(base.createdAt).toLocaleDateString('zh-TW')}`, '業務：阿明']);
   ctx.showQuotation({ ...base, customerName: '李小姐', customerPhone: '', salespersonName: '' });
-  assert.deepEqual(els['quotation-print-content'].children[1].children.map(line => line.textContent).filter((_, i) => i !== 1), ['客戶：李小姐', '業務：未填寫']);
+  assert.deepEqual(els['quotation-print-content'].children[2].children.map(line => line.textContent).filter((_, i) => i !== 1), ['客戶：李小姐', '業務：未填寫']);
 });
