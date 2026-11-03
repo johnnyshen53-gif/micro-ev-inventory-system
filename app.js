@@ -54,6 +54,8 @@ let receiptPurchaseId = '';
 let receiptSerialNumbersByItem = {};
 // 手機版只開放：營運總覽、庫存清單（查庫存、印標籤）。
 const mobileAllowedPages = new Set(['monthly-sales', 'list']);
+// 保固系統暫停使用：保固頁不顯示、結帳不建立保固（資料保留，之後改成 true 即可恢復頁面）。
+const WARRANTY_ENABLED = false;
 function isMobileView() { return window.matchMedia?.('(max-width: 700px)')?.matches === true; }
 
 function setAppEnabled(enabled) {
@@ -69,6 +71,7 @@ setAppEnabled(false);
 
 function showPage(page) {
   if (isMobileView() && !mobileAllowedPages.has(page)) page = 'monthly-sales';
+  if (!WARRANTY_ENABLED && page === 'warranties') page = 'sales';
   if (document.querySelector(`[data-page-target="${page}"]`)?.dataset.cloudDisabled !== undefined) page = 'list';
   const section = document.querySelector(`.app-page[data-page="${page}"]`);
   if (section?.dataset.role === 'admin' && document.body.dataset.role !== 'admin') page = 'sales';
@@ -793,7 +796,7 @@ function renderTransactionSerials() {
   const type = $('transaction-type').value;
   $('transaction-serial-numbers').parentElement.hidden = type === 'out' || type === 'warranty_out';
   select.parentElement.hidden = type === 'in';
-  $('transaction-serial-hint').textContent = type === 'warranty_out' ? '出保固：請選換出實物的在庫序號，數量必須相符；原故障品不會自動入庫。' : '車身／電池：入庫填新增序號；移出選在庫序號並填原因；盤點數量為目標庫存。實際銷售請用銷售管理。';
+  $('transaction-serial-hint').textContent = type === 'warranty_out' ? '出保固：請選換出實物的在庫序號，數量必須相符；原故障品不會自動入庫。' : '車身／電池：序號選填。入庫可填新增序號；移出可選在庫序號並填原因；盤點數量為目標庫存。實際銷售請用銷售管理。';
 }
 function renderTransactionWarranty() {
   const active = $('transaction-type').value === 'warranty_out';
@@ -848,7 +851,7 @@ function renderPurchaseReceiptSerials(purchase) {
   const fields = $('purchase-receipt-fields'); fields.replaceChildren();
   purchase.lines.filter(line => requiresSerial(state.items.find(item => item.id === line.itemId))).forEach(line => {
     const field = document.createElement('div'); field.className = 'field';
-    const label = document.createElement('label'); label.textContent = `${state.items.find(item => item.id === line.itemId).name}｜應收 ${line.quantity} 件（每行一個序號）`;
+    const label = document.createElement('label'); label.textContent = `${state.items.find(item => item.id === line.itemId).name}｜收 ${line.quantity} 件（序號選填，每行一個，最多 ${line.quantity} 個）`;
     const input = document.createElement('textarea'); input.rows = 3; input.id = `receipt-serial-${line.itemId}`; label.htmlFor = input.id;
     input.value = (receiptSerialNumbersByItem[line.itemId] || []).join('\n');
     input.addEventListener('input', () => { receiptSerialNumbersByItem[line.itemId] = serialNumbersFromInput(input.value); });
@@ -1714,9 +1717,10 @@ function renderSaleSerialSelector(item) {
   stock.filter(s => !occupied.has(s.id)).forEach(serial => {
     const option = document.createElement('option'); option.textContent = serial.serialNumber; option.value = serial.id; option.selected = selected.has(serial.id); select.append(option);
   });
-  const complete = Number.isSafeInteger(item.stock) && stock.length === item.stock;
-  $('sale-serial-hint').textContent = !complete ? `${item.name} 尚未補齊序號或庫存須更正，請店長先到庫存管理處理。` : `${item.name}｜本次加入 ${saleSerialQuantity} 件，請選 ${saleSerialQuantity} 個序號。已選 ${select.selectedOptions.length} 個；序號商品結帳必須指定客戶。`;
-  $('sale-serial-add').disabled = !complete;
+  // 序號選填：可以選 0～本次件數個序號；不選也能直接加入購物車。
+  $('sale-serial-hint').textContent = `${item.name}｜本次加入 ${saleSerialQuantity} 件，序號選填（最多 ${saleSerialQuantity} 個），已選 ${select.selectedOptions.length} 個。${stock.length ? '' : '目前沒有登記的在庫序號，可直接加入。'}`;
+  $('sale-serial-add').disabled = false;
+  $('sale-serial-add').textContent = select.selectedOptions.length ? '確認序號並加入購物車' : '不選序號，直接加入購物車';
 }
 function beginSaleSerialSelection(item, quantity) {
   if (!Number.isSafeInteger(quantity) || quantity <= 0) return showFormError('sale-form', '請輸入正確數量。');
@@ -1728,8 +1732,8 @@ function addSaleItem(item, quantity, serialIds = []) {
   if (!item || !Number.isInteger(quantity) || quantity <= 0) { showFormError('sale-form', '請選擇品項並輸入正確數量。'); return false; }
   const existing = saleCart.find(line => line.itemId === item.id);
   const serials = serialIds.map(id => state.serials.find(s => s.id === id && s.itemId === item.id && s.status === 'in_stock'));
-  if (requiresSerial(item) && (!Number.isSafeInteger(item.stock) || state.serials.filter(s => s.itemId === item.id && s.status === 'in_stock').length !== item.stock || serials.length !== quantity || serials.some(s => !s) || new Set(serialIds).size !== serialIds.length || saleCart.some(line => (line.serialIds || []).some(id => serialIds.includes(id))))) {
-    showFormError('sale-form', '請先補齊庫存序號，並選擇數量相符、未重複的在庫序號。'); return false;
+  if (requiresSerial(item) && (serials.length > quantity || serials.some(s => !s) || new Set(serialIds).size !== serialIds.length || saleCart.some(line => (line.serialIds || []).some(id => serialIds.includes(id))))) {
+    showFormError('sale-form', '所選序號不可超過數量，也不可重複或已在購物車中。'); return false;
   }
   if (!requiresSerial(item) && serialIds.length) { showFormError('sale-form', '此品項不使用序號管理。'); return false; }
   if ((existing?.quantity ?? 0) + quantity > item.stock) { showFormError('sale-form', `庫存不足：${item.name}`); return false; }

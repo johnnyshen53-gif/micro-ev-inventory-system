@@ -131,10 +131,6 @@ begin
     (select updated_at from public.repair_orders where id=v_order));
   select id into v_line from public.repair_lines where repair_order_id=v_order and item_id='70000000-0000-4000-8000-000000000032';
   v_denied := false;
-  begin perform public.complete_repair_order(v_order, '{}'::jsonb); exception when others then v_denied := true; end;
-  if not v_denied or (select stock from public.items where id='70000000-0000-4000-8000-000000000031') <> 5 then
-    raise exception 'missing battery serial partly deducted stock'; end if;
-  v_denied := false;
   begin perform public.complete_repair_order(v_order, jsonb_build_object(v_line::text,jsonb_build_array('70000000-0000-4000-8000-000000000043')));
   exception when others then v_denied := true; end;
   if not v_denied or (select count(*) from public.inventory_transactions where repair_order_id=v_order) <> 0 then
@@ -150,8 +146,9 @@ begin
     or (select stock from public.items where id='70000000-0000-4000-8000-000000000032') <> 1
     or (select status <> 'repair_used' or repair_order_id <> v_order from public.inventory_serials where id='70000000-0000-4000-8000-000000000041')
     or (select count(*) from public.inventory_transactions where repair_order_id=v_order) <> 2
-    or (select count(*) from public.warranties where repair_order_id=v_order and source='repair' and customer_id='70000000-0000-4000-8000-000000000021') <> 1
-    then raise exception 'mixed completion incomplete'; end if;
+    or (select count(*) from public.warranties where repair_order_id=v_order) <> 0
+    or (select warranty_id from public.inventory_serials where id='70000000-0000-4000-8000-000000000041') is not null
+    then raise exception 'mixed completion incomplete (保固停用：不再建立維修保固)'; end if;
   v_denied := false;
   begin perform public.complete_repair_order(v_order, '{}'::jsonb); exception when others then v_denied := true; end;
   if not v_denied then raise exception 'double completion accepted'; end if;
@@ -169,22 +166,15 @@ begin
     (select updated_at from public.repair_orders where id=v_guest));
   select id into v_line from public.repair_lines where repair_order_id=v_guest;
   v_denied := false;
-  begin perform public.complete_repair_order(v_guest, jsonb_build_object(v_line::text,jsonb_build_array('70000000-0000-4000-8000-000000000042')));
-  exception when others then v_denied := true; end;
-  if not v_denied or (select status from public.repair_orders where id=v_guest) <> 'quoted' then
-    raise exception 'guest battery completed without member'; end if;
-  v_denied := false;
   begin perform public.complete_repair_order(v_guest, jsonb_build_object(v_line::text,jsonb_build_array('70000000-0000-4000-8000-000000000041')));
   exception when others then v_denied := true; end;
   if not v_denied then raise exception 'already-used serial accepted'; end if;
-  perform public.save_repair_order(
-    jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_guest,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','ABC','vehicleName','車型','issue','維修','status','quoted'),
-    jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000032','quantity',1,'unitPrice',2000)),
-    (select updated_at from public.repair_orders where id=v_guest));
-  perform public.complete_repair_order(v_guest, jsonb_build_object(
-    (select id::text from public.repair_lines where repair_order_id=v_guest), jsonb_build_array('70000000-0000-4000-8000-000000000042')));
-  if (select count(*) from public.warranties where repair_order_id=v_guest and customer_id='70000000-0000-4000-8000-000000000021') <> 1 then
-    raise exception 'guest-to-member completion did not link member warranty'; end if;
+  -- 保固停用後：臨時客（沒有會員）也可以用電池完工，不建立保固。
+  perform public.complete_repair_order(v_guest, jsonb_build_object(v_line::text,jsonb_build_array('70000000-0000-4000-8000-000000000042')));
+  if (select status from public.repair_orders where id=v_guest) <> 'completed'
+    or (select count(*) from public.warranties where repair_order_id=v_guest) <> 0
+    or (select status from public.inventory_serials where id='70000000-0000-4000-8000-000000000042') <> 'repair_used' then
+    raise exception 'guest battery completion wrong'; end if;
 
   v_order := public.save_repair_order(
     '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerId":"70000000-0000-4000-8000-000000000021","plateNumber":"DEF","vehicleName":"車型","issue":"維修"}'::jsonb,
@@ -193,12 +183,12 @@ begin
     jsonb_build_object('salespersonId','70000000-0000-4000-8000-000000000051','technicianId','70000000-0000-4000-8000-000000000061','id',v_order,'customerId','70000000-0000-4000-8000-000000000021','plateNumber','DEF','vehicleName','車型','issue','維修','status','quoted'),
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000033','quantity',1,'unitPrice',1800)),
     (select updated_at from public.repair_orders where id=v_order));
-  v_denied := false;
-  begin perform public.complete_repair_order(v_order, jsonb_build_object(
-    (select id::text from public.repair_lines where repair_order_id=v_order), jsonb_build_array('70000000-0000-4000-8000-000000000043')));
-  exception when others then v_denied := true; end;
-  if not v_denied or (select stock from public.items where id='70000000-0000-4000-8000-000000000033') <> 1 then
-    raise exception 'zero-warranty battery partly completed'; end if;
+  -- 序號選填：電池不選序號也能完工（沒設定保固月數也可以）。
+  perform public.complete_repair_order(v_order, '{}'::jsonb);
+  if (select status from public.repair_orders where id=v_order) <> 'completed'
+    or (select stock from public.items where id='70000000-0000-4000-8000-000000000033') <> 0
+    or (select status from public.inventory_serials where id='70000000-0000-4000-8000-000000000043') <> 'in_stock' then
+    raise exception 'battery without serial did not complete'; end if;
   v_order := public.save_repair_order(
     '{"salespersonId":"70000000-0000-4000-8000-000000000051","technicianId":"70000000-0000-4000-8000-000000000061","customerName":"臨時客","customerPhone":"0911000000","plateNumber":"XYZ","vehicleName":"車型","issue":"維修"}'::jsonb,
     jsonb_build_array(jsonb_build_object('itemId','70000000-0000-4000-8000-000000000031','quantity',4,'unitPrice',120)));
@@ -213,7 +203,7 @@ begin
     or (select count(*) from public.inventory_transactions where repair_order_id=v_order) <> 0 then
     raise exception 'insufficient stock partly completed'; end if;
   v_before := (select count(*) from public.warranties);
-  if v_before <> 2 then raise exception 'failed completion changed warranties'; end if;
+  if v_before <> 0 then raise exception 'repairs created warranties'; end if;
 end $$;
 do $$
 declare

@@ -4,6 +4,11 @@ const LEGACY_CATEGORIES = { 機車: '車身', 零件: '機構元件', 用品: '�
 const transactionTypes = new Set(['in', 'out', 'adjust', 'warranty_out']);
 const EXPIRED_WARRANTY_MARK = '[過期保固放行]';
 const warrantyCaseStatuses = new Set(['pending', 'in_progress', 'completed', 'not_covered']);
+// 功能開關（和資料庫 20261106010000_optional_serials_no_warranty 一致）：
+//   warranties：結帳是否自動建立保固（目前停用）。
+//   strictSerials：車身／電池是否必須逐件指定序號、在庫序號數必須等於庫存（目前改成選填）。
+// 之後要恢復舊規則時，資料庫也要一起改回來。
+const config = { warranties: false, strictSerials: false };
 
 function emptyState() {
   return { items: [], transactions: [], customers: [], salespeople: [], quotations: [], sales: [], warranties: [], warrantyCases: [], suppliers: [], purchases: [], serials: [], vehicleModels: [] };
@@ -63,7 +68,7 @@ function validateSerialRelations(serials, items, sales, customers, purchases, wa
     if (serial.status === 'sold') {
       const sale = sales.find(s => s.id === serial.saleId);
       const index = sale?.serialIds.indexOf(serial.id) ?? -1;
-      if (!sale || sale.itemId !== item.id || index < 0 || sale.serialNumbers[index] !== serial.serialNumber || !customers.some(c => c.id === serial.customerId)) throw new Error('序號銷售或客戶關聯無效');
+      if (!sale || sale.itemId !== item.id || index < 0 || sale.serialNumbers[index] !== serial.serialNumber || ((config.strictSerials || serial.customerId) && !customers.some(c => c.id === serial.customerId))) throw new Error('序號銷售或客戶關聯無效');
       date(serial.soldAt, '售出日期');
       if (Date.parse(serial.soldAt) !== Date.parse(date(sale.createdAt, '銷售日期'))) throw new Error('序號售出日期與銷售不符');
     } else if (serial.status === 'warranty_out') {
@@ -71,7 +76,8 @@ function validateSerialRelations(serials, items, sales, customers, purchases, wa
       if (!warranty || warranty.customerId !== serial.customerId || serial.saleId || serial.soldAt || !transactions.some(t => t.type === 'warranty_out' && t.warrantyId === warranty.id && t.serialIds.includes(serial.id))) throw new Error('出保固序號關聯無效');
     } else if (serial.status === 'repair_used') {
       const warranty = warranties.find(w => w.id === serial.warrantyId);
-      if (!serial.repairOrderId || !serial.repairLineId || !warranty || warranty.source !== 'repair' || warranty.repairOrderId !== serial.repairOrderId || warranty.customerId !== serial.customerId || !serial.repairUsedAt || serial.saleId || serial.soldAt || !transactions.some(t => t.repairOrderId === serial.repairOrderId && t.itemId === serial.itemId && t.serialIds?.includes(serial.id))) throw new Error('維修序號關聯無效');
+      // 保固停用後，維修用掉的序號不一定有保固；有保固（或嚴格模式）時才檢查保固關聯。
+      if (!serial.repairOrderId || !serial.repairLineId || ((config.strictSerials || serial.warrantyId) && (!warranty || warranty.source !== 'repair' || warranty.repairOrderId !== serial.repairOrderId || warranty.customerId !== serial.customerId)) || !serial.repairUsedAt || serial.saleId || serial.soldAt || !transactions.some(t => t.repairOrderId === serial.repairOrderId && t.itemId === serial.itemId && t.serialIds?.includes(serial.id))) throw new Error('維修序號關聯無效');
     } else if (serial.saleId || serial.customerId || serial.soldAt) throw new Error('未售序號不可有銷售關聯');
     if (!['warranty_out', 'repair_used'].includes(serial.status) && serial.warrantyId) throw new Error('非出保固序號不可有更換關聯');
     if (serial.status === 'removed' || serial.status === 'warranty_out') {
@@ -95,13 +101,14 @@ function validateSerialRelations(serials, items, sales, customers, purchases, wa
       if (serials.filter(s => s.purchaseId === purchase.id && s.itemId === line.itemId).length > line.quantity) throw new Error('進貨序號數超過收貨數量');
     }
   }
-  for (const item of items.filter(requiresSerial)) {
+  // 序號選填時，賣出、移出可以不選序號，在庫序號可能比庫存多，所以只在嚴格模式檢查。
+  if (config.strictSerials) for (const item of items.filter(requiresSerial)) {
     const count = serials.filter(s => s.itemId === item.id && s.status === 'in_stock').length;
     if (count > item.stock) throw new Error('在庫序號數超過庫存');
   }
   const soldIds = new Set();
   for (const sale of sales) {
-    if (sale.serialIds.length !== sale.serialNumbers.length || (sale.serialIds.length && sale.serialIds.length !== sale.quantity)) throw new Error('銷售序號數量不符');
+    if (sale.serialIds.length !== sale.serialNumbers.length || (config.strictSerials ? sale.serialIds.length && sale.serialIds.length !== sale.quantity : sale.serialIds.length > sale.quantity)) throw new Error('銷售序號數量不符');
     sale.serialIds.forEach((serialId, index) => {
       if (soldIds.has(serialId) || !serials.some(s => s.id === serialId && s.status === 'sold' && s.saleId === sale.id && s.itemId === sale.itemId && s.serialNumber === sale.serialNumbers[index])) throw new Error('銷售序號關聯無效');
       soldIds.add(serialId);
@@ -471,7 +478,7 @@ function addItem(state, fields) {
     if (!nextItem.barcode) nextItem.barcode = nextItem.sku;
   }
   const added = newSerials(current, nextItem, fields.serialNumbers, fields.createdBy);
-  if (requiresSerial(nextItem) && added.length !== serialStock(nextItem.stock)) throw new Error('初始庫存與序號數量不符');
+  if (requiresSerial(nextItem) && (config.strictSerials ? added.length !== serialStock(nextItem.stock) : added.length > serialStock(nextItem.stock))) throw new Error(config.strictSerials ? '初始庫存與序號數量不符' : '初始序號數超過庫存');
   return validateState({ ...current, items: [...current.items, nextItem], serials: [...current.serials, ...added] });
 }
 
@@ -691,7 +698,7 @@ function receivePurchase(state, purchaseId, { receivedBy, receivedByAccount, ser
     const added = newSerials({ ...current, serials }, item, serialNumbersByItem[line.itemId], receivedBy, purchaseId);
     if (requiresSerial(item)) {
       serialStock(item.stock); serialStock(line.quantity);
-      if (added.length !== line.quantity) throw new Error(`收貨序號數量不符：${item.name}`);
+      if (config.strictSerials ? added.length !== line.quantity : added.length > line.quantity) throw new Error(config.strictSerials ? `收貨序號數量不符：${item.name}` : `收貨序號數超過收貨數量：${item.name}`);
     }
     serials.push(...added);
   }
@@ -775,10 +782,13 @@ function recordTransaction(state, fields) {
     if (fractional && type !== 'adjust') throw new Error('請先盤點更正庫存');
     const added = newSerials(current, item, fields.serialNumbers, fields.createdBy);
     const expectedNew = fractional ? 0 : Math.max(0, delta);
-    if (added.length !== expectedNew) throw new Error('入庫數量與新增序號數不符');
-    if (type === 'out' || type === 'warranty_out') {
+    if (config.strictSerials ? added.length !== expectedNew : added.length > expectedNew) throw new Error(config.strictSerials ? '入庫數量與新增序號數不符' : '新增序號數超過入庫數量');
+    if (type === 'warranty_out' || (type === 'out' && config.strictSerials)) {
       requireCompleteSerials(current, item);
       if (selected.length !== quantity) throw new Error('移出數量與序號數不符');
+    } else if (type === 'out') {
+      // 序號選填：移出時可以不選序號，有選就不能超過數量。
+      if (selected.length > quantity) throw new Error('移出序號數超過移出數量');
     } else if ((delta >= 0 && selected.length) || (delta < 0 && selected.length > Math.ceil(-delta))) throw new Error('移出序號數量不符');
     if (selected.length) { id(fields.createdBy, '移出操作者'); id(fields.note, '移出原因'); }
     issuedSerials = selected;
@@ -1046,10 +1056,10 @@ function recordSaleBatch(state, fields) {
     if (!item) throw new Error('找不到此品項');
     const quantity = positiveInteger(line?.quantity, '銷售數量');
     const serials = selectedSerials(current, item, line?.serialIds);
-    if (requiresSerial(item)) {
+    if (requiresSerial(item) && config.strictSerials) {
       requireCompleteSerials(current, item);
       if (serials.length !== quantity) throw new Error('銷售數量與所選序號數量不符');
-    }
+    } else if (requiresSerial(item) && serials.length > quantity) throw new Error('所選序號數超過銷售數量');
     return { item, quantity, serials };
   });
   const quantities = new Map();
@@ -1058,7 +1068,7 @@ function recordSaleBatch(state, fields) {
   quantities.forEach((quantity, id) => { const item = current.items.find((candidate) => candidate.id === id); if (item.stock < quantity) throw new Error(`庫存不足：${item.name}`); });
   const customer = fields.customerId ? current.customers.find((candidate) => candidate.id === fields.customerId) : null;
   if (fields.customerId && !customer) throw new Error('找不到客戶');
-  if (items.some(requiresSerial) && !customer) throw new Error('序號商品結帳必須選擇客戶');
+  if (config.strictSerials && items.some(requiresSerial) && !customer) throw new Error('序號商品結帳必須選擇客戶');
   const serialIds = requested.flatMap(line => line.serials.map(s => s.id));
   if (new Set(serialIds).size !== serialIds.length) throw new Error('購物車序號重複');
   const salesperson = current.salespeople.find(candidate => candidate.id === text(fields?.salespersonId));
@@ -1090,10 +1100,11 @@ function recordSaleBatch(state, fields) {
   });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
-    return sale ? { ...serial, status: 'sold', saleId: sale.id, customerId: customer.id, soldAt: createdAt } : serial;
+    return sale ? { ...serial, status: 'sold', saleId: sale.id, customerId: customer?.id ?? '', soldAt: createdAt } : serial;
   });
   const transactions = sales.map((sale) => ({ id: crypto.randomUUID(), itemId: sale.itemId, type: 'out', quantity: sale.quantity, createdAt, note: `銷售管理 ${saleNumber}` }));
-  const warranties = customer ? sales.flatMap((sale) => {
+  // 保固系統停用時（config.warranties 為 false），結帳不建立保固。
+  const warranties = customer && config.warranties ? sales.flatMap((sale) => {
     const item = items.find((candidate) => candidate.id === sale.itemId);
     if (!item.warrantyMonths) return [];
     const units = sale.serialIds.length ? sale.serialIds.map((serialId, index) => ({ serialId, serialNumber: sale.serialNumbers[index] })) : [{}];
@@ -1280,4 +1291,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { config, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

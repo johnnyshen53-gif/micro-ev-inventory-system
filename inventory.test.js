@@ -6,6 +6,8 @@ import vm from 'node:vm';
 
 const context = { crypto: webcrypto, window: {} };
 vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), context);
+// 這些測試驗證「保固＋嚴格序號」舊規則（目前預設停用，見 inventory.js 的 config）。
+Object.assign(context.window.Inventory.config, { warranties: true, strictSerials: true });
 const { addItem, addCustomer, addSalesperson, addWarrantyCase, createQuotation, createWarranty, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, salesForMonth, toBackup, updateCustomer, updateItem, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter } = context.window.Inventory;
 
 const item = {

@@ -36,10 +36,8 @@ begin
   -- 補登兩個月前的銷售（有客戶 → 建立保固，保固從銷售日期起算）。
   v_sale := public.create_sale_with_serials(v_lines, '79000000-0000-4000-8000-000000000051', '79000000-0000-4000-8000-000000000041', v_checkout, '[]'::jsonb, null::text, v_back);
   if (select sale_date from public.sales where id = v_sale) <> v_back then raise exception 'sale_date not stored'; end if;
-  if (select purchased_at from public.warranties where sale_id = v_sale) <> v_back
-    or (select expires_at from public.warranties where sale_id = v_sale) <> (v_back + interval '6 months')::date then
-    raise exception 'warranty not based on sale date';
-  end if;
+  -- 保固系統停用（20261106010000）：結帳不再建立保固。
+  if exists (select 1 from public.warranties where sale_id = v_sale) then raise exception 'sale should not create a warranty'; end if;
   -- 同一個結帳識別碼重送：回傳同一張單，不重複扣庫存，日期不被改。
   if public.create_sale_with_serials(v_lines, '79000000-0000-4000-8000-000000000051', '79000000-0000-4000-8000-000000000041', v_checkout, '[]'::jsonb, null::text, v_today) <> v_sale
     or (select sale_date from public.sales where id = v_sale) <> v_back

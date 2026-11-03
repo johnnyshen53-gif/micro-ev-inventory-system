@@ -121,7 +121,7 @@
       for (const line of order.lines) detail.append(element('p', `${line.itemName} × ${line.quantity}｜${money(line.subtotal)}${state().serials.filter(serial => serial.repairLineId === line.id).map(serial => `｜${serial.serialNumber}`).join('')}`));
       if (actions.canComplete) {
         for (const line of order.lines.filter(line => state().items.find(item => item.id === line.itemId)?.category === '電池')) {
-          const label = element('label', `${line.itemName}：選擇 ${line.quantity} 個在庫原廠序號`), select = element('select');
+          const label = element('label', `${line.itemName}：在庫原廠序號（選填，最多 ${line.quantity} 個）`), select = element('select');
           select.multiple = true; select.size = 5; select.dataset.repairLineId = line.id; select.id = `repair-serial-${line.id}`;
           label.htmlFor = select.id;
           for (const serial of availableSerials(state().serials, line.itemId)) select.append(new Option(serial.serialNumber, serial.id));
@@ -229,10 +229,10 @@
         for (const line of order.lines.filter(line => state().items.find(item => item.id === line.itemId)?.category === '電池')) {
           const select = $(`repair-serial-${line.id}`);
           const ids = Array.from(select.selectedOptions, option => option.value);
-          if (ids.length !== line.quantity) { message(`${line.itemName} 必須選擇 ${line.quantity} 個在庫序號。`, true); return; }
+          if (ids.length > line.quantity) { message(`${line.itemName} 最多選 ${line.quantity} 個序號。`, true); return; }
           selected[line.id] = ids;
         }
-        mutation(() => window.AppData.completeRepairOrder(order.id, selected), '維修已完工，庫存與電池保固已更新。');
+        mutation(() => window.AppData.completeRepairOrder(order.id, selected), '維修已完工，庫存已更新。');
       } else if (action === 'pay') mutation(() => window.AppData.markRepairPaid(order.id), '已標記全額收款。');
       else if (action === 'cancel') mutation(() => window.AppData.cancelRepairOrder(order.id), '維修單已取消。');
     });

@@ -60,26 +60,29 @@ test('picker has labelled native controls without requiring a selection for chec
   assert.match(html, /id="sale-pick-add" type="button"/);
   assert.match(html, /id="sale-picker-hint"[^>]*aria-live="polite"/);
 });
-test('scanning serialized products requires distinct available units before adding', () => {
+test('scanning serialized products offers optional serials: none, some, but never duplicates or more than the quantity', () => {
   const c = fixture();
   c.state.items[0].category = '電池';
+  c.state.items[0].stock = 3;
   c.state.serials = [{ id: 's1', itemId: 'a', serialNumber: '000A', status: 'in_stock' }, { id: 's2', itemId: 'a', serialNumber: 'B', status: 'in_stock' }];
   c.$('sale-barcode').value = '123'; c.$('sale-quantity').value = '1';
   c.addSaleLine();
-  assert.equal(c.saleCart.length, 0); assert.equal(c.saleSerialItemId, 'a');
-  assert.equal(c.addSaleItem(c.state.items[0], 1), false);
+  assert.equal(c.saleCart.length, 0, '序號品項先打開序號面板'); assert.equal(c.saleSerialItemId, 'a');
+  // 序號選填：不選序號也能加入。
+  assert.equal(c.addSaleItem(c.state.items[0], 1), true);
+  assert.equal(c.saleCart[0].serialIds.length, 0);
   assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1']), true);
+  assert.equal(c.saleCart[0].quantity, 2);
   assert.equal(c.saleCart[0].serialNumbers[0], '000A');
   // 序號顯示在品名下方的小字（品名儲存格的子元素）。
   const nameCell = c.$('sale-cart').children[0].children[0];
   assert.match([nameCell.textContent, ...Array.from(nameCell.children ?? [], child => child.textContent)].join(''), /000A/);
-  assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1']), false);
-  assert.equal(c.addSaleItem(c.state.items[0], 1, ['s2']), true);
-  assert.equal(c.saleCart[0].quantity, 2);
+  assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1']), false, '同一個序號不能加兩次');
+  assert.equal(c.addSaleItem(c.state.items[0], 1, ['s2', 's2']), false, '不能重複');
   c.$('sale-cart').listeners.click({ target: { closest: () => ({ dataset: { saleRemove: '0' } }) } });
   assert.equal(c.$('sale-serial-ids').children.length, 2);
-  c.state.serials.pop();
-  assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1']), false);
+  assert.equal(c.addSaleItem(c.state.items[0], 1, ['s1', 's2']), false, '序號不可超過數量');
+  assert.equal(c.addSaleItem(c.state.items[0], 2, ['s1', 's2']), true);
 });
 
 test('batteries and parts must pick a vehicle model first; the list shows that model, universal and unset items', () => {

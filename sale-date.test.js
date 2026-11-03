@@ -21,7 +21,10 @@ test('checkout keeps the chosen past date, defaults to today and rejects future 
   const back = shiftDays(-40);
   const next = sell(base(), back);
   assert.equal(next.sales[0].saleDate, back);
-  assert.equal(next.warranties[0].purchasedAt, back, '保固從銷售日期起算');
+  assert.equal(next.warranties.length, 0, '保固系統停用：結帳不建立保固');
+  // 恢復保固時：保固從銷售日期起算。
+  Inventory.config.warranties = true;
+  try { assert.equal(sell(base(), back).warranties[0].purchasedAt, back); } finally { Inventory.config.warranties = false; }
   assert.equal(sell(base(), '').sales[0].saleDate, today);
   assert.equal(sell(base(), undefined).sales[0].saleDate, today);
   assert.throws(() => sell(base(), shiftDays(1)), /不可晚於今天/);

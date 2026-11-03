@@ -450,7 +450,11 @@ test('opens cloud operations on desktop while retaining mobile and clerk access 
   };
   vm.runInNewContext(app.slice(app.indexOf('const mobileAllowedPages'), app.indexOf('function setAppEnabled')), context);
   vm.runInNewContext(app.slice(app.indexOf('function showPage'), app.indexOf('function setStatus')), context);
-  for (const page of ['suppliers', 'purchases', 'quotations', 'warranties', 'repairs']) {
+  // 保固系統暫停：保固頁一律導回銷售。
+  context.showPage('warranties');
+  assert.equal(sections.get('warranties').hidden, true);
+  assert.equal(sections.get('sales').hidden, false);
+  for (const page of ['suppliers', 'purchases', 'quotations', 'repairs']) {
     assert.equal(buttons.get(page).disabled, false, `${page} desktop tab is enabled`);
     assert.equal(buttons.get(page).dataset.cloudDisabled, undefined);
     context.location.hash = `#${page}`;
@@ -495,7 +499,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=33"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=80"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=81"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);

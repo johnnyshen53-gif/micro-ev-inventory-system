@@ -5,6 +5,8 @@ import test from 'node:test';
 import vm from 'node:vm';
 const context = { crypto: webcrypto, window: {} };
 vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), context);
+// 這些測試驗證「保固＋嚴格序號」舊規則（目前預設停用，見 inventory.js 的 config）。
+Object.assign(context.window.Inventory.config, { warranties: true, strictSerials: true });
 const I = context.window.Inventory;
 const motor = { name: '車身', category: '車身', sku: 'MOTOR', barcode: 'motor', price: 1000, cost: 600, stock: 0, minimumStock: 0, warrantyMonths: 12 };
 function legacy(stock = 2) {

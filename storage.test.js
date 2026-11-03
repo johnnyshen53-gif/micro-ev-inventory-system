@@ -58,6 +58,8 @@ async function createStorage({ legacy } = {}) {
     window: {},
   };
   vm.runInNewContext(await readFile(new URL('./inventory.js', import.meta.url), 'utf8'), context);
+  // 這些測試驗證「保固＋嚴格序號」舊規則（目前預設停用，見 inventory.js 的 config）。
+  Object.assign(context.window.Inventory.config, { warranties: true, strictSerials: true });
   vm.runInNewContext(await readFile(new URL('./storage.js', import.meta.url), 'utf8'), context);
   return { storage: context.window.InventoryStorage, indexedDB, legacy: values, state: context.window.Inventory.emptyState(), inventory: context.window.Inventory };
 }
