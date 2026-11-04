@@ -488,3 +488,13 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 /* 結帳按鈕：確認結帳（寬）＋取消結帳（窄）。 */
 .sale-checkout-actions { display: grid; grid-template-columns: 2fr 1fr; gap: .6rem; }
 @media (max-width: 700px) { .sale-checkout-actions { grid-template-columns: 1fr; } }
+/* 相機掃描：按鈕和掃描欄同一列；相機畫面用對話框，影像填滿寬度。 */
+.camera-scan-button { white-space: nowrap; }
+#transaction-camera { margin-top: .5rem; }
+.camera-scan-dialog { width: min(92vw, 34rem); padding: 1rem; border: 0; border-radius: .9rem; box-shadow: 0 20px 50px rgba(15, 23, 42, .35); }
+.camera-scan-dialog::backdrop { background: rgba(15, 23, 42, .6); }
+.camera-scan-dialog video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: .6rem; background: #0f172a; }
+.camera-scan-hint { margin: .75rem 0; text-align: center; color: var(--muted); }
+.camera-scan-dialog button { width: 100%; }
+.sale-page .sale-scanner:has(#sale-camera:not([hidden])) { grid-template-columns: minmax(0, 1fr) 6rem auto auto; }
+@media (max-width: 700px) { .sale-page .sale-scanner:has(#sale-camera:not([hidden])) { grid-template-columns: 1fr; } }

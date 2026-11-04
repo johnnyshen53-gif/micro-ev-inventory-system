@@ -541,6 +541,7 @@ function handleTransactionScan(decodedText) {
   return true;
 }
 $('transaction-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); handleTransactionScan(event.currentTarget.value); });
+globalThis.CameraScan?.mount($('transaction-camera'), handleTransactionScan, message => showFormError('transaction-form', message));
 
 function selectTransactionSerial(serialNumber) {
   const type = $('transaction-type').value;
@@ -1811,6 +1812,8 @@ function handleSaleScan(decodedText) {
 }
 function addSaleLine() { const scan = parseUnitQr($('sale-barcode').value); const item = scan.barcode && state.items.find(candidate => candidate.barcode === scan.barcode); if (requiresSerial(item)) { beginSaleSerialSelection(item, Number($('sale-quantity').value)); if (scan.serialNumber) selectSaleSerial(scan.serialNumber); return; } if (!addSaleItem(item, Number($('sale-quantity').value))) return; $('sale-barcode').value = ''; $('sale-quantity').value = '1'; $('sale-item-info').hidden = true; $('sale-barcode').focus(); }
 $('sale-barcode')?.addEventListener('keydown', (event) => { if (event.key !== 'Enter') return; event.preventDefault(); handleSaleScan(event.currentTarget.value); });
+// 平板相機掃描：掃到的內容和掃描槍輸入走同一個流程（逐件 QR Code 會同時選取序號）。
+globalThis.CameraScan?.mount($('sale-camera'), handleSaleScan, message => showFormError('sale-form', message));
 $('sale-add')?.addEventListener('click', addSaleLine);
 $('sale-category')?.addEventListener('change', () => { $('sale-item').value = ''; $('sale-pick-quantity').value = '1'; renderSalePicker(); });
 $('sale-item')?.addEventListener('change', renderSalePicker);

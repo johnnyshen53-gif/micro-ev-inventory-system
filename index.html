@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=38">
+  <link rel="stylesheet" href="style.css?v=39">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -111,7 +111,7 @@
         <form id="transaction-form">
           <div class="split-fields"><div class="field"><label for="transaction-category">分類</label><select id="transaction-category"><option value="">全部分類</option><option>車身</option><option>電池</option><option>電控元件</option><option>機構元件</option><option>外觀元件</option></select></div><div class="field" id="transaction-vehicle-model-field" hidden><label for="transaction-vehicle-model">車種</label><select id="transaction-vehicle-model"><option value="">全部車種</option></select></div></div>
           <div class="field"><label for="transaction-item">品項</label><select id="transaction-item" required></select></div>
-          <div class="field"><label for="transaction-barcode">掃描／輸入 QR Code</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後自動選取品項"><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div>
+          <div class="field"><label for="transaction-barcode">掃描／輸入 QR Code</label><input id="transaction-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後自動選取品項"><button id="transaction-camera" type="button" class="secondary camera-scan-button" hidden>相機掃描</button><div id="transaction-scan-result" class="scan-result" aria-live="polite" hidden></div></div>
           <div class="field"><label for="transaction-type">異動類型</label><select id="transaction-type" required><option value="in">進貨</option><option value="out">出庫／移出（銷售請至銷售管理）</option><option value="warranty_out" hidden disabled>出保固（免費更換）</option><option value="adjust">盤點調整</option></select></div>
           <div id="transaction-warranty-fields" class="serial-box" hidden><div class="field"><label for="transaction-warranty">原保固紀錄</label><select id="transaction-warranty" disabled aria-describedby="transaction-warranty-summary"><option value="">請選擇原保固</option></select></div><p id="transaction-warranty-summary" aria-live="polite"></p><small>免費更換會扣除所選品項庫存，不算銷售；更換品沿用原到期日，故障品不自動入庫。</small></div>
           <div class="field"><label for="transaction-quantity">數量</label><input id="transaction-quantity" type="number" min="0" step="1" required></div>
@@ -275,7 +275,7 @@
       <form id="sale-form" class="sale-layout">
         <div class="sale-entry panel">
           <h3 class="sale-step"><span class="sale-step-number">1</span>加入商品</h3>
-          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div class="field sale-qty"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入</button></div>
+          <div class="sale-scanner"><div class="field"><label for="sale-barcode">掃描／輸入 QR Code</label><input id="sale-barcode" inputmode="numeric" autocomplete="off" placeholder="掃描 QR Code 後按 Enter"></div><div class="field sale-qty"><label for="sale-quantity">數量</label><input id="sale-quantity" type="number" min="1" value="1" required></div><button id="sale-add" type="button" class="secondary">加入</button><button id="sale-camera" type="button" class="secondary camera-scan-button" hidden>相機掃描</button></div>
           <div id="sale-item-info" class="scan-result" hidden></div>
           <p class="sale-hint">掃描 QR Code 後會帶入品項；逐件 QR Code 會同時選取原廠序號。</p>
           <fieldset class="sale-picker"><legend>或由庫存選擇</legend><div class="split-fields"><div class="field"><label for="sale-category">分類</label><select id="sale-category"><option value="">請選擇分類</option><option>車身</option><option>電池</option><option>電控元件</option><option>機構元件</option><option>外觀元件</option></select></div><div class="field" id="sale-vehicle-model-field" hidden><label for="sale-vehicle-model">車種</label><select id="sale-vehicle-model"><option value="">請選擇車種</option></select></div><div class="field"><label for="sale-item">品項／售價／可售數量</label><select id="sale-item" disabled><option value="">請先選擇分類</option></select></div></div><div class="sale-picker-actions"><div class="field"><label for="sale-pick-quantity">加入數量</label><input id="sale-pick-quantity" type="number" min="1" step="1" value="1"></div><button id="sale-pick-add" type="button" class="secondary" disabled>由庫存加入</button></div><p id="sale-picker-hint" class="sale-hint" aria-live="polite">先選分類，再選品項加入購物車。</p></fieldset>
@@ -402,10 +402,11 @@
   <script src="coupons-ui.js?v=1"></script>
   <script src="item-import.js?v=3"></script>
   <script src="inventory-export.js?v=1"></script>
+  <script src="camera-scan.js?v=1"></script>
   <script src="website-items-ui.js?v=1"></script>
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=85"></script>
+  <script src="app.js?v=86"></script>
 </body>
 </html>
