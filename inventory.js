@@ -523,7 +523,7 @@ function addItem(state, fields) {
   if (!nextItem.sku) {
     const date = taipeiDate(new Date()).replaceAll('-', '');
     const prefix = nextItem.category === '電池'
-      ? '88' + date.slice(0, 4) + String(nextItem.voltage).padStart(2, '0') + String(nextItem.capacity).padStart(2, '0')
+      ? '88' + date.slice(0, 4) + String(Math.floor(nextItem.voltage)).padStart(2, '0') + String(Math.floor(nextItem.capacity)).padStart(2, '0')
       : { 車身: '11', 電控元件: '22', 機構元件: '33', 外觀元件: '44' }[nextItem.category] + date;
     const sequence = current.items.reduce((largest, item) => {
       return item.sku.startsWith(prefix) && /^\d{13}$/.test(item.sku) ? Math.max(largest, Number(item.sku.slice(-3))) : largest;
@@ -789,14 +789,16 @@ function markPurchasePaid(state, purchaseId, { paidBy, paidByAccount } = {}) {
 
 function batteryItemName(item) {
   if (item.category !== '電池') return item.name;
-  const base = item.name.replace(/\s*\d{1,2}\s*V\s*\d{1,2}\s*Ah$/i, '').trim();
+  const base = item.name.replace(/\s*\d{1,2}(?:\.\d)?\s*V\s*\d{1,2}(?:\.\d)?\s*Ah$/i, '').trim();
   return `${base} ${item.voltage}V ${item.capacity}Ah`.trim();
 }
 
 function validateBatterySpecs(item) {
   if (item.category !== '電池') return;
-  if (!Number.isInteger(item.voltage) || item.voltage < 1 || item.voltage > 99) throw new Error('電池電壓須為 1～99 的整數。');
-  if (!Number.isInteger(item.capacity) || item.capacity < 1 || item.capacity > 99) throw new Error('電池容量須為 1～99 的整數。');
+  // 電壓、容量：1～99.9，最多一位小數（例：58.8V、18.2Ah）。
+  const valid = value => Number.isFinite(value) && value >= 1 && value <= 99.9 && Number.isInteger(Math.round(value * 1000) / 100);
+  if (!valid(item.voltage)) throw new Error('電池電壓須為 1～99.9，最多一位小數。');
+  if (!valid(item.capacity)) throw new Error('電池容量須為 1～99.9，最多一位小數。');
 }
 
 function deleteItem(state, itemId) {

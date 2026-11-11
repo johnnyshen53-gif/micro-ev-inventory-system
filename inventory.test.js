@@ -309,7 +309,7 @@ test('generates category-date-sequence SKUs and preserves existing SKUs on edit'
 
 test('requires positive battery specifications and preserves them in backups and edits', () => {
   const battery = { ...item, category: '電池', voltage: 12, capacity: 7, serialNumbers: ['B1', 'B2'] };
-  for (const fields of [{ voltage: '' }, { capacity: 0 }, { voltage: -1 }, { capacity: 'abc' }, { voltage: 100 }, { capacity: 100 }, { capacity: 7.5 }]) {
+  for (const fields of [{ voltage: '' }, { capacity: 0 }, { voltage: -1 }, { capacity: 'abc' }, { voltage: 100 }, { capacity: 100 }, { capacity: 7.55 }]) {
     assert.throws(() => addItem(emptyState(), { ...battery, ...fields }), /電壓|容量/);
   }
   const state = addItem(emptyState(), battery);

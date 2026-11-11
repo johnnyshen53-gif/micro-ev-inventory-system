@@ -35,3 +35,19 @@ test('the unit is stored, loaded, edited in the form and shown after the stock',
   assert.match(app, /unit: \$\('item-unit'\)\?\.value \?\? ''/);
   assert.match(app, /if \(index === 6 && item\.unit\) value = `\$\{value\} \$\{item\.unit\}`;/);
 });
+
+// 電池電壓、容量可以有一位小數（例：58.8V 25Ah、48V 18.2Ah）。
+test('battery voltage and capacity accept one decimal place', async () => {
+  const state = I.addItem(I.emptyState(), { name: '電池', category: '電池', voltage: '48', capacity: '18.2', price: 16400, cost: 0, stock: 0, minimumStock: 0 });
+  assert.equal(state.items[0].name, '電池 48V 18.2Ah');
+  assert.match(state.items[0].sku, /^88\d{4}4818\d{3}$/, '料號取整數部分，仍是 13 碼');
+  const renamed = I.updateItem(state, state.items[0].id, { ...state.items[0], voltage: 58.8, capacity: 25 }).items[0];
+  assert.equal(renamed.name, '電池 58.8V 25Ah', '換規格時舊的小數規格會被換掉');
+  assert.throws(() => I.addItem(I.emptyState(), { name: '電池', category: '電池', voltage: 48.25, capacity: 20, price: 1, cost: 0, stock: 0, minimumStock: 0 }), /最多一位小數/);
+  assert.throws(() => I.addItem(I.emptyState(), { name: '電池', category: '電池', voltage: 100, capacity: 20, price: 1, cost: 0, stock: 0, minimumStock: 0 }), /1～99\.9/);
+  const importContext = { window: {}, document: { getElementById: () => null } };
+  vm.runInNewContext(await read('item-import.js'), importContext);
+  const rows = importContext.window.ItemImport.buildPreview(I.emptyState(), '品項名稱,分類,車種,售價,電壓,容量\n電池,電池,,22000,58.8,25\n電池,電池,,1,48.25,20\n', { inventory: I }).rows;
+  assert.deepEqual([...rows.map(row => row.errors.join())], ['', '電壓最多一位小數']);
+  assert.equal(rows[0].name, '電池 58.8V 25Ah');
+});

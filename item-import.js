@@ -46,13 +46,13 @@
 
   const clean = value => String(value ?? '').trim();
   // 數字欄：允許千分位逗號與空白；空白回傳 null。
-  function numberCell(value, label, { integer = false, min = 0, max = Infinity } = {}) {
+  function numberCell(value, label, { integer = false, min = 0, max = Infinity, decimals = 2 } = {}) {
     const textValue = clean(value).replace(/[,\s]/g, '');
     if (textValue === '') return null;
     if (!/^\d+(\.\d+)?$/.test(textValue)) throw new Error(`${label}必須是數字`);
     const result = Number(textValue);
     if (integer && !Number.isInteger(result)) throw new Error(`${label}必須是整數`);
-    if (!integer && Math.round(result * 100) !== result * 100) throw new Error(`${label}最多兩位小數`);
+    if (!integer && !new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`).test(textValue)) throw new Error(`${label}最多${decimals === 1 ? '一' : '兩'}位小數`);
     if (result < min || result > max) throw new Error(`${label}須介於 ${min}～${max}`);
     return result;
   }
@@ -121,11 +121,11 @@
         const stock = numberCell(get('stock'), '目前庫存', { integer: true }) ?? 0;
         const minimumStock = numberCell(get('minimumStock'), '最低庫存', { integer: true }) ?? 0;
         const warrantyMonths = numberCell(get('warrantyMonths'), '保固月數', { integer: true, max: 600 }) ?? 0;
-        const voltage = numberCell(get('voltage'), '電壓', { integer: true, min: 1, max: 99 });
-        const capacity = numberCell(get('capacity'), '容量', { integer: true, min: 1, max: 99 });
+        const voltage = numberCell(get('voltage'), '電壓', { min: 1, max: 99.9, decimals: 1 });
+        const capacity = numberCell(get('capacity'), '容量', { min: 1, max: 99.9, decimals: 1 });
         const lockedCell = booleanCell(get('priceLocked'));
         if (inventory.requiresSerial({ category: row.category }) && stock !== 0) return fail('車身／電池匯入時庫存須為 0，之後請用進貨收貨登錄序號');
-        if (row.category === '電池' && (voltage === null || capacity === null)) return fail('電池須填寫電壓與容量（1～99 整數）');
+        if (row.category === '電池' && (voltage === null || capacity === null)) return fail('電池須填寫電壓與容量（1～99.9，最多一位小數）');
         const markup = markups[row.category];
         const suggested = markup === null || markup === undefined ? null : inventory.suggestedPrice(cost, markup);
         if (price === null) {

@@ -58,7 +58,7 @@ test('valid rows get auto SKUs, markup prices and initial stock; nothing is save
   assert.equal(bad.nextState, null);
   assert.deepEqual(plain(bad.rows.map(row => row.errors[0] ?? 'OK')), [
     '品項名稱不可空白', '分類須為：車身、電池、電控元件、機構元件、外觀元件', '車身／電池匯入時庫存須為 0，之後請用進貨收貨登錄序號',
-    '電池須填寫電壓與容量（1～99 整數）', '售價未填，請填售價', '料號「3320261001001」已存在',
+    '電池須填寫電壓與容量（1～99.9，最多一位小數）', '售價未填，請填售價', '料號「3320261001001」已存在',
     'OK', '料號「DUP-1」已存在', '找不到供應商「不存在行」，請先在供應商管理建立', '成本必須是數字', 'OK']);
   assert.equal(bad.rows[0].line, 2);
 });

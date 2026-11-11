@@ -91,8 +91,8 @@
           <div class="field"><label for="item-category">分類</label><select id="item-category" required><option value="車身">車身</option><option value="電池">電池</option><option value="電控元件" selected>電控元件</option><option value="機構元件">機構元件</option><option value="外觀元件">外觀元件</option></select></div>
           <div class="field"><label for="item-vehicle-model">車種</label><select id="item-vehicle-model" required><option value="">請選擇車種</option></select><small>全部車款都能用的電池、零件請選「通用」。車種清單在本頁下方「車種管理」維護。</small></div>
           <div id="battery-fields" class="split-fields" hidden>
-            <div class="field"><label for="item-voltage">電壓（V，1～99 整數）</label><input id="item-voltage" type="number" min="1" max="99" step="1"></div>
-            <div class="field"><label for="item-capacity">容量（Ah，1～99 整數）</label><input id="item-capacity" type="number" min="1" max="99" step="1"></div>
+            <div class="field"><label for="item-voltage">電壓（V，1～99.9）</label><input id="item-voltage" type="number" min="1" max="99.9" step="0.1"></div>
+            <div class="field"><label for="item-capacity">容量（Ah，1～99.9）</label><input id="item-capacity" type="number" min="1" max="99.9" step="0.1"></div>
           </div>
           <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
           <div class="field"><label for="item-barcode">品項識別碼（選填，13 碼數字可列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
@@ -150,7 +150,7 @@
             <li><b>單位</b>：選填，例如 個、組、支（最多 10 個字）。</li>
             <li><b>價格異動時間</b>：選填，填原資料的異動日期（例：2026-11-11 或 2026-11-11 14:30，台灣時間）；留空＝匯入當下。</li>
             <li><b>目前庫存、最低庫存、保固月數</b>：整數，留空＝0。車身、電池需要逐件序號，庫存必須是 0，之後用進貨收貨登錄。</li>
-            <li><b>電壓、容量</b>：電池必填（1～99 整數），名稱會自動加上「48V 24Ah」這類規格。</li>
+            <li><b>電壓、容量</b>：電池必填（1～99.9，最多一位小數），名稱會自動加上「48V 24Ah」這類規格。</li>
             <li><b>供應商</b>：填供應商管理裡的名稱（完全相同），可留空。</li>
             <li><b>車種*</b>：填「車種管理」裡啟用中的車種名稱（英文不分大小寫）；全部車款都能用填「通用」。</li>
           </ul>
@@ -400,13 +400,13 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=43"></script>
+  <script src="inventory.js?v=44"></script>
   <script src="storage.js?v=2"></script>
   <script src="cloud-data.js?v=38"></script>
   <script src="repair-ui.js?v=14"></script>
   <script src="promotions-ui.js?v=5"></script>
   <script src="coupons-ui.js?v=1"></script>
-  <script src="item-import.js?v=6"></script>
+  <script src="item-import.js?v=7"></script>
   <script src="inventory-export.js?v=4"></script>
   <script src="camera-scan.js?v=1"></script>
   <script src="website-items-ui.js?v=1"></script>
