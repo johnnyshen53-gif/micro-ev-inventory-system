@@ -516,3 +516,5 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .supplier-filter[hidden] { display: none; }
 .supplier-filter select { min-width: 0; }
 .item-filters + .table-wrap { margin-top: .75rem; }
+/* 庫存清單操作欄：編輯、刪除一列，列印 QR 換到下一列，表格不會變寬。 */
+@media (min-width: 701px) { #item-list td.actions { width: 9.5rem; white-space: normal; } #item-list td.actions button { margin: 0 .25rem .3rem 0; } }

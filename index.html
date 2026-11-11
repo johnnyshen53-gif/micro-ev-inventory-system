@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=44">
+  <link rel="stylesheet" href="style.css?v=45">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -95,7 +95,7 @@
             <div class="field"><label for="item-capacity">容量（Ah，1～99.9）</label><input id="item-capacity" type="number" min="1" max="99.9" step="0.1"></div>
           </div>
           <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
-          <div class="field"><label for="item-barcode">品項識別碼（選填，13 碼數字可列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
+          <div class="field"><label for="item-barcode">品項識別碼（選填，有填就可以列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
           <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required aria-describedby="item-price-hint"></div></div>
           <div class="split-fields price-tier-fields"><div class="field"><label for="item-special-price">特價</label><input id="item-special-price" type="number" min="0" step="0.01" placeholder="未設定"></div><div class="field"><label for="item-member-price">會員價</label><input id="item-member-price" type="number" min="0" step="0.01" placeholder="未設定"></div><div class="field"><label for="item-staff-price">員工價</label><input id="item-staff-price" type="number" min="0" step="0.01" placeholder="未設定"></div></div>
           <p class="hint price-tier-hint">這三個價格都是選填：留空＝沒有設定，結帳時不能選；填 0 代表可以用 0 元賣出。會員價要有選客戶才能用；員工價只有店長看得到、能選。</p>
@@ -413,6 +413,6 @@
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=94"></script>
+  <script src="app.js?v=95"></script>
 </body>
 </html>

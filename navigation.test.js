@@ -499,7 +499,7 @@ test('loads the Supabase login gateway and keeps passwords out of local code', a
   assert.match(html, /<script src="cloud-data\.js\?v=\d+"><\/script>/);
   assert.match(html, /<script src="cloud-data\.js\?v=38"><\/script>/, 'new cloud persistence must use a fresh asset URL');
   assert.match(html, /<script src="app\.js\?v=\d+"><\/script>/);
-  assert.match(html, /<script src="app\.js\?v=94"><\/script>/);
+  assert.match(html, /<script src="app\.js\?v=95"><\/script>/);
   assert.match(html, /id="login-form"/);
   assert.match(html, /id="login-password"[^>]*type="password"/);
   assert.match(html, /supabase-client\.js/);
@@ -584,7 +584,10 @@ test('provides a print-only QR label that encodes the existing item identifier',
   assert.match(html, /qrcode-generator@2\.0\.4\/dist\/qrcode\.js/);
   assert.match(html, /id="qr-label"/);
   assert.match(html, /id="item-print-qr"/);
-  assert.match(html, /13 碼數字.*QR Code/);
+  assert.match(html, /有填就可以列印 QR Code/);
+  // 匯入的零件料號是 14 碼或含英文，也要能印 QR。
+  assert.match(app, /if \(item\.barcode\) \{\n      const button = document\.createElement\('button'\);\n      button\.type = 'button';\n      button\.textContent = '列印 QR';/);
+  assert.doesNotMatch(app, /\\d\{13\}\$\/\.test\(\$\('item-barcode'\)/);
   assert.match(app, /qrcode\(0, 'M'\)/);
   assert.match(app, /dataset\.action = 'print-qr'/);
   assert.match(app, /item-print-qr/);

@@ -374,10 +374,11 @@ function renderItems() {
       button.dataset.id = item.id;
       actions.append(button);
     }
-    if (/^\d{13}$/.test(item.barcode)) {
+    // 有條碼（料號）就能印 QR Code：QR 內容就是條碼，掃描結帳、庫存異動都認得；匯入的零件料號是 14 碼或含英文也可以。
+    if (item.barcode) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = '列印 QR Code';
+      button.textContent = '列印 QR';
       button.className = 'secondary';
       button.dataset.action = 'print-qr';
       button.dataset.id = item.id;
@@ -506,7 +507,7 @@ function resetItemForm() {
 
 function updateItemPrintButton() {
   const button = $('item-print-qr');
-  if (button) button.disabled = !$('item-name').value.trim() || !/^\d{13}$/.test($('item-barcode').value.trim());
+  if (button) button.disabled = !$('item-name').value.trim() || !$('item-barcode').value.trim();
 }
 
 function startEditing(item) {
