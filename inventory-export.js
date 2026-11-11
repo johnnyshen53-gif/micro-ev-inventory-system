@@ -25,7 +25,7 @@
     const rows = items.map(item => [
       item.name, item.category, vehicleName(item.vehicleModelId), item.sku, item.barcode, item.price, item.specialPrice ?? '', item.memberPrice ?? '',
       ...(includeCost ? [item.staffPrice ?? '', item.cost, Math.round(item.cost * item.stock * 100) / 100] : []),
-      item.stock, item.unit ?? '', item.minimumStock, item.active !== false && item.stock <= item.minimumStock ? '是' : '',
+      item.stock, item.unit ?? '', item.minimumStock, item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock ? '是' : '',
       item.active === false ? '停用' : '啟用', supplierName(item.supplierId), item.warrantyMonths ?? 0,
       item.voltage ?? '', item.capacity ?? '', priceTime(item.priceChangedAt), item.notes,
     ]);

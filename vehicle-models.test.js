@@ -119,7 +119,7 @@ test('cloud data loads models with items and writes new models before the items 
 test('item form, inventory list, CSV preview and manage page expose the vehicle model', async () => {
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /<select id="item-vehicle-model" required><option value="">請選擇車種<\/option><\/select>/);
-  assert.match(html, /<th>分類<\/th><th>車種<\/th><th>料號<\/th><th>條碼<\/th>/);
+  assert.match(html, /<th>分類<\/th><th>車種<\/th><th>料號／條碼<\/th>/);
   assert.match(html, /<th>品項名稱<\/th><th>分類<\/th><th>車種<\/th><th>料號<\/th><th>成本<\/th>/);
   assert.match(html, /id="vehicle-model-form"/);
   assert.match(html, /<tbody id="vehicle-model-list"><\/tbody>/);

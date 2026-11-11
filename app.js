@@ -194,8 +194,8 @@ function appendEmpty(list, message) {
 }
 
 function renderSummary() {
-  // 已停用的品項不會再補貨，不列入低庫存提示。
-  const lowStock = state.items.filter((item) => item.active !== false && item.stock <= item.minimumStock);
+  // 已停用的品項不會再補貨，不列入低庫存提示；沒設定最低庫存（0）的品項也不提醒。
+  const lowStock = state.items.filter((item) => item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock);
   $('item-count').textContent = String(state.items.length);
   $('stock-count').textContent = String(state.items.reduce((sum, item) => sum + item.stock, 0));
   $('low-stock-count').textContent = String(lowStock.length);
@@ -245,7 +245,7 @@ $('low-stock-tabs')?.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-low-category]');
   if (!button) return;
   lowStockCategory = lowStockCategory === button.dataset.lowCategory ? '' : button.dataset.lowCategory;
-  renderLowStock(state.items.filter((item) => item.stock <= item.minimumStock));
+  renderLowStock(state.items.filter((item) => item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock));
 });
 
 // 品項庫存依分類檢視：上方分類按鈕（全部／車身／電池／電控元件／機構元件／外觀元件），顯示各分類品項數與低庫存數。
@@ -256,7 +256,8 @@ function renderItemCategoryTabs() {
   tabs.replaceChildren();
   [['', '全部'], ...ITEM_CATEGORIES.map(category => [category, category])].forEach(([value, label]) => {
     const inCategory = state.items.filter(item => !value || item.category === value);
-    const low = inCategory.filter(item => item.stock <= item.minimumStock).length;
+    // 有設定最低庫存（大於 0）、而且庫存低於或等於它，才算低庫存。
+    const low = inCategory.filter(item => item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock).length;
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'category-tab'; button.dataset.category = value;
     button.setAttribute('aria-pressed', String(value === itemCategoryFilter));
@@ -274,7 +275,7 @@ function renderItems() {
   if (!items.length) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
-    cell.colSpan = 10;
+    cell.colSpan = 9;
     cell.className = 'empty';
     cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
     row.append(cell);
@@ -283,23 +284,25 @@ function renderItems() {
   }
   items.forEach((item) => {
     const row = document.createElement('tr');
-    [`${item.name}${item.active === false ? '（已停用）' : ''}`, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
+    [`${item.name}${item.active === false ? '（已停用）' : ''}`, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
       // 庫存後面加上單位（例：12 個）。
-      if (index === 6 && item.unit) value = `${value} ${item.unit}`;
+      if (index === 5 && item.unit) value = `${value} ${item.unit}`;
       const cell = document.createElement('td');
       cell.textContent = value;
       // 手機版把每列排成卡片，用 data-label 在每個值前面顯示欄名。
-      cell.dataset.label = ['品項', '分類', '車種', '料號', '條碼', '售價', '庫存', '最低', '供應商'][index];
+      cell.dataset.label = ['品項', '分類', '車種', '料號', '售價', '庫存', '最低', '供應商'][index];
+      // 料號和條碼合成一欄：條碼和料號不同時，才在下面用小字列出條碼。
+      if (index === 3 && item.barcode && item.barcode !== item.sku && item.sku) { const code = document.createElement('small'); code.className = 'price-tiers'; code.textContent = `條碼 ${item.barcode}`; cell.append(code); }
       // 低庫存不只靠橘色：再加「低庫存」文字標籤，色弱或黑白列印也看得出來。
       // 售價下面用小字列出有設定的特價、會員價；員工價只有店長看得到。
-      if (index === 5) {
+      if (index === 4) {
         const tiers = priceTierChoices(item, { admin: document.body.dataset.role === 'admin' }).filter(choice => choice.tier !== 'regular');
         if (tiers.length) { const extra = document.createElement('small'); extra.className = 'price-tiers'; extra.textContent = tiers.map(choice => `${choice.label} ${formatNumber(choice.price)}`).join('｜'); cell.append(extra); }
         // 最後價格異動日期（售價、特價、會員價、員工價、成本任何一個改動）；沒有紀錄就不顯示。
         const changed = formatPriceTime(item.priceChangedAt);
         if (changed) { const stamp = document.createElement('small'); stamp.className = 'price-tiers price-changed'; stamp.textContent = `改價 ${changed}`; cell.append(stamp); }
       }
-      if (index === 6 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
+      if (index === 5 && item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
       row.append(cell);
     });
     const actions = document.createElement('td');

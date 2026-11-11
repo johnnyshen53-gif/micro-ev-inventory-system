@@ -33,7 +33,7 @@ test('the unit is stored, loaded, edited in the form and shown after the stock',
   assert.match(cloud, /unit: item\.unit \?\? '',/);
   assert.match(html, /<input id="item-unit" list="item-unit-options" maxlength="10"/);
   assert.match(app, /unit: \$\('item-unit'\)\?\.value \?\? ''/);
-  assert.match(app, /if \(index === 6 && item\.unit\) value = `\$\{value\} \$\{item\.unit\}`;/);
+  assert.match(app, /if \(index === 5 && item\.unit\) value = `\$\{value\} \$\{item\.unit\}`;/);
 });
 
 // 電池電壓、容量可以有一位小數（例：58.8V 25Ah、48V 18.2Ah）。

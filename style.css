@@ -303,7 +303,7 @@ th { white-space: nowrap; }
 /* 數字欄（金額、數量）靠右對齊＋等寬數字，上下比較位數更容易。手機卡片版不套用。 */
 @media (min-width: 701px) {
   :is(
-    table:has(#item-list) :is(th, td):is(:nth-child(6), :nth-child(7), :nth-child(8)),
+    table:has(#item-list) :is(th, td):is(:nth-child(5), :nth-child(6), :nth-child(7)),
     table:has(#purchase-lines) :is(th, td):nth-child(5),
     table:has(#purchase-list) :is(th, td):nth-child(3),
     .purchase-detail-table :is(th, td):is(:nth-child(4), :nth-child(5), :nth-child(6)),
@@ -504,3 +504,6 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 #sale-cart .sale-tier { display: block; width: auto; min-width: 8.5rem; max-width: 100%; margin: .3rem 0 0 auto; padding: .3rem .5rem; font-size: .85rem; }
 .price-changed { font-size: .75rem; }
 @media (min-width: 701px) { .split-fields:has(#item-unit) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* 特價／會員價、改價日期太長時可以換行，售價欄不會把表格撐寬。 */
+#item-list .price-tiers { white-space: normal; }
+#item-list td:nth-child(4) { white-space: nowrap; }

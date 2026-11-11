@@ -33,6 +33,6 @@ test('staff export leaves out cost columns', () => {
 test('the inventory list has an export button wired to the module', async () => {
   const [html, app] = await Promise.all(['index.html', 'app.js'].map(file => readFile(new URL(`./${file}`, import.meta.url), 'utf8')));
   assert.match(html, /<button id="inventory-export" type="button" class="secondary">匯出 CSV<\/button>/);
-  assert.match(html, /<script src="inventory-export\.js\?v=4"><\/script>/);
+  assert.match(html, /<script src="inventory-export\.js\?v=5"><\/script>/);
   assert.match(app, /const includeCost = document\.body\.dataset\.role === 'admin';/);
 });

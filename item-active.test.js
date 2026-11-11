@@ -43,6 +43,6 @@ test('screens: admin-only switch, labels and pickers skip inactive items', async
   assert.match(app, /（已停用，不能入庫）/);
   assert.match(app, /entry\.supplierId === supplierSelect\.value && entry\.active !== false/);
   assert.match(app, /item\.category === category && item\.active !== false && \(!needsModel/);
-  assert.match(app, /item\.active !== false && item\.stock <= item\.minimumStock/);
+  assert.match(app, /item\.active !== false && item\.minimumStock > 0 && item\.stock <= item\.minimumStock/);
   assert.match(cloud, /active: item\.active !== false \}\);/);
 });
