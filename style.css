@@ -498,3 +498,7 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 .camera-scan-dialog button { width: 100%; }
 .sale-page .sale-scanner:has(#sale-camera:not([hidden])) { grid-template-columns: minmax(0, 1fr) 6rem auto auto; }
 @media (max-width: 700px) { .sale-page .sale-scanner:has(#sale-camera:not([hidden])) { grid-template-columns: 1fr; } }
+.price-tiers { display: block; margin-top: .15rem; color: var(--muted); font-size: .8rem; font-weight: 400; white-space: nowrap; }
+.price-tier-hint { margin: -.4rem 0 .8rem; color: var(--muted); font-size: .85rem; }
+@media (min-width: 701px) { .split-fields.price-tier-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+#sale-cart .sale-tier { display: block; width: auto; min-width: 8.5rem; max-width: 100%; margin: .3rem 0 0 auto; padding: .3rem .5rem; font-size: .85rem; }

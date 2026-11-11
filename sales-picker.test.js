@@ -13,6 +13,7 @@ function fixture() {
   const context = { $, document: { createElement: node }, formatNumber: String, showFormError: (_, message) => { context.error = message; }, clearFormError() {}, state: { items: [{ id: 'a', category: '電控元件', name: '煞車皮', price: 350, cost: 180, stock: 2, barcode: '123' }, { id: 'b', category: '機構元件', name: '安全帽', price: 900, stock: 0, barcode: '' }] }, saleCart: [] };
   vm.createContext(context);
   context.requiresSerial = inventoryContext.window.Inventory.requiresSerial;
+  context.priceTierChoices = inventoryContext.window.Inventory.priceTierChoices; context.tierPrice = inventoryContext.window.Inventory.tierPrice;
   context.state.serials = [];
   context.saleSerialItemId = ''; context.saleSerialQuantity = 1;
   vm.runInContext(app.slice(app.indexOf('function parseUnitQr('), app.indexOf("$('item-search')?.addEventListener('input', renderItems);")), context);

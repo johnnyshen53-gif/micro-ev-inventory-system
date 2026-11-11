@@ -10,7 +10,7 @@
   const MAX_ROWS = 500;
   // 欄位：標題 → 內部名稱。標題前後空白、結尾的 * 都會忽略。
   const COLUMNS = [
-    ['品項名稱', 'name', true], ['分類', 'category', true], ['車種', 'vehicleModel', true], ['料號', 'sku'], ['條碼', 'barcode'], ['成本', 'cost'], ['售價', 'price'],
+    ['品項名稱', 'name', true], ['分類', 'category', true], ['車種', 'vehicleModel', true], ['料號', 'sku'], ['條碼', 'barcode'], ['成本', 'cost'], ['售價', 'price'], ['特價', 'specialPrice'], ['會員價', 'memberPrice'], ['員工價', 'staffPrice'],
     ['目前庫存', 'stock'], ['最低庫存', 'minimumStock'], ['保固月數', 'warrantyMonths'], ['供應商', 'supplier'],
     ['電壓', 'voltage'], ['容量', 'capacity'], ['固定售價', 'priceLocked'], ['備註', 'notes'],
   ];
@@ -101,6 +101,10 @@
         }
         const cost = numberCell(get('cost'), '成本') ?? 0;
         let price = numberCell(get('price'), '售價');
+        // 特價、會員價、員工價：選填，留空＝沒有設定；填 0 就是 0 元。
+        const specialPrice = numberCell(get('specialPrice'), '特價');
+        const memberPrice = numberCell(get('memberPrice'), '會員價');
+        const staffPrice = numberCell(get('staffPrice'), '員工價');
         const stock = numberCell(get('stock'), '目前庫存', { integer: true }) ?? 0;
         const minimumStock = numberCell(get('minimumStock'), '最低庫存', { integer: true }) ?? 0;
         const warrantyMonths = numberCell(get('warrantyMonths'), '保固月數', { integer: true, max: 600 }) ?? 0;
@@ -127,7 +131,7 @@
           supplierId = supplier.id;
         }
         const before = next.items.length;
-        next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, stock, minimumStock,
+        next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, specialPrice, memberPrice, staffPrice, stock, minimumStock,
           warrantyMonths, supplierId, vehicleModelId, voltage, capacity, notes: get('notes'), priceLocked, serialNumbers: [] });
         const created = next.items[before];
         Object.assign(row, { id: created.id, name: created.name, sku: created.sku, barcode: created.barcode, cost, price, stock, priceLocked });

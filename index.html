@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=39">
+  <link rel="stylesheet" href="style.css?v=40">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -97,6 +97,8 @@
           <div class="field"><label for="item-sku">料號（自動編碼）</label><input id="item-sku" readonly placeholder="儲存後產生13碼料號"><small>一般：分類＋日期＋流水號；電池：88＋年份＋電壓2碼＋容量2碼＋流水號。</small></div>
           <div class="field"><label for="item-barcode">品項識別碼（選填，13 碼數字可列印 QR Code）</label><input id="item-barcode" inputmode="numeric" placeholder="留空時，儲存後自動帶入產生的料號"></div>
           <div class="split-fields"><div class="field"><label for="item-cost">成本</label><input id="item-cost" type="number" min="0" step="0.01" value="0" required></div><div class="field"><label for="item-price">售價</label><input id="item-price" type="number" min="0" step="0.01" value="0" required aria-describedby="item-price-hint"></div></div>
+          <div class="split-fields price-tier-fields"><div class="field"><label for="item-special-price">特價</label><input id="item-special-price" type="number" min="0" step="0.01" placeholder="未設定"></div><div class="field"><label for="item-member-price">會員價</label><input id="item-member-price" type="number" min="0" step="0.01" placeholder="未設定"></div><div class="field"><label for="item-staff-price">員工價</label><input id="item-staff-price" type="number" min="0" step="0.01" placeholder="未設定"></div></div>
+          <p class="hint price-tier-hint">這三個價格都是選填：留空＝沒有設定，結帳時不能選；填 0 代表可以用 0 元賣出。員工價只有店長看得到、能選。</p>
           <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
           <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>序號選填：車身、電池每件一個，可以少於庫存或留空。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
@@ -143,6 +145,7 @@
             <li><b>品項名稱*、分類*</b>：分類填 車身、電池、電控元件、機構元件、外觀元件。</li>
             <li><b>料號、條碼</b>：留空會自動編碼（條碼同料號）；已存在的料號或條碼不會匯入。</li>
             <li><b>成本、售價</b>：售價必填（系統不會自動計算售價）。</li>
+            <li><b>特價、會員價、員工價</b>：選填，留空＝沒有設定（結帳時不能選）；填 0 代表 0 元。員工價只有店長看得到。</li>
             <li><b>目前庫存、最低庫存、保固月數</b>：整數，留空＝0。車身、電池需要逐件序號，庫存必須是 0，之後用進貨收貨登錄。</li>
             <li><b>電壓、容量</b>：電池必填（1～99 整數），名稱會自動加上「48V 24Ah」這類規格。</li>
             <li><b>供應商</b>：填供應商管理裡的名稱（完全相同），可留空。</li>
@@ -394,19 +397,19 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=39"></script>
+  <script src="inventory.js?v=40"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=35"></script>
+  <script src="cloud-data.js?v=36"></script>
   <script src="repair-ui.js?v=14"></script>
   <script src="promotions-ui.js?v=5"></script>
   <script src="coupons-ui.js?v=1"></script>
-  <script src="item-import.js?v=3"></script>
-  <script src="inventory-export.js?v=1"></script>
+  <script src="item-import.js?v=4"></script>
+  <script src="inventory-export.js?v=2"></script>
   <script src="camera-scan.js?v=1"></script>
   <script src="website-items-ui.js?v=1"></script>
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=86"></script>
+  <script src="app.js?v=87"></script>
 </body>
 </html>

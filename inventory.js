@@ -140,6 +140,28 @@ function number(value, label) {
   return result;
 }
 
+// 選填的價格（特價／會員價／員工價）：沒填（空白、null）＝沒有設定，回傳 null；有填就必須是零或正數，0 代表 0 元。
+function optionalPrice(value, label) {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
+  return number(value, label);
+}
+// 價格別：結帳時每個品項可以選用哪一種價格。員工價只有店長看得到、能選。
+const PRICE_TIERS = { regular: '售價', special: '特價', member: '會員價', staff: '員工價' };
+// 品項在某個價格別的單價；沒設定回傳 null。
+function tierPrice(item, tier = 'regular') {
+  if (!item) return null;
+  if (tier === 'regular') return item.price;
+  if (tier === 'special') return item.specialPrice ?? null;
+  if (tier === 'member') return item.memberPrice ?? null;
+  if (tier === 'staff') return item.staffPrice ?? null;
+  throw new Error('價格別無效');
+}
+// 這個品項結帳時可以選的價格：售價一定有；特價、會員價有設定才列出；員工價要店長（admin）而且有設定。
+function priceTierChoices(item, { admin = false } = {}) {
+  return Object.keys(PRICE_TIERS).filter(tier => tier === 'regular' || (tier !== 'staff' || admin) && tierPrice(item, tier) !== null)
+    .map(tier => ({ tier, label: PRICE_TIERS[tier], price: tierPrice(item, tier) }));
+}
+
 function id(value, label) {
   const result = text(value);
   if (!result) throw new Error(`${label}無效`);
@@ -164,6 +186,10 @@ function normalizedItem(value, fallbackId) {
     barcode: text(value.barcode),
     cost: number(value.cost, '成本'),
     price: number(value.price, '售價'),
+    // 特價、會員價、員工價：選填，null＝沒有設定。
+    specialPrice: optionalPrice(value.specialPrice, '特價'),
+    memberPrice: optionalPrice(value.memberPrice, '會員價'),
+    staffPrice: optionalPrice(value.staffPrice, '員工價'),
     stock: number(value.stock, '庫存'),
     minimumStock: number(value.minimumStock, '最低庫存'),
     warrantyMonths: nonnegativeInteger(value.warrantyMonths ?? 0, '保固月數'),
@@ -1078,7 +1104,11 @@ function recordSaleBatch(state, fields) {
       requireCompleteSerials(current, item);
       if (serials.length !== quantity) throw new Error('銷售數量與所選序號數量不符');
     } else if (requiresSerial(item) && serials.length > quantity) throw new Error('所選序號數超過銷售數量');
-    return { item, quantity, serials };
+    // 價格別：沒指定就是售價；選了沒設定的價格不能結帳。之後的折扣都以這個單價為基準（和資料庫相同）。
+    const priceTier = text(line?.priceTier) || 'regular';
+    const unitPrice = tierPrice(item, priceTier);
+    if (unitPrice === null) throw new Error(`「${item.name}」沒有設定${PRICE_TIERS[priceTier]}`);
+    return { item, quantity, serials, priceTier, unitPrice };
   });
   const quantities = new Map();
   requested.forEach((line) => quantities.set(line.item.id, (quantities.get(line.item.id) ?? 0) + line.quantity));
@@ -1102,23 +1132,23 @@ function recordSaleBatch(state, fields) {
   const purchasedAt = saleDate;
   // 特惠組合：折扣算法與資料庫相同；雲端會再算一次，以資料庫結果為準。
   const appliedPromotions = Array.isArray(fields?.promotions) ? fields.promotions : [];
-  const promotion = appliedPromotions.length ? promotionDiscounts(requested.map(line => ({ itemId: line.item.id, unitPrice: line.item.price, quantity: line.quantity })), appliedPromotions) : null;
+  const promotion = appliedPromotions.length ? promotionDiscounts(requested.map(line => ({ itemId: line.item.id, unitPrice: line.unitPrice, quantity: line.quantity })), appliedPromotions) : null;
   const promotionRefs = appliedPromotions.map(entry => ({ promotionId: entry.promotion.id, times: entry.times }));
   // 車身＋電池折扣：在特惠組合之後、優惠代碼之前（和資料庫 apply_bundle_discount 相同）。
   const saleNet = new Map();
-  requested.forEach(line => { const entry = saleNet.get(line.item.id) ?? { itemId: line.item.id, quantity: 0, netCents: -(promotion?.byItem.get(line.item.id) ?? 0) }; entry.quantity += line.quantity; entry.netCents += toCents(line.item.price) * line.quantity; saleNet.set(line.item.id, entry); });
+  requested.forEach(line => { const entry = saleNet.get(line.item.id) ?? { itemId: line.item.id, quantity: 0, netCents: -(promotion?.byItem.get(line.item.id) ?? 0) }; entry.quantity += line.quantity; entry.netCents += toCents(line.unitPrice) * line.quantity; saleNet.set(line.item.id, entry); });
   const bundle = bundleDiscounts([...saleNet.values()], current.items);
   // 優惠代碼：在組合折扣、車身＋電池折扣之後計算（和資料庫 apply_sale_coupon 相同）。
   const coupon = fields?.coupon ?? null;
   let couponByItem = new Map();
   if (coupon) {
     if (new Set(requested.map(line => line.item.id)).size !== requested.length) throw new Error('使用優惠代碼時，相同品項請合併成一列');
-    couponByItem = couponDiscounts(requested.map(line => ({ itemId: line.item.id, netCents: toCents(line.item.price) * line.quantity - (promotion?.byItem.get(line.item.id) ?? 0) - (bundle.byItem.get(line.item.id) ?? 0) })), coupon).byItem;
+    couponByItem = couponDiscounts(requested.map(line => ({ itemId: line.item.id, netCents: toCents(line.unitPrice) * line.quantity - (promotion?.byItem.get(line.item.id) ?? 0) - (bundle.byItem.get(line.item.id) ?? 0) })), coupon).byItem;
   }
   const sales = requested.map((line) => {
     const item = line.item, discountCents = (promotion?.byItem.get(item.id) ?? 0) + (bundle.byItem.get(item.id) ?? 0) + (couponByItem.get(item.id) ?? 0);
-    const subtotal = discountCents ? (toCents(item.price) * line.quantity - discountCents) / 100 : item.price * line.quantity;
-    return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: item.price, discount: discountCents / 100, subtotal, promotions: promotionRefs, couponCode: coupon?.code ?? '', createdAt, saleDate, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) };
+    const subtotal = discountCents ? (toCents(line.unitPrice) * line.quantity - discountCents) / 100 : line.unitPrice * line.quantity;
+    return { id: crypto.randomUUID(), checkoutId, saleNumber, customerId: customer?.id ?? '', itemId: item.id, itemName: item.name, barcode: item.barcode, quantity: line.quantity, unitPrice: line.unitPrice, priceTier: line.priceTier, discount: discountCents / 100, subtotal, promotions: promotionRefs, couponCode: coupon?.code ?? '', createdAt, saleDate, createdBy: text(fields?.createdBy), createdByAccount: text(fields?.createdByAccount), salespersonId: salesperson.id, serialIds: line.serials.map(s => s.id), serialNumbers: line.serials.map(s => s.serialNumber) };
   });
   const serials = current.serials.map(serial => {
     const sale = sales.find(sale => sale.serialIds.includes(serial.id));
@@ -1333,4 +1363,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { config, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { config, PRICE_TIERS, tierPrice, priceTierChoices, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

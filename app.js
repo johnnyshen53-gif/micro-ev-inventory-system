@@ -1,5 +1,6 @@
 (() => {
 const {
+  PRICE_TIERS, tierPrice, priceTierChoices,
   requiresSerial, registerSerials,
   addSupplier, updateSupplier, deactivateSupplier,
   addVehicleModel, updateVehicleModel,
@@ -288,6 +289,11 @@ function renderItems() {
       // 手機版把每列排成卡片，用 data-label 在每個值前面顯示欄名。
       cell.dataset.label = ['品項', '分類', '車種', '料號', '條碼', '售價', '庫存', '最低', '供應商'][index];
       // 低庫存不只靠橘色：再加「低庫存」文字標籤，色弱或黑白列印也看得出來。
+      // 售價下面用小字列出有設定的特價、會員價；員工價只有店長看得到。
+      if (index === 5) {
+        const tiers = priceTierChoices(item, { admin: document.body.dataset.role === 'admin' }).filter(choice => choice.tier !== 'regular');
+        if (tiers.length) { const extra = document.createElement('small'); extra.className = 'price-tiers'; extra.textContent = tiers.map(choice => `${choice.label} ${formatNumber(choice.price)}`).join('｜'); cell.append(extra); }
+      }
       if (index === 6 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
       row.append(cell);
     });
@@ -397,6 +403,10 @@ function itemFields() {
     barcode: $('item-barcode').value,
     cost: $('item-cost').value,
     price: $('item-price').value,
+    // 特價、會員價、員工價：選填，留空＝沒有設定（結帳時不能選）；填 0 就是 0 元。
+    specialPrice: $('item-special-price')?.value ?? '',
+    memberPrice: $('item-member-price')?.value ?? '',
+    staffPrice: $('item-staff-price')?.value ?? '',
     stock: $('item-stock').value,
     minimumStock: $('item-minimum-stock').value,
     warrantyMonths: $('item-warranty-months').value,
@@ -1757,7 +1767,7 @@ function addSaleItem(item, quantity, serialIds = []) {
   if (!requiresSerial(item) && serialIds.length) { showFormError('sale-form', '此品項不使用序號管理。'); return false; }
   if ((existing?.quantity ?? 0) + quantity > item.stock) { showFormError('sale-form', `庫存不足：${item.name}`); return false; }
   if (existing) { existing.quantity += quantity; existing.subtotal = existing.quantity * existing.unitPrice; existing.serialIds.push(...serialIds); existing.serialNumbers.push(...serials.map(s => s.serialNumber)); }
-  else saleCart.push({ itemId: item.id, barcode: item.barcode, itemName: item.name, unitPrice: item.price, quantity, subtotal: item.price * quantity, serialIds: [...serialIds], serialNumbers: serials.map(s => s.serialNumber) });
+  else saleCart.push({ itemId: item.id, barcode: item.barcode, itemName: item.name, priceTier: 'regular', unitPrice: item.price, quantity, subtotal: item.price * quantity, serialIds: [...serialIds], serialNumbers: serials.map(s => s.serialNumber) });
   saleCheckoutId = '';
   clearFormError('sale-form'); renderSaleCart(); renderSalePicker(); renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)); return true;
 }
@@ -1776,6 +1786,14 @@ function renderSaleCart() {
     if (line.serialNumbers?.length) { const serials = document.createElement('small'); serials.className = 'sale-serials'; serials.textContent = `序號：${line.serialNumbers.join('、')}`; nameCell.append(serials); }
     row.append(nameCell);
     [`NT$ ${formatNumber(line.unitPrice)}`, formatNumber(line.quantity), `NT$ ${formatNumber(line.subtotal)}`].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); });
+    // 價格別：這個品項除了售價還有設定特價／會員價（店長另有員工價）時，單價下面出現選單，可以改用另一種價格計價。
+    const tierChoices = priceTierChoices(state.items.find(item => item.id === line.itemId), { admin: document.body?.dataset.role === 'admin' });
+    if (tierChoices.length > 1) {
+      const select = document.createElement('select'); select.className = 'sale-tier'; select.dataset.saleTier = String(index); select.setAttribute('aria-label', `${line.itemName} 的價格別`);
+      tierChoices.forEach(choice => select.append(new Option(`${choice.label} ${formatNumber(choice.price)}`, choice.tier)));
+      select.value = line.priceTier || 'regular';
+      row.children[1].append(select);
+    }
     const lineDiscount = (byItem.get(line.itemId) ?? 0) / 100;
     if (lineDiscount) { const note = document.createElement('small'); note.className = 'sale-line-discount'; note.textContent = `折扣 −NT$ ${formatNumber(lineDiscount)}`; row.lastChild.append(note); }
     const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.dataset.saleRemove = String(index); button.textContent = '移除'; cell.append(button); row.append(cell); list.append(row);
@@ -1822,6 +1840,14 @@ $('sale-pick-add')?.addEventListener('click', () => {
   const item = state.items.find(candidate => candidate.id === $('sale-item').value && candidate.category === $('sale-category').value);
   if (requiresSerial(item)) return beginSaleSerialSelection(item, Number($('sale-pick-quantity').value));
   if (addSaleItem(item, Number($('sale-pick-quantity').value))) $('sale-pick-quantity').value = '1';
+});
+// 購物車改價格別：換成該價格別的單價，重算小計；送出的內容變了，所以結帳識別碼重新產生，折扣也會跟著重算。
+$('sale-cart')?.addEventListener('change', (event) => {
+  const select = event.target.closest('select[data-sale-tier]'); if (!select) return;
+  const line = saleCart[Number(select.dataset.saleTier)], price = tierPrice(state.items.find(item => item.id === line?.itemId), select.value);
+  if (!line || price === null) return renderSaleCart();
+  line.priceTier = select.value; line.unitPrice = price; line.subtotal = price * line.quantity;
+  saleCheckoutId = ''; clearFormError('sale-form'); renderSaleCart();
 });
 $('sale-cart')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-sale-remove]'); if (!button) return; saleCart.splice(Number(button.dataset.saleRemove), 1); saleCheckoutId = ''; renderSaleCart(); renderSalePicker(); renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)); });
 $('sale-serial-ids')?.addEventListener('change', () => renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)));
@@ -1898,7 +1924,7 @@ function renderMonthlySales(refreshPerformance = false) {
   const seenSales = new Set();
   sales.forEach((sale) => {
     const row = document.createElement('tr');
-    [saleDateOf(sale).split('-').map((part, index) => index ? String(Number(part)) : part).join('/'), sale.itemName, sale.barcode, `NT$ ${formatNumber(sale.unitPrice)}`, formatNumber(sale.quantity), `NT$ ${formatNumber(sale.subtotal)}`, ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
+    [saleDateOf(sale).split('-').map((part, index) => index ? String(Number(part)) : part).join('/'), sale.itemName, sale.barcode, `NT$ ${formatNumber(sale.unitPrice)}${sale.priceTier && sale.priceTier !== 'regular' ? `（${PRICE_TIERS[sale.priceTier] ?? sale.priceTier}）` : ''}`, formatNumber(sale.quantity), `NT$ ${formatNumber(sale.subtotal)}`, ...(isAdmin ? [sale.createdByAccount || '—'] : [])].forEach((value, index) => {
       const cell = document.createElement('td'); cell.textContent = value; cell.dataset.label = ['日期', '品項', '條碼', '單價', '數量', '小計', '結帳人'][index]; row.append(cell);
     });
     // 小計是折扣後實收；有特惠組合或優惠代碼折扣時在下方註明。
