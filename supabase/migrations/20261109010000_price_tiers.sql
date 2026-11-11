@@ -46,12 +46,14 @@ begin
     select * into v_item from public.items where id = (v_line->>'item_id')::uuid for update;
     if not found or v_item.stock < v_quantity then raise exception '品項不存在或庫存不足'; end if;
     if not v_item.active then raise exception '品項「%」已停用，無法銷售', v_item.name; end if;
-    -- 價格別：regular 售價（預設）、special 特價、member 會員價、staff 員工價（只有店長可用）。
+    -- 價格別：regular 售價（預設）、special 特價、member 會員價（要有選客戶）、staff 員工價（只有店長可用）。
     -- 沒設定（null）的價格不能選；0 代表 0 元。
     v_tier := coalesce(nullif(v_line->>'price_tier', ''), 'regular');
     if v_tier = 'regular' then v_unit_price := v_item.price;
     elsif v_tier = 'special' then v_unit_price := v_item.special_price;
-    elsif v_tier = 'member' then v_unit_price := v_item.member_price;
+    elsif v_tier = 'member' then
+      if p_customer_id is null then raise exception '會員價需要先選擇客戶'; end if;
+      v_unit_price := v_item.member_price;
     elsif v_tier = 'staff' then
       if not app_private.is_admin() then raise exception '只有店長可以用員工價結帳' using errcode = '42501'; end if;
       select staff_price into v_unit_price from public.item_costs where item_id = v_item.id;

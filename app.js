@@ -1846,8 +1846,18 @@ $('sale-cart')?.addEventListener('change', (event) => {
   const select = event.target.closest('select[data-sale-tier]'); if (!select) return;
   const line = saleCart[Number(select.dataset.saleTier)], price = tierPrice(state.items.find(item => item.id === line?.itemId), select.value);
   if (!line || price === null) return renderSaleCart();
+  // 會員價要先選客戶：沒選就不換價格，選單回到原本的價格別。
+  if (select.value === 'member' && !$('sale-customer').value) { renderSaleCart(); return showFormError('sale-form', '會員價需要先選擇客戶。'); }
   line.priceTier = select.value; line.unitPrice = price; line.subtotal = price * line.quantity;
   saleCheckoutId = ''; clearFormError('sale-form'); renderSaleCart();
+});
+// 客戶改成「不選」時，已經用會員價的品項改回售價（會員價要有客戶才能用）。
+$('sale-customer')?.addEventListener('change', () => {
+  if ($('sale-customer').value) return;
+  const reverted = saleCart.filter(line => line.priceTier === 'member');
+  if (!reverted.length) return;
+  reverted.forEach(line => { const item = state.items.find(candidate => candidate.id === line.itemId); line.priceTier = 'regular'; line.unitPrice = item?.price ?? line.unitPrice; line.subtotal = line.unitPrice * line.quantity; });
+  saleCheckoutId = ''; renderSaleCart(); showFormError('sale-form', '沒有選客戶，會員價的品項已改回售價。');
 });
 $('sale-cart')?.addEventListener('click', (event) => { const button = event.target.closest('button[data-sale-remove]'); if (!button) return; saleCart.splice(Number(button.dataset.saleRemove), 1); saleCheckoutId = ''; renderSaleCart(); renderSalePicker(); renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)); });
 $('sale-serial-ids')?.addEventListener('change', () => renderSaleSerialSelector(state.items.find(item => item.id === saleSerialItemId)));

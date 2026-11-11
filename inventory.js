@@ -1116,6 +1116,8 @@ function recordSaleBatch(state, fields) {
   quantities.forEach((quantity, id) => { const item = current.items.find((candidate) => candidate.id === id); if (item.stock < quantity) throw new Error(`庫存不足：${item.name}`); });
   const customer = fields.customerId ? current.customers.find((candidate) => candidate.id === fields.customerId) : null;
   if (fields.customerId && !customer) throw new Error('找不到客戶');
+  // 會員價：要有選客戶才能用（和資料庫相同）。
+  if (!customer && requested.some(line => line.priceTier === 'member')) throw new Error('會員價需要先選擇客戶');
   if (config.strictSerials && items.some(requiresSerial) && !customer) throw new Error('序號商品結帳必須選擇客戶');
   const serialIds = requested.flatMap(line => line.serials.map(s => s.id));
   if (new Set(serialIds).size !== serialIds.length) throw new Error('購物車序號重複');

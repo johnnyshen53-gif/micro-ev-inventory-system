@@ -12,14 +12,14 @@ const I = context.window.Inventory;
 const plain = value => JSON.parse(JSON.stringify(value));
 
 const ready = () => {
-  let state = I.emptyState();
+  let state = I.addCustomer(I.emptyState(), { name: '會員王先生', phone: '0900000001' });
   state = I.addItem(state, { name: '座墊', category: '外觀元件', price: 950, specialPrice: '849', memberPrice: 799, staffPrice: 600, cost: 500, stock: 20, minimumStock: 0 });
   state = I.addItem(state, { name: '腳踏板', category: '外觀元件', price: 1100, specialPrice: '', memberPrice: 0, cost: 0, stock: 20, minimumStock: 0 });
   state = I.addItem(state, { name: '小偉士', category: '車身', price: 30000, specialPrice: 28000, cost: 0, stock: 5, minimumStock: 0 });
   state = I.addItem(state, { name: '鋰電池', category: '電池', voltage: 48, capacity: 20, price: 5000, cost: 0, stock: 5, minimumStock: 0 });
   return I.addSalesperson(state, { name: '業務' });
 };
-const sell = (state, lines) => I.recordSaleBatch(state, { salespersonId: state.salespeople[0].id, lines });
+const sell = (state, lines, customerId = '') => I.recordSaleBatch(state, { salespersonId: state.salespeople[0].id, customerId, lines });
 
 test('items keep three optional prices: blank means not set, zero means free, negatives are rejected', () => {
   const [seat, step] = ready().items;
@@ -41,13 +41,14 @@ test('checkout choices list only the prices that are set; the staff price is for
 
 test('a sale uses the chosen price for each line and records which price it was', () => {
   const state = ready(), [seat, step] = state.items;
-  const next = sell(state, [{ itemId: seat.id, quantity: 2, priceTier: 'special' }, { itemId: step.id, quantity: 1, priceTier: 'member' }]);
+  const next = sell(state, [{ itemId: seat.id, quantity: 2, priceTier: 'special' }, { itemId: step.id, quantity: 1, priceTier: 'member' }], state.customers[0].id);
   assert.deepEqual(plain(next.sales.map(sale => [sale.itemName, sale.priceTier, sale.unitPrice, sale.subtotal])), [['座墊', 'special', 849, 1698], ['腳踏板', 'member', 0, 0]]);
   assert.equal(next.items[0].stock, 18);
   const regular = sell(state, [{ itemId: seat.id, quantity: 1 }]).sales[0];
   assert.deepEqual([regular.priceTier, regular.unitPrice], ['regular', 950]);
   assert.equal(sell(state, [{ itemId: seat.id, quantity: 3, priceTier: 'staff' }]).sales[0].subtotal, 1800);
   assert.throws(() => sell(state, [{ itemId: step.id, quantity: 1, priceTier: 'special' }]), /「腳踏板」沒有設定特價/);
+  assert.throws(() => sell(state, [{ itemId: seat.id, quantity: 1, priceTier: 'member' }]), /會員價需要先選擇客戶/, '沒選客戶不能用會員價');
   assert.throws(() => sell(state, [{ itemId: step.id, quantity: 1, priceTier: 'staff' }]), /「腳踏板」沒有設定員工價/);
 });
 
@@ -98,12 +99,24 @@ test('the cart offers a price picker per line and re-prices the line when it cha
   const picker = row => row.children[1].children.find(child => child.dataset?.saleTier !== undefined);
   assert.deepEqual(plain(picker(rows()[0]).children), [{ text: '售價 950', value: 'regular' }, { text: '特價 849', value: 'special' }, { text: '會員價 799', value: 'member' }], '店員看不到員工價');
   assert.equal(picker(rows()[1]), undefined, `${battery.name} 只有售價，不出現選單`);
-  const select = picker(rows()[0]); select.value = 'member';
+  // 沒選客戶：不能換成會員價，維持售價並提示。
+  let select = picker(rows()[0]); select.value = 'member';
+  ctx.$('sale-cart').listeners.change({ target: { closest: () => select } });
+  assert.match(ctx.error, /會員價需要先選擇客戶/);
+  assert.deepEqual(plain(vm.runInContext('[saleCart[0].priceTier, saleCart[0].unitPrice]', ctx)), ['regular', 950]);
+  // 選了客戶就可以。
+  ctx.$('sale-customer').value = ctx.state.customers[0].id;
+  select = picker(rows()[0]); select.value = 'member';
   ctx.$('sale-cart').listeners.change({ target: { closest: () => select } });
   assert.deepEqual(plain(vm.runInContext('[saleCart[0].priceTier, saleCart[0].unitPrice, saleCart[0].subtotal, saleCheckoutId]', ctx)), ['member', 799, 1598, '']);
   assert.equal(picker(rows()[0]).value, 'member');
   assert.equal(ctx.$('sale-cart-total').textContent, String(1598 + 5000));
   assert.equal(seat.price, 950);
+  // 客戶改回「不選」：會員價的品項自動改回售價。
+  ctx.$('sale-customer').value = '';
+  ctx.$('sale-customer').listeners.change();
+  assert.deepEqual(plain(vm.runInContext('[saleCart[0].priceTier, saleCart[0].unitPrice, saleCart[0].subtotal]', ctx)), ['regular', 950, 1900]);
+  assert.match(ctx.error, /已改回售價/);
 
   const admin = cart('admin');
   vm.runInContext(app.slice(app.indexOf('function parseUnitQr('), app.indexOf("$('item-search')?.addEventListener('input', renderItems);")), admin);
@@ -124,5 +137,6 @@ test('the three prices are stored, loaded and sent to checkout; the staff price 
   assert.match(app, /specialPrice: \$\('item-special-price'\)\?\.value \?\? ''/);
   assert.match(migration, /alter table public\.item_costs\s+add column staff_price/);
   assert.match(migration, /只有店長可以用員工價結帳/);
+  assert.match(migration, /if p_customer_id is null then raise exception '會員價需要先選擇客戶'/);
   assert.match(migration, /price_tier in \('regular', 'special', 'member', 'staff'\)/);
 });
