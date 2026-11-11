@@ -60,8 +60,9 @@ test('clerks do not see the supplier filter (they cannot see suppliers)', () => 
   assert.equal(names().length, 5);
 });
 
-test('the supplier filter sits next to the category tabs', () => {
-  assert.match(html, /<div class="item-filters"><div id="item-category-tabs" class="category-tabs" aria-label="依分類檢視"><\/div><label class="supplier-filter"><span>車種<\/span><select id="item-model-filter">.*?<\/label><label id="item-supplier-filter-field" class="supplier-filter" hidden><span>供應商<\/span><select id="item-supplier-filter">/);
+test('the supplier and vehicle filters sit on a row above the category tabs', () => {
+  // 第一列是供應商、車種下拉選單，第二列是分類按鈕。
+  assert.match(html, /<div class="item-filters"><div class="item-filter-selects"><label id="item-supplier-filter-field" class="supplier-filter" hidden><span>供應商<\/span><select id="item-supplier-filter">.*?<\/label><label class="supplier-filter"><span>車種<\/span><select id="item-model-filter">.*?<\/label><\/div><div id="item-category-tabs" class="category-tabs" aria-label="依分類檢視"><\/div><\/div>/);
 });
 
 test('everyone can filter by vehicle model; the two dropdowns narrow each other', () => {
