@@ -507,3 +507,9 @@ form:has(#staff-create-submit) + .table-wrap, .table-wrap + #staff-link-form { m
 /* 特價／會員價、改價日期太長時可以換行，售價欄不會把表格撐寬。 */
 #item-list .price-tiers { white-space: normal; }
 #item-list td:nth-child(4) { white-space: nowrap; }
+/* 庫存清單：分類按鈕旁的供應商下拉選單（店長才看得到）。 */
+.item-filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .5rem 1rem; }
+.item-filters .category-tabs { flex: 1 1 auto; margin-bottom: 0; }
+.supplier-filter { display: flex; align-items: center; gap: .5rem; flex: 0 1 18rem; font-weight: 700; white-space: nowrap; }
+.supplier-filter select { min-width: 0; }
+.item-filters + .table-wrap { margin-top: .75rem; }

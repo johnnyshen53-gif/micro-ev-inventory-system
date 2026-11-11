@@ -251,11 +251,32 @@ $('low-stock-tabs')?.addEventListener('click', (event) => {
 // 品項庫存依分類檢視：上方分類按鈕（全部／車身／電池／電控元件／機構元件／外觀元件），顯示各分類品項數與低庫存數。
 const ITEM_CATEGORIES = ['車身', '電池', '電控元件', '機構元件', '外觀元件'];
 let itemCategoryFilter = '';
+// 供應商篩選（只有店長看得到供應商）：''＝全部，NO_SUPPLIER＝未指定供應商，其他＝供應商 ID。和分類、搜尋可以同時使用。
+const NO_SUPPLIER = '__none__';
+let itemSupplierFilter = '';
+const matchesSupplier = item => !itemSupplierFilter || (itemSupplierFilter === NO_SUPPLIER ? !item.supplierId : item.supplierId === itemSupplierFilter);
+// 供應商下拉選單：列出有品項的供應商（品項多的在前）和「未指定供應商」，括號是品項數；選過的值保留。
+function renderItemSupplierFilter() {
+  const select = $('item-supplier-filter'); if (!select) return;
+  const admin = document.body.dataset.role === 'admin';
+  if ($('item-supplier-filter-field')) $('item-supplier-filter-field').hidden = !admin;
+  if (!admin) { itemSupplierFilter = ''; return; }
+  const counts = new Map();
+  state.items.forEach(item => counts.set(item.supplierId || NO_SUPPLIER, (counts.get(item.supplierId || NO_SUPPLIER) ?? 0) + 1));
+  const suppliers = (state.suppliers ?? []).filter(supplier => counts.has(supplier.id))
+    .sort((a, b) => counts.get(b.id) - counts.get(a.id) || a.name.localeCompare(b.name, 'zh-Hant'));
+  if (itemSupplierFilter && !counts.has(itemSupplierFilter)) itemSupplierFilter = '';
+  select.replaceChildren(new Option(`全部供應商（${state.items.length}）`, ''),
+    ...suppliers.map(supplier => new Option(`${supplier.name}${supplier.active === false ? '（已停用）' : ''}（${counts.get(supplier.id)}）`, supplier.id)),
+    ...(counts.has(NO_SUPPLIER) ? [new Option(`未指定供應商（${counts.get(NO_SUPPLIER)}）`, NO_SUPPLIER)] : []));
+  select.value = itemSupplierFilter;
+}
 function renderItemCategoryTabs() {
   const tabs = $('item-category-tabs'); if (!tabs) return;
   tabs.replaceChildren();
   [['', '全部'], ...ITEM_CATEGORIES.map(category => [category, category])].forEach(([value, label]) => {
-    const inCategory = state.items.filter(item => !value || item.category === value);
+    // 分類按鈕的數字跟著供應商篩選：選了供應商，就只算那家的品項。
+    const inCategory = state.items.filter(item => (!value || item.category === value) && matchesSupplier(item));
     // 有設定最低庫存（大於 0）、而且庫存低於或等於它，才算低庫存。
     const low = inCategory.filter(item => item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock).length;
     const button = document.createElement('button');
@@ -267,9 +288,10 @@ function renderItemCategoryTabs() {
   });
 }
 function renderItems() {
+  renderItemSupplierFilter();
   renderItemCategoryTabs();
   const query = $('item-search').value.trim().toLowerCase();
-  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && [item.name, item.sku, item.barcode, item.category, vehicleModelLabel(item.vehicleModelId)].some((value) => value.toLowerCase().includes(query)));
+  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && matchesSupplier(item) && [item.name, item.sku, item.barcode, item.category, vehicleModelLabel(item.vehicleModelId)].some((value) => value.toLowerCase().includes(query)));
   const list = $('item-list');
   list.replaceChildren();
   if (!items.length) {
@@ -277,7 +299,7 @@ function renderItems() {
     const cell = document.createElement('td');
     cell.colSpan = 9;
     cell.className = 'empty';
-    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
+    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemSupplierFilter ? '這個供應商在此分類沒有品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
     row.append(cell);
     list.append(row);
     return;
@@ -521,6 +543,10 @@ $('item-category-tabs')?.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-category]');
   if (!button) return;
   itemCategoryFilter = button.dataset.category;
+  renderItems();
+});
+$('item-supplier-filter')?.addEventListener('change', (event) => {
+  itemSupplierFilter = event.target.value;
   renderItems();
 });
 $('item-search')?.addEventListener('keydown', (event) => {
