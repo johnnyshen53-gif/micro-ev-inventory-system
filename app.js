@@ -318,6 +318,15 @@ function renderItems() {
   renderItemModelFilter();
   renderItemCategoryTabs();
   const query = $('item-search').value.trim().toLowerCase();
+  // 品項很多（6,000 多筆），一進來先不列：選了供應商或車種，或在搜尋框輸入／掃描料號，才列出品項。
+  if (!itemSupplierFilter && !itemModelFilter && !query) {
+    const list = $('item-list'); list.replaceChildren();
+    const row = document.createElement('tr'), cell = document.createElement('td');
+    cell.colSpan = 9; cell.className = 'empty';
+    cell.textContent = document.body.dataset.role === 'admin' ? '請先選擇供應商或車種，或在搜尋框輸入品名、料號。' : '請先選擇車種，或在搜尋框輸入品名、料號。';
+    row.append(cell); list.append(row);
+    return;
+  }
   const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && matchesSupplier(item) && matchesModel(item) && [item.name, item.sku, item.barcode, item.category, vehicleModelLabel(item.vehicleModelId)].some((value) => value.toLowerCase().includes(query)));
   const list = $('item-list');
   list.replaceChildren();
@@ -326,7 +335,7 @@ function renderItems() {
     const cell = document.createElement('td');
     cell.colSpan = 9;
     cell.className = 'empty';
-    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemSupplierFilter || itemModelFilter ? '目前篩選條件下沒有品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
+    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類在目前篩選條件下沒有品項。` : '目前篩選條件下沒有品項。';
     row.append(cell);
     list.append(row);
     return;

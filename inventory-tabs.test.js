@@ -26,6 +26,9 @@ const item = (name, category, stock, minimumStock = 1) => ({ id: name, name, cat
 test('inventory list can be viewed by category with counts and low-stock badges', () => {
   const { $, context, click } = harness([item('EV-200', '車身', 3), item('煞車皮', '電控元件', 0), item('機油', '電控元件', 9), item('安全帽', '機構元件', 5)]);
   context.renderItems();
+  // 一進來還沒選車種、也沒搜尋：分類按鈕照常顯示，清單先不列。
+  assert.equal($('item-list').children[0].children[0].textContent, '請先選擇車種，或在搜尋框輸入品名、料號。');
+  vm.runInContext("itemModelFilter = '__none__'", context); context.renderItems();
   const tabs = $('item-category-tabs').children;
   assert.deepEqual(tabs.map(t => t.textContent), ['全部（4）', '車身（1）', '電池（0）', '電控元件（2）', '機構元件（1）', '外觀元件（0）']);
   assert.equal(tabs[0].attributes['aria-pressed'], 'true');
@@ -41,7 +44,7 @@ test('inventory list can be viewed by category with counts and low-stock badges'
   assert.deepEqual($('item-list').children.map(row => row.children[0].textContent), ['機油']);
 
   $('item-search').value = ''; click('電池');
-  assert.equal($('item-list').children[0].children[0].textContent, '「電池」分類目前沒有品項。');
+  assert.equal($('item-list').children[0].children[0].textContent, '「電池」分類在目前篩選條件下沒有品項。');
   click('');
   assert.equal($('item-list').children.length, 4);
 });

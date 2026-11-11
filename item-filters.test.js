@@ -46,18 +46,20 @@ test('the manager can filter the list by supplier; category counts follow the su
   click('外觀元件');
   assert.deepEqual(names(), ['座墊', '前土除'], '分類和供應商一起篩選');
   click('電控元件');
-  assert.equal(names()[0], '目前篩選條件下沒有品項。');
+  assert.equal(names()[0], '「電控元件」分類在目前篩選條件下沒有品項。');
   click(''); choose('__none__');
   assert.deepEqual(names(), ['螺絲']);
   choose('');
-  assert.equal(names().length, 5);
+  assert.deepEqual(names(), ['請先選擇供應商或車種，或在搜尋框輸入品名、料號。'], '全部清掉就回到先不列的狀態');
+  $('item-search').value = '控制'; context.renderItems();
+  assert.deepEqual(names(), ['控制器'], '沒選篩選也可以直接搜尋');
 });
 
 test('clerks do not see the supplier filter (they cannot see suppliers)', () => {
   const { $, context, names } = harness('clerk');
   context.renderItems();
   assert.equal($('item-supplier-filter-field').hidden, true);
-  assert.equal(names().length, 5);
+  assert.deepEqual(names(), ['請先選擇車種，或在搜尋框輸入品名、料號。']);
 });
 
 test('the supplier and vehicle filters sit on a row above the category tabs', () => {
