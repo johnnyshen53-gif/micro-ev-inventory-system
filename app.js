@@ -255,6 +255,28 @@ let itemCategoryFilter = '';
 const NO_SUPPLIER = '__none__';
 let itemSupplierFilter = '';
 const matchesSupplier = item => !itemSupplierFilter || (itemSupplierFilter === NO_SUPPLIER ? !item.supplierId : item.supplierId === itemSupplierFilter);
+// 車種篩選（店長、店員都可用）：''＝全部，NO_MODEL＝未設定車種，其他＝車種 ID（只列這個車種的品項，「通用」要另外選）。
+const NO_MODEL = '__none__';
+let itemModelFilter = '';
+const matchesModel = item => !itemModelFilter || (itemModelFilter === NO_MODEL ? !item.vehicleModelId : item.vehicleModelId === itemModelFilter);
+// 篩選選單的數字依「另一個篩選」計算：例如選了供應商，車種選單只算那家的品項。
+function renderItemModelFilter() {
+  const select = $('item-model-filter'); if (!select) return;
+  const counts = new Map();
+  state.items.filter(matchesSupplier).forEach(item => counts.set(item.vehicleModelId || NO_MODEL, (counts.get(item.vehicleModelId || NO_MODEL) ?? 0) + 1));
+  const models = (state.vehicleModels ?? []).filter(model => counts.has(model.id))
+    .sort((a, b) => Number(b.isUniversal === true) - Number(a.isUniversal === true) || counts.get(b.id) - counts.get(a.id) || a.name.localeCompare(b.name, 'zh-Hant'));
+  const total = [...counts.values()].reduce((sum, count) => sum + count, 0);
+  select.replaceChildren(new Option(`全部車種（${total}）`, ''),
+    ...models.map(model => new Option(`${model.name}${model.active === false ? '（已停用）' : ''}（${counts.get(model.id)}）`, model.id)),
+    ...(counts.has(NO_MODEL) ? [new Option(`未設定車種（${counts.get(NO_MODEL)}）`, NO_MODEL)] : []));
+  // 目前選的車種在這個範圍沒有品項時仍保留在選單裡（顯示 0），不會被默默取消。
+  if (itemModelFilter && !counts.has(itemModelFilter)) {
+    const model = (state.vehicleModels ?? []).find(entry => entry.id === itemModelFilter);
+    if (model || itemModelFilter === NO_MODEL) select.append(new Option(`${model ? model.name : '未設定車種'}（0）`, itemModelFilter)); else itemModelFilter = '';
+  }
+  select.value = itemModelFilter;
+}
 // 供應商下拉選單：列出有品項的供應商（品項多的在前）和「未指定供應商」，括號是品項數；選過的值保留。
 function renderItemSupplierFilter() {
   const select = $('item-supplier-filter'); if (!select) return;
@@ -262,13 +284,17 @@ function renderItemSupplierFilter() {
   if ($('item-supplier-filter-field')) $('item-supplier-filter-field').hidden = !admin;
   if (!admin) { itemSupplierFilter = ''; return; }
   const counts = new Map();
-  state.items.forEach(item => counts.set(item.supplierId || NO_SUPPLIER, (counts.get(item.supplierId || NO_SUPPLIER) ?? 0) + 1));
+  state.items.filter(matchesModel).forEach(item => counts.set(item.supplierId || NO_SUPPLIER, (counts.get(item.supplierId || NO_SUPPLIER) ?? 0) + 1));
   const suppliers = (state.suppliers ?? []).filter(supplier => counts.has(supplier.id))
     .sort((a, b) => counts.get(b.id) - counts.get(a.id) || a.name.localeCompare(b.name, 'zh-Hant'));
-  if (itemSupplierFilter && !counts.has(itemSupplierFilter)) itemSupplierFilter = '';
-  select.replaceChildren(new Option(`全部供應商（${state.items.length}）`, ''),
-    ...suppliers.map(supplier => new Option(`${supplier.name}${supplier.active === false ? '（已停用）' : ''}（${counts.get(supplier.id)}）`, supplier.id)),
-    ...(counts.has(NO_SUPPLIER) ? [new Option(`未指定供應商（${counts.get(NO_SUPPLIER)}）`, NO_SUPPLIER)] : []));
+  const total = [...counts.values()].reduce((sum, count) => sum + count, 0);
+  if (itemSupplierFilter && !counts.has(itemSupplierFilter)) {
+    const supplier = (state.suppliers ?? []).find(entry => entry.id === itemSupplierFilter);
+    if (supplier || itemSupplierFilter === NO_SUPPLIER) suppliers.push({ ...(supplier ?? { id: NO_SUPPLIER, name: '未指定供應商' }), empty: true }); else itemSupplierFilter = '';
+  }
+  select.replaceChildren(new Option(`全部供應商（${total}）`, ''),
+    ...suppliers.filter(supplier => supplier.id !== NO_SUPPLIER).map(supplier => new Option(`${supplier.name}${supplier.active === false ? '（已停用）' : ''}（${counts.get(supplier.id) ?? 0}）`, supplier.id)),
+    ...(counts.has(NO_SUPPLIER) || itemSupplierFilter === NO_SUPPLIER ? [new Option(`未指定供應商（${counts.get(NO_SUPPLIER) ?? 0}）`, NO_SUPPLIER)] : []));
   select.value = itemSupplierFilter;
 }
 function renderItemCategoryTabs() {
@@ -276,7 +302,7 @@ function renderItemCategoryTabs() {
   tabs.replaceChildren();
   [['', '全部'], ...ITEM_CATEGORIES.map(category => [category, category])].forEach(([value, label]) => {
     // 分類按鈕的數字跟著供應商篩選：選了供應商，就只算那家的品項。
-    const inCategory = state.items.filter(item => (!value || item.category === value) && matchesSupplier(item));
+    const inCategory = state.items.filter(item => (!value || item.category === value) && matchesSupplier(item) && matchesModel(item));
     // 有設定最低庫存（大於 0）、而且庫存低於或等於它，才算低庫存。
     const low = inCategory.filter(item => item.active !== false && item.minimumStock > 0 && item.stock <= item.minimumStock).length;
     const button = document.createElement('button');
@@ -289,9 +315,10 @@ function renderItemCategoryTabs() {
 }
 function renderItems() {
   renderItemSupplierFilter();
+  renderItemModelFilter();
   renderItemCategoryTabs();
   const query = $('item-search').value.trim().toLowerCase();
-  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && matchesSupplier(item) && [item.name, item.sku, item.barcode, item.category, vehicleModelLabel(item.vehicleModelId)].some((value) => value.toLowerCase().includes(query)));
+  const items = state.items.filter((item) => (!itemCategoryFilter || item.category === itemCategoryFilter) && matchesSupplier(item) && matchesModel(item) && [item.name, item.sku, item.barcode, item.category, vehicleModelLabel(item.vehicleModelId)].some((value) => value.toLowerCase().includes(query)));
   const list = $('item-list');
   list.replaceChildren();
   if (!items.length) {
@@ -299,7 +326,7 @@ function renderItems() {
     const cell = document.createElement('td');
     cell.colSpan = 9;
     cell.className = 'empty';
-    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemSupplierFilter ? '這個供應商在此分類沒有品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
+    cell.textContent = query ? '沒有符合搜尋條件的品項。' : itemSupplierFilter || itemModelFilter ? '目前篩選條件下沒有品項。' : itemCategoryFilter ? `「${itemCategoryFilter}」分類目前沒有品項。` : '尚未建立品項。';
     row.append(cell);
     list.append(row);
     return;
@@ -547,6 +574,10 @@ $('item-category-tabs')?.addEventListener('click', (event) => {
 });
 $('item-supplier-filter')?.addEventListener('change', (event) => {
   itemSupplierFilter = event.target.value;
+  renderItems();
+});
+$('item-model-filter')?.addEventListener('change', (event) => {
+  itemModelFilter = event.target.value;
   renderItems();
 });
 $('item-search')?.addEventListener('keydown', (event) => {
