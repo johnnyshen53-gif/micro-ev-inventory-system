@@ -11,7 +11,7 @@
   // 欄位：標題 → 內部名稱。標題前後空白、結尾的 * 都會忽略。
   const COLUMNS = [
     ['品項名稱', 'name', true], ['分類', 'category', true], ['車種', 'vehicleModel', true], ['料號', 'sku'], ['條碼', 'barcode'], ['成本', 'cost'], ['售價', 'price'], ['特價', 'specialPrice'], ['會員價', 'memberPrice'], ['員工價', 'staffPrice'],
-    ['目前庫存', 'stock'], ['最低庫存', 'minimumStock'], ['保固月數', 'warrantyMonths'], ['供應商', 'supplier'],
+    ['目前庫存', 'stock'], ['單位', 'unit'], ['最低庫存', 'minimumStock'], ['保固月數', 'warrantyMonths'], ['供應商', 'supplier'],
     ['電壓', 'voltage'], ['容量', 'capacity'], ['固定售價', 'priceLocked'], ['價格異動時間', 'priceChangedAt'], ['備註', 'notes'],
   ];
   const CATEGORIES = ['車身', '電池', '電控元件', '機構元件', '外觀元件'];
@@ -144,7 +144,7 @@
           supplierId = supplier.id;
         }
         const before = next.items.length;
-        next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, specialPrice, memberPrice, staffPrice, priceChangedAt, stock, minimumStock,
+        next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, specialPrice, memberPrice, staffPrice, priceChangedAt, unit: get('unit'), stock, minimumStock,
           warrantyMonths, supplierId, vehicleModelId, voltage, capacity, notes: get('notes'), priceLocked, serialNumbers: [] });
         const created = next.items[before];
         Object.assign(row, { id: created.id, name: created.name, sku: created.sku, barcode: created.barcode, cost, price, stock, priceLocked });

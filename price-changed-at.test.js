@@ -70,7 +70,7 @@ test('CSV import can carry the original change date (Taiwan time); blank means n
 
 test('the time is loaded from the database, sent only for new items, and shown in the list and the edit form', async () => {
   const [cloud, html, app, migration] = await Promise.all(['cloud-data.js', 'index.html', 'app.js', 'supabase/migrations/20261110010000_price_changed_at.sql'].map(read));
-  assert.match(cloud, /price_changed_at,stock,/);
+  assert.match(cloud, /price_changed_at,unit,stock,/);
   assert.match(cloud, /priceChangedAt: row\.price_changed_at \?\? ''/);
   assert.match(cloud, /upsert\(newItems\.map\(item => \(\{ \.\.\.itemRow\(item\), price_changed_at: item\.priceChangedAt \|\| null \}\)\)/);
   assert.doesNotMatch(cloud.match(/const itemRow = .*/)[0], /price_changed_at/, '更新品項時不送時間，由資料庫在價格有變時自己記');

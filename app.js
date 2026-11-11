@@ -284,6 +284,8 @@ function renderItems() {
   items.forEach((item) => {
     const row = document.createElement('tr');
     [`${item.name}${item.active === false ? '（已停用）' : ''}`, item.category, vehicleModelLabel(item.vehicleModelId), item.sku || '—', item.barcode || '—', `NT$ ${formatNumber(item.price)}`, formatNumber(item.stock), formatNumber(item.minimumStock), supplierName(item.supplierId)].forEach((value, index) => {
+      // 庫存後面加上單位（例：12 個）。
+      if (index === 6 && item.unit) value = `${value} ${item.unit}`;
       const cell = document.createElement('td');
       cell.textContent = value;
       // 手機版把每列排成卡片，用 data-label 在每個值前面顯示欄名。
@@ -410,6 +412,7 @@ function itemFields() {
     specialPrice: $('item-special-price')?.value ?? '',
     memberPrice: $('item-member-price')?.value ?? '',
     staffPrice: $('item-staff-price')?.value ?? '',
+    unit: $('item-unit')?.value ?? '',
     stock: $('item-stock').value,
     minimumStock: $('item-minimum-stock').value,
     warrantyMonths: $('item-warranty-months').value,

@@ -145,6 +145,11 @@ function optionalPrice(value, label) {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
   return number(value, label);
 }
+function itemUnit(value) {
+  const result = text(value);
+  if (result.length > 10) throw new Error('單位最多 10 個字');
+  return result;
+}
 // 最後價格異動時間：空字串＝沒有紀錄；有值就必須是看得懂的時間。
 function priceTime(value) {
   if (value === null || value === undefined || value === '') return '';
@@ -212,6 +217,8 @@ function normalizedItem(value, fallbackId) {
     stock: number(value.stock, '庫存'),
     minimumStock: number(value.minimumStock, '最低庫存'),
     warrantyMonths: nonnegativeInteger(value.warrantyMonths ?? 0, '保固月數'),
+    // 單位（個、組、支…）：選填，空字串＝沒有設定；最多 10 個字。
+    unit: itemUnit(value.unit),
     notes: text(value.notes),
     // 固定售價：勾選後，進貨收貨時不會依加成自動重算售價。
     priceLocked: value.priceLocked === true,

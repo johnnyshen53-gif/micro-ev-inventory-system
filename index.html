@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>電小二微型電動車庫存系統｜Volt Buddy</title>
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=40">
+  <link rel="stylesheet" href="style.css?v=41">
 </head>
 <body data-page="list">
   <main id="auth-shell" class="page auth-page" hidden>
@@ -100,7 +100,7 @@
           <div class="split-fields price-tier-fields"><div class="field"><label for="item-special-price">特價</label><input id="item-special-price" type="number" min="0" step="0.01" placeholder="未設定"></div><div class="field"><label for="item-member-price">會員價</label><input id="item-member-price" type="number" min="0" step="0.01" placeholder="未設定"></div><div class="field"><label for="item-staff-price">員工價</label><input id="item-staff-price" type="number" min="0" step="0.01" placeholder="未設定"></div></div>
           <p class="hint price-tier-hint">這三個價格都是選填：留空＝沒有設定，結帳時不能選；填 0 代表可以用 0 元賣出。會員價要有選客戶才能用；員工價只有店長看得到、能選。</p>
           <p id="item-price-changed" class="hint price-tier-hint" hidden></p>
-          <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div></div>
+          <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-unit">單位</label><input id="item-unit" list="item-unit-options" maxlength="10" placeholder="個、組、支…"><datalist id="item-unit-options"><option value="個"><option value="組"><option value="支"><option value="顆"><option value="塊"><option value="條"><option value="片"><option value="台"><option value="張"><option value="包"><option value="箱"><option value="頂"></datalist></div></div>
           <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>序號選填：車身、電池每件一個，可以少於庫存或留空。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
           <div class="field"><label for="item-notes">備註（選填）</label><textarea id="item-notes" rows="2"></textarea></div><label class="check-item" data-role="admin"><input id="item-inactive" type="checkbox"> 停用此品項（停用後不能入庫、進貨、銷售、報價；出庫與盤點仍可）</label>
@@ -147,6 +147,7 @@
             <li><b>料號、條碼</b>：留空會自動編碼（條碼同料號）；已存在的料號或條碼不會匯入。</li>
             <li><b>成本、售價</b>：售價必填（系統不會自動計算售價）。</li>
             <li><b>特價、會員價、員工價</b>：選填，留空＝沒有設定（結帳時不能選）；填 0 代表 0 元。員工價只有店長看得到。</li>
+            <li><b>單位</b>：選填，例如 個、組、支（最多 10 個字）。</li>
             <li><b>價格異動時間</b>：選填，填原資料的異動日期（例：2026-11-11 或 2026-11-11 14:30，台灣時間）；留空＝匯入當下。</li>
             <li><b>目前庫存、最低庫存、保固月數</b>：整數，留空＝0。車身、電池需要逐件序號，庫存必須是 0，之後用進貨收貨登錄。</li>
             <li><b>電壓、容量</b>：電池必填（1～99 整數），名稱會自動加上「48V 24Ah」這類規格。</li>
@@ -399,19 +400,19 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=42"></script>
+  <script src="inventory.js?v=43"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=37"></script>
+  <script src="cloud-data.js?v=38"></script>
   <script src="repair-ui.js?v=14"></script>
   <script src="promotions-ui.js?v=5"></script>
   <script src="coupons-ui.js?v=1"></script>
-  <script src="item-import.js?v=5"></script>
-  <script src="inventory-export.js?v=3"></script>
+  <script src="item-import.js?v=6"></script>
+  <script src="inventory-export.js?v=4"></script>
   <script src="camera-scan.js?v=1"></script>
   <script src="website-items-ui.js?v=1"></script>
   <script src="label-printer.js?v=1"></script>
   <script src="label-image.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js"></script>
-  <script src="app.js?v=89"></script>
+  <script src="app.js?v=90"></script>
 </body>
 </html>

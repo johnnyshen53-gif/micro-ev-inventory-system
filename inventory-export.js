@@ -17,7 +17,7 @@
   function inventoryCsv(state, { includeCost = false, vehicleName = () => '', supplierName = () => '' } = {}) {
     const header = ['品名', '分類', '車種', '料號', '條碼', '售價', '特價', '會員價',
       ...(includeCost ? ['員工價', '成本', '庫存金額'] : []),
-      '庫存', '最低庫存', '低庫存', '狀態', '供應商', '保固月數', '電壓（V）', '容量（Ah）', '最後價格異動時間', '備註'];
+      '庫存', '單位', '最低庫存', '低庫存', '狀態', '供應商', '保固月數', '電壓（V）', '容量（Ah）', '最後價格異動時間', '備註'];
     // 價格異動時間轉成台灣時間（2026-11-11 14:30）；沒有紀錄留空。
     const priceTime = value => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }).slice(0, 16) : '';
     const rank = item => { const index = CATEGORY_ORDER.indexOf(item.category); return index < 0 ? CATEGORY_ORDER.length : index; };
@@ -25,7 +25,7 @@
     const rows = items.map(item => [
       item.name, item.category, vehicleName(item.vehicleModelId), item.sku, item.barcode, item.price, item.specialPrice ?? '', item.memberPrice ?? '',
       ...(includeCost ? [item.staffPrice ?? '', item.cost, Math.round(item.cost * item.stock * 100) / 100] : []),
-      item.stock, item.minimumStock, item.active !== false && item.stock <= item.minimumStock ? '是' : '',
+      item.stock, item.unit ?? '', item.minimumStock, item.active !== false && item.stock <= item.minimumStock ? '是' : '',
       item.active === false ? '停用' : '啟用', supplierName(item.supplierId), item.warrantyMonths ?? 0,
       item.voltage ?? '', item.capacity ?? '', priceTime(item.priceChangedAt), item.notes,
     ]);
