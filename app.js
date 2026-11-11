@@ -1,6 +1,6 @@
 (() => {
 const {
-  PRICE_TIERS, tierPrice, priceTierChoices,
+  PRICE_TIERS, tierPrice, priceTierChoices, formatPriceTime,
   requiresSerial, registerSerials,
   addSupplier, updateSupplier, deactivateSupplier,
   addVehicleModel, updateVehicleModel,
@@ -293,6 +293,9 @@ function renderItems() {
       if (index === 5) {
         const tiers = priceTierChoices(item, { admin: document.body.dataset.role === 'admin' }).filter(choice => choice.tier !== 'regular');
         if (tiers.length) { const extra = document.createElement('small'); extra.className = 'price-tiers'; extra.textContent = tiers.map(choice => `${choice.label} ${formatNumber(choice.price)}`).join('｜'); cell.append(extra); }
+        // 最後價格異動日期（售價、特價、會員價、員工價、成本任何一個改動）；沒有紀錄就不顯示。
+        const changed = formatPriceTime(item.priceChangedAt);
+        if (changed) { const stamp = document.createElement('small'); stamp.className = 'price-tiers price-changed'; stamp.textContent = `改價 ${changed}`; cell.append(stamp); }
       }
       if (index === 6 && item.stock <= item.minimumStock) { cell.className = 'low'; const badge = document.createElement('small'); badge.className = 'low-badge'; badge.textContent = '低庫存'; cell.append(badge); }
       row.append(cell);
@@ -432,6 +435,7 @@ function resetItemForm() {
   $('item-minimum-stock').value = '0';
   $('item-warranty-months').value = '0';
   $('item-form-title').textContent = '新增品項';
+  if ($('item-price-changed')) $('item-price-changed').hidden = true;
   $('item-cancel').hidden = true;
   updateItemPrintButton();
 }
@@ -454,6 +458,7 @@ function startEditing(item) {
     if (input) input.value = value;
   });
   if ($('item-inactive')) $('item-inactive').checked = item.active === false;
+  if ($('item-price-changed')) { $('item-price-changed').textContent = `最後價格異動：${formatPriceTime(item.priceChangedAt, { time: true }) || '尚無紀錄'}`; $('item-price-changed').hidden = false; }
   $('item-form-title').textContent = `編輯：${item.name}`;
   updateBatteryFields();
   $('item-cancel').hidden = false;

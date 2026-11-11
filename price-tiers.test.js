@@ -127,7 +127,7 @@ test('the cart offers a price picker per line and re-prices the line when it cha
 
 test('the three prices are stored, loaded and sent to checkout; the staff price lives with the cost', async () => {
   const [cloud, html, app, migration] = await Promise.all(['cloud-data.js', 'index.html', 'app.js', 'supabase/migrations/20261109010000_price_tiers.sql'].map(read));
-  assert.match(cloud, /fields: 'id,name,category,sku,barcode,price,special_price,member_price,/);
+  assert.match(cloud, /fields: 'id,name,category,sku,barcode,price,special_price,member_price,price_changed_at,/);
   assert.match(cloud, /fields: 'item_id,cost,staff_price', adminOnly: true/);
   assert.match(cloud, /special_price: item\.specialPrice \?\? null, member_price: item\.memberPrice \?\? null/);
   assert.match(cloud, /price_tier: value\.priceTier \|\| 'regular'/);

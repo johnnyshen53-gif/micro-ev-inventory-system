@@ -145,6 +145,23 @@ function optionalPrice(value, label) {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
   return number(value, label);
 }
+// 最後價格異動時間：空字串＝沒有紀錄；有值就必須是看得懂的時間。
+function priceTime(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const result = text(String(value));
+  if (!result || Number.isNaN(Date.parse(result))) throw new Error('價格異動時間無效');
+  return result;
+}
+// 售價、特價、會員價、員工價、成本，任何一個不同就算價格異動。
+function pricesChanged(before, after) {
+  return ['price', 'specialPrice', 'memberPrice', 'staffPrice', 'cost'].some(key => (before?.[key] ?? null) !== (after?.[key] ?? null));
+}
+// 顯示用：轉成台灣時間。time＝false 只要日期（2026/11/11），true 連時間（2026/11/11 14:30）；沒有紀錄回傳空字串。
+function formatPriceTime(value, { time = false } = {}) {
+  if (!value || Number.isNaN(Date.parse(value))) return '';
+  const local = new Date(value).toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }).replaceAll('-', '/');
+  return time ? local.slice(0, 16) : local.slice(0, 10);
+}
 // 價格別：結帳時每個品項可以選用哪一種價格。員工價只有店長看得到、能選。
 const PRICE_TIERS = { regular: '售價', special: '特價', member: '會員價', staff: '員工價' };
 // 品項在某個價格別的單價；沒設定回傳 null。
@@ -190,6 +207,8 @@ function normalizedItem(value, fallbackId) {
     specialPrice: optionalPrice(value.specialPrice, '特價'),
     memberPrice: optionalPrice(value.memberPrice, '會員價'),
     staffPrice: optionalPrice(value.staffPrice, '員工價'),
+    // 最後價格異動時間（ISO 字串；空字串＝沒有紀錄）。雲端由資料庫維護，這裡讓畫面在存檔後立刻看得到。
+    priceChangedAt: priceTime(value.priceChangedAt),
     stock: number(value.stock, '庫存'),
     minimumStock: number(value.minimumStock, '最低庫存'),
     warrantyMonths: nonnegativeInteger(value.warrantyMonths ?? 0, '保固月數'),
@@ -506,6 +525,8 @@ function addItem(state, fields) {
     nextItem.sku = prefix + String(sequence).padStart(3, '0');
     if (!nextItem.barcode) nextItem.barcode = nextItem.sku;
   }
+  // 新品項：沒指定價格異動時間（批次匯入可以帶入）就記現在。
+  if (!nextItem.priceChangedAt) nextItem.priceChangedAt = new Date().toISOString();
   const added = newSerials(current, nextItem, fields.serialNumbers, fields.createdBy);
   if (requiresSerial(nextItem) && (config.strictSerials ? added.length !== serialStock(nextItem.stock) : added.length > serialStock(nextItem.stock))) throw new Error(config.strictSerials ? '初始庫存與序號數量不符' : '初始序號數超過庫存');
   return validateState({ ...current, items: [...current.items, nextItem], serials: [...current.serials, ...added] });
@@ -516,6 +537,8 @@ function updateItem(state, itemId, fields) {
   if (!current.items.some((item) => item.id === itemId)) throw new Error('找不到品項');
   const nextItem = normalizedItem({ ...fields, id: itemId, sku: current.items.find((item) => item.id === itemId).sku });
   const existing = current.items.find(item => item.id === itemId);
+  // 價格（含成本）有變才更新異動時間；只改名稱、庫存等其他欄位時沿用原本的時間。
+  nextItem.priceChangedAt = pricesChanged(existing, nextItem) ? new Date().toISOString() : existing.priceChangedAt;
   if (requiresSerial(existing) && nextItem.stock !== existing.stock) throw new Error('序號商品請使用盤點調整庫存');
   if (!nextItem.active && nextItem.stock > existing.stock) throw new Error(`品項「${existing.name}」已停用，無法入庫`);
   if (nextItem.category !== existing.category) {
@@ -739,7 +762,8 @@ function receivePurchase(state, purchaseId, { receivedBy, receivedByAccount, ser
     if (!line) return item;
     const stock = item.stock + line.quantity;
     if (!Number.isFinite(stock) || stock > Number.MAX_SAFE_INTEGER) throw new Error('收貨後庫存超出安全範圍');
-    return { ...item, stock, cost: line.unitCost };
+    // 收貨會用進貨單價更新成本；成本有變也算價格異動。
+    return { ...item, stock, cost: line.unitCost, priceChangedAt: line.unitCost !== item.cost ? timestamp : item.priceChangedAt };
   });
   const transactions = existing.lines.map((line) => ({ id: crypto.randomUUID(), itemId: line.itemId, type: 'in', quantity: line.quantity, createdAt: timestamp, note: `進貨收貨：${existing.number}`, purchaseId }));
   const received = { ...existing, status: 'received', receivedAt: timestamp, receivedBy: text(receivedBy), receivedByAccount: text(receivedByAccount), updatedAt: timestamp };
@@ -1365,4 +1389,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { config, PRICE_TIERS, tierPrice, priceTierChoices, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { config, PRICE_TIERS, tierPrice, priceTierChoices, formatPriceTime, pricesChanged, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

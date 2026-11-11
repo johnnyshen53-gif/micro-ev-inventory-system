@@ -12,7 +12,7 @@
   const COLUMNS = [
     ['品項名稱', 'name', true], ['分類', 'category', true], ['車種', 'vehicleModel', true], ['料號', 'sku'], ['條碼', 'barcode'], ['成本', 'cost'], ['售價', 'price'], ['特價', 'specialPrice'], ['會員價', 'memberPrice'], ['員工價', 'staffPrice'],
     ['目前庫存', 'stock'], ['最低庫存', 'minimumStock'], ['保固月數', 'warrantyMonths'], ['供應商', 'supplier'],
-    ['電壓', 'voltage'], ['容量', 'capacity'], ['固定售價', 'priceLocked'], ['備註', 'notes'],
+    ['電壓', 'voltage'], ['容量', 'capacity'], ['固定售價', 'priceLocked'], ['價格異動時間', 'priceChangedAt'], ['備註', 'notes'],
   ];
   const CATEGORIES = ['車身', '電池', '電控元件', '機構元件', '外觀元件'];
 
@@ -55,6 +55,18 @@
     if (!integer && Math.round(result * 100) !== result * 100) throw new Error(`${label}最多兩位小數`);
     if (result < min || result > max) throw new Error(`${label}須介於 ${min}～${max}`);
     return result;
+  }
+  // 價格異動時間：2026-11-11、2026/11/11，後面可加時間 14:30 或 14:30:05；一律當作台灣時間。空白回傳空字串（＝匯入當下）。
+  function timeCell(value) {
+    const textValue = clean(value);
+    if (textValue === '') return '';
+    const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(textValue);
+    const pad = part => String(part ?? '0').padStart(2, '0');
+    const iso = match ? `${match[1]}-${pad(match[2])}-${pad(match[3])}T${pad(match[4])}:${pad(match[5])}:${pad(match[6])}+08:00` : '';
+    const date = iso ? new Date(iso) : null;
+    // 再轉回台灣日期比對一次，擋掉 2 月 30 日這種不存在的日期。
+    if (!date || Number.isNaN(date.getTime()) || date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }) !== iso.slice(0, 10)) throw new Error('價格異動時間格式須為 2026-11-11 或 2026-11-11 14:30');
+    return date.toISOString();
   }
   function booleanCell(value) {
     const textValue = clean(value).toUpperCase();
@@ -105,6 +117,7 @@
         const specialPrice = numberCell(get('specialPrice'), '特價');
         const memberPrice = numberCell(get('memberPrice'), '會員價');
         const staffPrice = numberCell(get('staffPrice'), '員工價');
+        const priceChangedAt = timeCell(get('priceChangedAt'));
         const stock = numberCell(get('stock'), '目前庫存', { integer: true }) ?? 0;
         const minimumStock = numberCell(get('minimumStock'), '最低庫存', { integer: true }) ?? 0;
         const warrantyMonths = numberCell(get('warrantyMonths'), '保固月數', { integer: true, max: 600 }) ?? 0;
@@ -131,7 +144,7 @@
           supplierId = supplier.id;
         }
         const before = next.items.length;
-        next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, specialPrice, memberPrice, staffPrice, stock, minimumStock,
+        next = inventory.addItem(next, { name: row.name, category: row.category, sku: row.sku, barcode: row.barcode, cost, price, specialPrice, memberPrice, staffPrice, priceChangedAt, stock, minimumStock,
           warrantyMonths, supplierId, vehicleModelId, voltage, capacity, notes: get('notes'), priceLocked, serialNumbers: [] });
         const created = next.items[before];
         Object.assign(row, { id: created.id, name: created.name, sku: created.sku, barcode: created.barcode, cost, price, stock, priceLocked });
