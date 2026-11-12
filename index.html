@@ -101,7 +101,7 @@
           <p class="hint price-tier-hint">這三個價格都是選填：留空＝沒有設定，結帳時不能選；填 0 代表可以用 0 元賣出。會員價要有選客戶才能用；員工價只有店長看得到、能選。</p>
           <p id="item-price-changed" class="hint price-tier-hint" hidden></p>
           <div class="split-fields"><div class="field"><label for="item-stock">目前庫存</label><input id="item-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-minimum-stock">最低庫存</label><input id="item-minimum-stock" type="number" min="0" step="1" value="0" required></div><div class="field"><label for="item-unit">單位</label><input id="item-unit" list="item-unit-options" maxlength="10" placeholder="個、組、支…"><datalist id="item-unit-options"><option value="個"><option value="組"><option value="支"><option value="顆"><option value="塊"><option value="條"><option value="片"><option value="台"><option value="張"><option value="包"><option value="箱"><option value="頂"></datalist></div></div>
-          <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>序號選填：車身、電池每件一個，可以少於庫存或留空。編輯庫存請使用盤點調整。</small></div>
+          <div id="item-serial-fields" class="field" hidden><label for="item-serial-numbers">初始庫存原廠序號（每行一個）</label><textarea id="item-serial-numbers" rows="3" autocomplete="off"></textarea><small>原廠序號選填：車身、電池每件一個；沒填的件數會自動編序號（分類 2 碼＋日期 8 碼＋流水號 4 碼，例：01202611120001）。編輯庫存請使用盤點調整。</small></div>
           <div class="field" data-role="admin"><label for="item-warranty-months">保固月數（0 表示無保固）</label><input id="item-warranty-months" type="number" min="0" step="1" value="0" required></div>
           <div class="field"><label for="item-notes">備註（選填）</label><textarea id="item-notes" rows="2"></textarea></div><label class="check-item" data-role="admin"><input id="item-inactive" type="checkbox"> 停用此品項（停用後不能入庫、進貨、銷售、報價；出庫與盤點仍可）</label>
           <p id="item-form-error" class="form-error" role="alert" hidden></p>
@@ -118,7 +118,7 @@
           <div class="field"><label for="transaction-type">異動類型</label><select id="transaction-type" required><option value="in">進貨</option><option value="out">出庫／移出（銷售請至銷售管理）</option><option value="warranty_out" hidden disabled>出保固（免費更換）</option><option value="adjust">盤點調整</option></select></div>
           <div id="transaction-warranty-fields" class="serial-box" hidden><div class="field"><label for="transaction-warranty">原保固紀錄</label><select id="transaction-warranty" disabled aria-describedby="transaction-warranty-summary"><option value="">請選擇原保固</option></select></div><p id="transaction-warranty-summary" aria-live="polite"></p><small>免費更換會扣除所選品項庫存，不算銷售；更換品沿用原到期日，故障品不自動入庫。</small></div>
           <div class="field"><label for="transaction-quantity">數量</label><input id="transaction-quantity" type="number" min="0" step="1" required></div>
-          <div id="transaction-serial-fields" class="serial-box" hidden><p id="transaction-serial-hint" aria-live="polite"></p><div class="field"><label for="transaction-serial-numbers">新增原廠序號（每行一個）</label><textarea id="transaction-serial-numbers" rows="3" autocomplete="off"></textarea></div><div class="field"><label for="transaction-serial-ids">移出在庫序號（可多選）</label><select id="transaction-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div></div>
+          <div id="transaction-serial-fields" class="serial-box" hidden><p id="transaction-serial-hint" aria-live="polite"></p><div class="field"><label for="transaction-serial-numbers">新增原廠序號（每行一個）</label><textarea id="transaction-serial-numbers" rows="3" autocomplete="off"></textarea><small>選「進貨」時，沒填原廠序號的件數會自動編序號。</small></div><div class="field"><label for="transaction-serial-ids">移出在庫序號（可多選）</label><select id="transaction-serial-ids" multiple size="5"></select><small>按住 Command／Ctrl 可複選；鍵盤可用 Shift＋方向鍵。</small></div></div>
           <div class="field"><label for="transaction-note">備註／移出原因（移出序號時必填）</label><textarea id="transaction-note" rows="2"></textarea></div>
           <p id="transaction-form-error" class="form-error" role="alert" hidden></p>
           <button type="submit">記錄異動</button>
@@ -234,7 +234,7 @@
           <div class="field"><label for="purchase-payment-filter">付款狀態</label><select id="purchase-payment-filter"><option value="">全部</option><option value="unpaid">未付款</option><option value="paid">已付款</option></select></div>
         </div>
         <div class="table-wrap"><table><thead><tr><th>單號</th><th>供應商</th><th>總額</th><th>收貨</th><th>付款</th><th>操作</th></tr></thead><tbody id="purchase-list"></tbody></table></div>
-        <section id="purchase-receipt-panel" class="serial-box" aria-label="整張收貨序號" hidden><h3>收貨序號登錄</h3><p>依最後儲存的進貨單輸入原廠序號（選填，每行一個，不可超過收貨數量）。儲存失敗會保留輸入。</p><div id="purchase-receipt-fields"></div><button id="purchase-receipt-confirm" type="button">確認序號並整張收貨</button><button id="purchase-receipt-cancel" type="button" class="secondary">取消收貨登錄</button></section>
+        <section id="purchase-receipt-panel" class="serial-box" aria-label="整張收貨序號" hidden><h3>收貨序號登錄</h3><p>依最後儲存的進貨單輸入原廠序號（選填，每行一個，不可超過收貨數量；沒填的件數會自動編序號）。儲存失敗會保留輸入。</p><div id="purchase-receipt-fields"></div><button id="purchase-receipt-confirm" type="button">確認序號並整張收貨</button><button id="purchase-receipt-cancel" type="button" class="secondary">取消收貨登錄</button></section>
         <section id="purchase-detail" aria-label="進貨單明細" class="purchase-detail" hidden></section>
       </article>
     </section>
@@ -400,9 +400,9 @@
   <script src="idle-session.js?v=2"></script>
   <script src="auth-ui.js?v=5"></script>
   <script src="staff-ui.js?v=2"></script>
-  <script src="inventory.js?v=44"></script>
+  <script src="inventory.js?v=46"></script>
   <script src="storage.js?v=2"></script>
-  <script src="cloud-data.js?v=38"></script>
+  <script src="cloud-data.js?v=40"></script>
   <script src="repair-ui.js?v=14"></script>
   <script src="promotions-ui.js?v=5"></script>
   <script src="coupons-ui.js?v=1"></script>

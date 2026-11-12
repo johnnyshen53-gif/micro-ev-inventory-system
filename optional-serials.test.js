@@ -19,17 +19,18 @@ test('defaults: warranties are off and serials are optional', () => {
   assert.deepEqual(plain(I.config), { warranties: false, strictSerials: false });
 });
 
-test('a vehicle body can be added with fewer serials than stock, and sold without a serial or a customer', () => {
+test('a vehicle body can be added with fewer serials than stock (the rest get auto serials), and sold without a serial or a customer', () => {
   const state = ready();
   const body = state.items[0];
-  assert.equal(state.serials.length, 1, '新增品項：序號可以少於庫存');
+  assert.equal(state.serials.length, 3, '新增品項：原廠序號可以少於庫存，其餘自動編號');
+  assert.equal(state.serials[0].serialNumber, 'VIN-001');
   assert.throws(() => I.addItem(I.emptyState(), { name: '車', category: '車身', price: 1, cost: 0, stock: 1, minimumStock: 0, warrantyMonths: 0, serialNumbers: ['A', 'B'] }), /初始序號數超過庫存/);
   // 不選序號、不選客戶：可以賣，不建立保固，序號還在庫。
   const sold = I.recordSaleBatch(state, { salespersonId: state.salespeople[0].id, lines: [{ itemId: body.id, quantity: 2 }] });
   assert.equal(sold.items[0].stock, 1);
   assert.equal(sold.warranties.length, 0);
-  assert.equal(sold.serials.filter(s => s.status === 'in_stock').length, 1);
-  // 在庫序號（1）可能比庫存（1→0）多，資料仍然有效，還能再選序號賣出。
+  assert.equal(sold.serials.filter(s => s.status === 'in_stock').length, 3);
+  // 在庫序號（3）可能比庫存（1→0）多，資料仍然有效，還能再選序號賣出。
   const last = I.recordSaleBatch(sold, { salespersonId: state.salespeople[0].id, lines: [{ itemId: body.id, quantity: 1, serialIds: [sold.serials[0].id] }] });
   assert.equal(last.items[0].stock, 0);
   assert.equal(last.serials[0].status, 'sold');

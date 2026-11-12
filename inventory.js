@@ -35,6 +35,28 @@ function newSerials(state, item, serialNumbers = [], createdBy, purchaseId = '')
   if (new Set(numbers).size !== numbers.length || numbers.some(value => state.serials.some(serial => serial.serialNumber === value))) throw new Error('原廠序號重複');
   return numbers.map(serialNumber => normalizedSerial({ id: crypto.randomUUID(), itemId: item.id, serialNumber, status: 'in_stock', createdAt: new Date().toISOString(), createdBy, purchaseId }));
 }
+// 自動序號（車身、電池入庫時，沒填原廠序號的那幾件）：分類 2 碼＋入庫日期 8 碼（台灣日期）＋流水號 4 碼。
+// 車身 01、電池 02；同一分類同一天從 0001 往下編，已用過的號碼（含其他品項、已售出）都會跳過。
+const SERIAL_CATEGORY_CODES = { 車身: '01', 電池: '02' };
+function autoSerialNumbers(serials, item, count, now = new Date()) {
+  if (count <= 0) return [];
+  const prefix = SERIAL_CATEGORY_CODES[item.category] + taipeiDate(now).replaceAll('-', '');
+  const used = new Set(serials.map(serial => serial.serialNumber));
+  let sequence = serials.reduce((largest, serial) => serial.serialNumber.startsWith(prefix) && /^\d{14}$/.test(serial.serialNumber) ? Math.max(largest, Number(serial.serialNumber.slice(-4))) : largest, 0);
+  const numbers = [];
+  while (numbers.length < count) {
+    sequence += 1;
+    if (sequence > 9999) throw new Error('今天這個分類的自動序號已達 9999 個，請改天再入庫或手動輸入原廠序號。');
+    const number = prefix + String(sequence).padStart(4, '0');
+    if (!used.has(number)) { numbers.push(number); used.add(number); }
+  }
+  return numbers;
+}
+// 有填的原廠序號（added）不足 wanted 件時，其餘幾件補上自動序號。嚴格序號模式（舊版測試）不自動補。
+function withAutoSerials(state, item, added, wanted, createdBy, purchaseId = '') {
+  if (!requiresSerial(item) || config.strictSerials || wanted <= added.length) return added;
+  return [...added, ...newSerials({ ...state, serials: [...state.serials, ...added] }, item, autoSerialNumbers([...state.serials, ...added], item, wanted - added.length), createdBy, purchaseId)];
+}
 function registerSerials(state, fields) {
   const current = validateState(state);
   const item = current.items.find(item => item.id === fields?.itemId);
@@ -534,7 +556,8 @@ function addItem(state, fields) {
   }
   // 新品項：沒指定價格異動時間（批次匯入可以帶入）就記現在。
   if (!nextItem.priceChangedAt) nextItem.priceChangedAt = new Date().toISOString();
-  const added = newSerials(current, nextItem, fields.serialNumbers, fields.createdBy);
+  // 新品項的初始庫存：沒填原廠序號的件數自動編序號。
+  const added = withAutoSerials(current, nextItem, newSerials(current, nextItem, fields.serialNumbers, fields.createdBy), requiresSerial(nextItem) ? serialStock(nextItem.stock) : 0, fields.createdBy);
   if (requiresSerial(nextItem) && (config.strictSerials ? added.length !== serialStock(nextItem.stock) : added.length > serialStock(nextItem.stock))) throw new Error(config.strictSerials ? '初始庫存與序號數量不符' : '初始序號數超過庫存');
   return validateState({ ...current, items: [...current.items, nextItem], serials: [...current.serials, ...added] });
 }
@@ -756,10 +779,12 @@ function receivePurchase(state, purchaseId, { receivedBy, receivedByAccount, ser
   const serials = [...current.serials];
   for (const line of existing.lines) {
     const item = current.items.find(item => item.id === line.itemId);
-    const added = newSerials({ ...current, serials }, item, serialNumbersByItem[line.itemId], receivedBy, purchaseId);
+    let added = newSerials({ ...current, serials }, item, serialNumbersByItem[line.itemId], receivedBy, purchaseId);
     if (requiresSerial(item)) {
       serialStock(item.stock); serialStock(line.quantity);
       if (config.strictSerials ? added.length !== line.quantity : added.length > line.quantity) throw new Error(config.strictSerials ? `收貨序號數量不符：${item.name}` : `收貨序號數超過收貨數量：${item.name}`);
+      // 進貨收貨：沒填原廠序號的件數自動編序號。
+      added = withAutoSerials({ ...current, serials }, item, added, line.quantity, receivedBy, purchaseId);
     }
     serials.push(...added);
   }
@@ -845,8 +870,10 @@ function recordTransaction(state, fields) {
     const delta = stock - item.stock;
     const fractional = !Number.isSafeInteger(item.stock);
     if (fractional && type !== 'adjust') throw new Error('請先盤點更正庫存');
-    const added = newSerials(current, item, fields.serialNumbers, fields.createdBy);
+    const entered = newSerials(current, item, fields.serialNumbers, fields.createdBy);
     const expectedNew = fractional ? 0 : Math.max(0, delta);
+    // 庫存異動「進貨」：沒填原廠序號的件數自動編序號（盤點調整不自動編）。
+    const added = type === 'in' && entered.length <= expectedNew ? withAutoSerials(current, item, entered, expectedNew, fields.createdBy) : entered;
     if (config.strictSerials ? added.length !== expectedNew : added.length > expectedNew) throw new Error(config.strictSerials ? '入庫數量與新增序號數不符' : '新增序號數超過入庫數量');
     if (type === 'warranty_out' || (type === 'out' && config.strictSerials)) {
       requireCompleteSerials(current, item);
@@ -1398,4 +1425,4 @@ function promotionFitTimes(lines, applied, promotion) {
   return Math.max(0, Math.min(...promotion.items.map(part => Math.floor(((quantities.get(part.itemId) ?? 0) - (used.get(part.itemId) ?? 0)) / part.quantity))));
 }
 
-window.Inventory = { config, PRICE_TIERS, tierPrice, priceTierChoices, formatPriceTime, pricesChanged, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };
+window.Inventory = { config, SERIAL_CATEGORY_CODES, autoSerialNumbers, PRICE_TIERS, tierPrice, priceTierChoices, formatPriceTime, pricesChanged, bundleDiscounts, addVehicleModel, updateVehicleModel, vehicleModelName, suggestedPrice, promotionInPeriod, allocatePromotionDiscount, promotionDiscounts, promotionFitTimes, couponDiscountCents, couponDiscounts, couponLabel, requiresSerial, registerSerials, receivePurchase, markPurchasePaid, createPurchase, updatePurchase, deletePurchase, addSupplier, updateSupplier, deactivateSupplier, addCustomer, addItem, addSalesperson, addWarrantyCase, createQuotation, createWarranty, dashboardSummary, deactivateCustomer, deactivateSalesperson, deleteCustomer, deleteItem, deleteQuotation, deleteWarranty, deleteWarrantyCase, code128Modules, emptyState, inventoryCost, recordSale, recordSaleBatch, recordTransaction, saleDateOf, salesForMonth, vehicleItemChoices, toBackup, updateCustomer, updateItem, updateSalesperson, updateWarranty, updateWarrantyCase, validateState, warrantiesForFilter };

@@ -290,7 +290,10 @@
     if (changedStaffPrices.length) await mutate(client, 'item_costs', 'upsert', changedStaffPrices.map(value => ({ item_id: value.id, staff_price: value.staffPrice ?? null })));
     for (const itemId of new Set(addedSerials.filter(serial => !newSerializedItemIds.has(serial.itemId)).map(serial => serial.itemId))) {
       const serials = addedSerials.filter(serial => serial.itemId === itemId).map(serial => ({ id: serial.id, serialNumber: serial.serialNumber }));
-      const { error } = await client.rpc('register_inventory_serials', { p_item_id: itemId, p_serials: serials });
+      // 這次存檔裡有「進貨」入庫的品項：帶入入庫件數，資料庫只檢查序號不超過這次入庫件數（入庫時自動編的序號）；
+      // 單純補登舊庫存的序號不帶，維持「在庫序號＋這次登錄不超過庫存」的檢查。
+      const stockIn = addedTransactions.filter(entry => entry.itemId === itemId && entry.type === 'in' && !entry.purchaseId).reduce((sum, entry) => sum + entry.quantity, 0);
+      const { error } = await client.rpc('register_inventory_serials', { p_item_id: itemId, p_serials: serials, ...(stockIn ? { p_stock_in_quantity: stockIn } : {}) });
       if (error) throw error;
     }
     const oldCustomers = byId(rows(previous, 'customers'));
